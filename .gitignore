@@ -1,0 +1,7 @@
+# Ignore everything by default
+*
+
+# Allow these files
+!.gitignore
+!README.md
+!run_hf_experiment.py
