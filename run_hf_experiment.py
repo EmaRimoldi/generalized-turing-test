@@ -460,6 +460,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
+    print(f"Actor device map: {args.actor_device}")
+    print(f"Distinguisher device map: {args.distinguisher_device}")
+    if torch.cuda.is_available():
+        device_names = ", ".join(
+            f"{idx}: {torch.cuda.get_device_name(idx)}"
+            for idx in range(torch.cuda.device_count())
+        )
+        print(f"Detected CUDA devices -> {device_names}")
+    else:
+        print("CUDA not available; defaulting to CPU/backends supported by PyTorch.")
 
     actor_generation = build_generation_config(args, "actor")
     distinguisher_generation = build_generation_config(args, "distinguisher")
