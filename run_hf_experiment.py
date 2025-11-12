@@ -110,6 +110,18 @@ class GenerationConfig:
         return kwargs
 
 
+def summarize_model_devices(model: AutoModelForCausalLM) -> str:
+    device_map = getattr(model, "hf_device_map", None)
+    if device_map:
+        devices = sorted({str(device) for device in device_map.values()})
+        return ", ".join(devices)
+    try:
+        param_device = next(model.parameters()).device
+        return str(param_device)
+    except StopIteration:
+        return "unknown"
+
+
 class HFChatBackend:
     """Thin wrapper around TextGenerationPipeline that understands chat inputs."""
 
@@ -149,6 +161,8 @@ class HFChatBackend:
             return_full_text=True,
         )
         self.pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+        device_summary = summarize_model_devices(model)
+        print(f"[{config.model_id}] loaded on devices: {device_summary}")
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
         response = self.pipeline(
@@ -460,16 +474,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = parse_args(argv)
-    print(f"Actor device map: {args.actor_device}")
-    print(f"Distinguisher device map: {args.distinguisher_device}")
+    print(f"Requested actor device map: {args.actor_device}")
+    print(f"Requested distinguisher device map: {args.distinguisher_device}")
     if torch.cuda.is_available():
         device_names = ", ".join(
             f"{idx}: {torch.cuda.get_device_name(idx)}"
             for idx in range(torch.cuda.device_count())
         )
-        print(f"Detected CUDA devices -> {device_names}")
+        print(f"CUDA available. Detected GPUs -> {device_names}")
     else:
-        print("CUDA not available; defaulting to CPU/backends supported by PyTorch.")
+        print("CUDA not available; models will run on CPU or other configured backends.")
 
     actor_generation = build_generation_config(args, "actor")
     distinguisher_generation = build_generation_config(args, "distinguisher")
@@ -510,7 +524,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     results: List[Dict[str, object]] = []
     for trial_id in range(args.num_trials):
-        print(f"\n=== Trial {trial_id} / {args.num_trials} ===")
+        print(f"\n=== Trial {trial_id + 1} / {args.num_trials} ===")
         trial_result = run_trial(
             trial_id=trial_id,
             actor_backend=actor_backend,

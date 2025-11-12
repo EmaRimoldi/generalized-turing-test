@@ -1,6 +1,6 @@
 # LLM Actor/Distinguisher Experiments
 
-This repository contains a CLI utility for running the two-stage experiment you described:
+This repository contains a CLI utility for running a two-stage experiment to perturb LLM relative intelligence as defined by a modified Turing test.
 
 1. **Stage 1 – Actor training.** An actor model converses with a distinguisher instance to learn the distinguisher’s style. The actor can keep asking questions until it emits `STOP 1` or the Stage‑1 turn limit is reached.
 2. **Stage 2 – Distinguisher interrogation.** The same actor (memory intact) now talks to a *fresh* distinguisher instance that tries to determine if it is speaking to itself. Stage 2 begins when the distinguisher’s first message is prefixed with `START 2:` for the actor. The run ends when the distinguisher produces `<answer>0|1</answer>` plus 1‑3 sentences in `<reasoning></reasoning>`, or the Stage‑2 turn cap is hit.
