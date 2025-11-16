@@ -152,6 +152,7 @@ class HFChatBackend:
 
         model = AutoModelForCausalLM.from_pretrained(
             config.model_id,
+            low_cpu_mem_usage=True,
             **model_kwargs,
         )
 
@@ -161,8 +162,8 @@ class HFChatBackend:
             return_full_text=True,
         )
         self.pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
-        device_summary = summarize_model_devices(model)
-        print(f"[{config.model_id}] loaded on devices: {device_summary}")
+        self.device_summary = summarize_model_devices(model)
+        print(f"[{config.model_id}] loaded on devices: {self.device_summary}")
 
     def generate(self, messages: List[Dict[str, str]]) -> str:
         response = self.pipeline(
@@ -514,8 +515,10 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     print("Loading actor model...")
     actor_backend = HFChatBackend(actor_loader, actor_generation)
+    print(f"Actor model currently on: {actor_backend.device_summary}")
     print("Loading distinguisher model...")
     distinguisher_backend = HFChatBackend(distinguisher_loader, distinguisher_generation)
+    print(f"Distinguisher model currently on: {distinguisher_backend.device_summary}")
 
     transcript_dir = Path(args.transcript_dir)
     transcript_dir.mkdir(parents=True, exist_ok=True)
