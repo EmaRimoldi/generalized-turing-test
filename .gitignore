@@ -21,7 +21,9 @@ apptainer/*.sif
 .venv-container/
 
 # Experiment outputs
+results
 results/
+transcripts
 transcripts/
 *.jsonl
 *.csv.bak
