@@ -26,3 +26,9 @@ def test_extract_text_reasoning_fallback():
 def test_extract_text_empty_returns_none():
     msg = {"content": ""}
     assert APIChatBackend._extract_text_from_message(msg) is None
+
+
+def test_sanitize_messages_replaces_lone_surrogates():
+    msg = [{"role": "user", "content": "bad \ud800 text"}]
+    sanitized = APIChatBackend._sanitize_messages(msg)
+    assert sanitized[0]["content"] == "bad \ufffd text"

@@ -91,8 +91,27 @@ class APIChatBackend(ChatBackend):
         headers.update(self.provider_config.extra_headers)
         return headers
 
+    @staticmethod
+    def _sanitize_text(text: str) -> str:
+        return "".join("\ufffd" if 0xD800 <= ord(char) <= 0xDFFF else char for char in text)
+
+    @classmethod
+    def _sanitize_messages(cls, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        sanitized: List[Dict[str, str]] = []
+        for message in messages:
+            sanitized.append(
+                {
+                    key: cls._sanitize_text(value) if isinstance(value, str) else value
+                    for key, value in message.items()
+                }
+            )
+        return sanitized
+
     def _post_chat_completion(self, messages: List[Dict[str, str]]) -> Dict[str, object]:
-        payload: Dict[str, object] = {"model": self.model_id, "messages": messages}
+        payload: Dict[str, object] = {
+            "model": self.model_id,
+            "messages": self._sanitize_messages(messages),
+        }
         payload.update(self.generation.to_openai_payload())
         body = json.dumps(payload).encode("utf-8")
         url = f"{self.provider_config.base_url.rstrip('/')}/chat/completions"
