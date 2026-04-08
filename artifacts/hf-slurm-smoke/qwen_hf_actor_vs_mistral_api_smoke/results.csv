@@ -1,0 +1,2 @@
+trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,reasoning,specimen_turns
+0,qwen/qwen3-8b,mistralai/mistral-7b-instruct-v0.1,False,2,,artifacts/hf-slurm-smoke/qwen_hf_actor_vs_mistral_api_smoke/trial_000.json,no_query_no_explanation,,
