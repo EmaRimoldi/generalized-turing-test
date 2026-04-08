@@ -357,18 +357,171 @@ Use this path when:
 
 ## Result Artifacts
 
-Each run writes a directory containing:
+Every `run_experiment.py` invocation writes one run directory under the parent you pass with `--output-dir`.
+
+If you do not set `--run-name`, the directory name is generated as:
+
+```text
+<actor>_vs_<distinguisher>_<condition>_<utc-timestamp>
+```
+
+Example:
+
+```text
+results/gemma-3-12b_vs_qwen2.5-7b_yes_query_no_explanation_20260408-195500/
+```
+
+That run directory contains:
 
 - `results.csv`
 - one `trial_XXX.json` file per trial
 
-The transcript JSON includes:
+So with `--num-trials 3`, you should expect:
+
+```text
+results/<run-name>/
+  results.csv
+  trial_000.json
+  trial_001.json
+  trial_002.json
+```
+
+For `run_experiment_matrix.py`, the `--output-dir` becomes the parent folder for many such run directories, one per actor/distinguisher pairing.
+
+### `results.csv`
+
+Each run directory has exactly one `results.csv`. It contains one row per trial.
+
+Saved columns:
+
+- `trial_id`: integer trial index within that run
+- `actor_model`: resolved display name of the actor model
+- `distinguisher_model`: resolved display name of the distinguisher model
+- `success`: whether the run completed with a valid parsed `<answer>`
+- `turns`: number of turns in the main interrogation loop
+- `answer`: parsed final answer, usually `0` or `1`
+- `transcript_path`: path to the matching `trial_XXX.json`
+- `condition`: experiment condition name
+- `reasoning`: parsed distinguisher reasoning when available
+- `specimen_turns`: number of specimen warm-up turns for condition `yes_query_no_explanation`
+
+Important interpretation notes:
+
+- `success=True` does not mean the actor fooled the distinguisher
+- `answer=1` is the actual "same model" signal
+- `answer=0` is the actual "different model" signal
+- `reasoning` is generally populated only for `no_query_yes_explanation`
+- `specimen_turns` is generally populated only for `yes_query_no_explanation`
+
+### `trial_XXX.json`
+
+Yes, the conversations are saved. The JSON transcript is the full per-trial record and is the most important artifact for later inspection.
+
+Every transcript JSON contains these common top-level fields:
 
 - actor and distinguisher names
-- raw conversation turns
-- condition name
-- parsed answer and optional reasoning
-- environment metadata such as git commit and container SHA
+- `trial_id`
+- `condition`
+- `actor_model`
+- `distinguisher_model`
+- `success`
+- `turns`
+- `answer`
+- optional `reasoning`
+- `first_message`: the distinguisher's opening message in the interrogation stage
+- `actor_prompt`: the system prompt used to steer the actor
+- `raw_final_message`: the final raw message from the distinguisher, including `<answer>` and optional `<reasoning>`
+- `environment`: reproducibility metadata captured at save time
+
+The `environment` block currently includes:
+
+- `python_version`
+- `python_implementation`
+- `platform`
+- `git_commit`
+- `git_branch`
+- `git_dirty`
+- `apptainer_container_path`
+- `apptainer_container_sha256`
+- `docker_image`
+- `hostname`
+
+### Saved conversations by condition
+
+The exact conversation fields in `trial_XXX.json` depend on the condition.
+
+#### Condition `no_query_no_explanation`
+
+Saved conversation fields:
+
+- `actor_messages`
+- `distinguisher_messages`
+
+What this means:
+
+- the full actor-side message history is saved
+- the full distinguisher-side message history is saved
+- there is no specimen conversation in this condition
+- there is no explicit reasoning field unless the final message happens to include one
+
+#### Condition `no_query_yes_explanation`
+
+Saved conversation fields:
+
+- `actor_messages`
+- `distinguisher_messages`
+- `reasoning`
+
+What this means:
+
+- the full conversation is saved exactly as in the no-query condition
+- the distinguisher is instructed to provide an explanation
+- the parsed explanation is saved separately in `reasoning`
+- the raw final message is also preserved in case you want to inspect parsing behavior
+
+#### Condition `yes_query_no_explanation`
+
+Saved conversation fields:
+
+- `stage1_actor_messages`
+- `specimen_messages`
+- `stage2_actor_messages`
+- `distinguisher_messages`
+- `specimen_turns`
+- `specimen_stopped_cleanly`
+
+What this means:
+
+- the warm-up conversation with the specimen is saved
+- the later interrogation with the fresh distinguisher is also saved
+- the actor history is split into stage 1 and stage 2 so you can analyze transfer effects
+- `specimen_stopped_cleanly` tells you whether the actor ended the specimen phase by emitting `STOP`
+
+### What is saved on failures
+
+If a trial crashes, the script still writes a transcript JSON and a CSV row for that trial.
+
+In that case you should expect:
+
+- `success=False`
+- `answer=None`
+- `turns=None` in some crash paths
+- an `error` field in the JSON transcript
+
+This is useful because failed trials remain visible in aggregate outputs instead of silently disappearing.
+
+### What is not saved
+
+The repo does not currently save:
+
+- token counts
+- request latency per turn
+- provider-side raw HTTP payloads
+- logits or probabilities
+- GPU memory usage
+- intermediate hidden states
+
+If you need those, the persistence layer would need to be extended.
 
 ## Aggregating Results
 

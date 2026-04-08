@@ -1,6 +1,6 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T19:53:45Z
+**Last updated:** 2026-04-08T20:02:15Z
 **Session:** 1
 **Status:** COMPLETE
 **Current step:** Follow-up enhancements after initial acceptance
@@ -45,6 +45,7 @@
 - 2026-04-08: Expanded `scripts/render_results_summary.py` to accept multiple input roots so the tracked PNG/CSV summaries can combine the ignored `results/` tree with tracked Slurm artifacts under `artifacts/hf-slurm-smoke/`.
 - 2026-04-08: Rewrote `README.md` around the current `run_experiment.py` / `run_experiment_matrix.py` workflow, documenting the three supported conditions, the OpenRouter-first/HF-fallback routing policy, the four model tiers, and the Slurm GPU path for live HF runs.
 - 2026-04-08: Expanded `README.md` with a flag-by-flag explanation of the `yes_query_no_explanation` example command and clarified that GitHub credentials only cover repo access, while runtime model access requires provider keys or HF credentials.
+- 2026-04-08: Expanded `README.md` with an exact persistence specification covering run-directory layout, `results.csv` schema, transcript JSON fields, environment metadata, failure recording, and the condition-specific saved conversation histories.
 
 ## Observations
 - Session 1 started from a clean `main` worktree with no existing `PROGRESS.md`.
