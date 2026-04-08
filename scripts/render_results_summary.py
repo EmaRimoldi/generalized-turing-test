@@ -16,8 +16,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-def discover_result_csvs(results_root: Path) -> List[Path]:
-    return sorted(results_root.glob("**/results.csv"))
+def discover_result_csvs(results_roots: Iterable[Path]) -> List[Path]:
+    csv_paths = set()
+    for results_root in results_roots:
+        csv_paths.update(results_root.glob("**/results.csv"))
+    return sorted(csv_paths)
 
 
 def load_rows(csv_paths: Iterable[Path]) -> List[Dict[str, str]]:
@@ -177,15 +180,16 @@ def render_condition_heatmaps(summary_rows: List[Dict[str, object]], output_dir:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--results-root", default="results")
+    parser.add_argument("--input-root", action="append", dest="input_roots")
     parser.add_argument("--output-dir", default="results/summary")
     args = parser.parse_args()
 
-    results_root = Path(args.results_root)
+    input_roots = [Path(root) for root in (args.input_roots or ["results"])]
     output_dir = Path(args.output_dir)
-    csv_paths = discover_result_csvs(results_root)
+    csv_paths = discover_result_csvs(input_roots)
     if not csv_paths:
-        raise SystemExit(f"No results.csv files found under {results_root}")
+        formatted_roots = ", ".join(str(root) for root in input_roots)
+        raise SystemExit(f"No results.csv files found under: {formatted_roots}")
 
     rows = load_rows(csv_paths)
     summary_rows = summarize_rows(rows)
@@ -194,6 +198,7 @@ def main() -> int:
     heatmaps = render_condition_heatmaps(summary_rows, output_dir)
 
     print(f"Loaded {len(rows)} trial rows from {len(csv_paths)} CSV files")
+    print(f"Input roots: {', '.join(str(root) for root in input_roots)}")
     print(f"Wrote {output_dir / 'summary.csv'}")
     print(f"Wrote {output_dir / 'summary_table.png'}")
     for path in heatmaps:

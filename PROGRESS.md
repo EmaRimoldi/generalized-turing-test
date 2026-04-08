@@ -1,6 +1,6 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T19:22:30Z
+**Last updated:** 2026-04-08T19:31:35Z
 **Session:** 1
 **Status:** COMPLETE
 **Current step:** Follow-up enhancements after initial acceptance
@@ -42,6 +42,7 @@
 - 2026-04-08: Used Slurm on `pi_tpoggio` for the live HF validation path, following the cluster guidance that GPU workloads must run on compute nodes rather than the login node.
 - 2026-04-08: Used a public HF repo (`Qwen/Qwen2.5-7B-Instruct`) for the first live GPU validation, so the user-provided HF token was not needed for this smoke and was not written into the repo or batch script.
 - 2026-04-08: Wrote Slurm logs to `artifacts/slurm-logs/` and experiment outputs to `artifacts/hf-slurm-smoke/` because node-local `/tmp` is not visible back on the login node.
+- 2026-04-08: Expanded `scripts/render_results_summary.py` to accept multiple input roots so the tracked PNG/CSV summaries can combine the ignored `results/` tree with tracked Slurm artifacts under `artifacts/hf-slurm-smoke/`.
 
 ## Observations
 - Session 1 started from a clean `main` worktree with no existing `PROGRESS.md`.
@@ -68,6 +69,7 @@
 - Follow-up verification passed on Slurm: batch job `11559075` ran on `node3807` in partition `pi_tpoggio`, loaded the A100 GPU, built `apptainer/turing-eval-hf.def` via `--fakeroot`, verified `torch 2.4.1+cu121` and `transformers 4.45.2`, and completed with Slurm state `COMPLETED` / exit code `0:0`.
 - Live HF generation passed on Slurm: `load_backend("qwen2.5-7b", ..., force_backend="hf")` produced `HF_REPLY 'Tech leader, innovation hub.'` with `HF_DEVICE =0` on the A100.
 - Live mixed-backend smoke passed on Slurm: `run_experiment.py --actor qwen2.5-7b --actor-backend hf --distinguisher mistral-7b-v0.3 --condition no_query_no_explanation --num-trials 1` completed and wrote `artifacts/hf-slurm-smoke/qwen_hf_actor_vs_mistral_api_smoke/results.csv` plus `trial_000.json`.
+- Follow-up verification passed: `./scripts/run-in-container.sh env MPLCONFIGDIR=/tmp/matplotlib python scripts/render_results_summary.py --input-root results --input-root artifacts/hf-slurm-smoke --output-dir artifacts/results-summary` loaded 20 trial rows from 13 CSV files and regenerated the tracked summary CSV/PNGs with the Slurm HF smoke included.
 
 ## Blockers
 - (none)

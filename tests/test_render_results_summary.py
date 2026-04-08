@@ -76,7 +76,7 @@ def test_summarize_rows_aggregates_trials(tmp_path: Path):
         ],
     )
 
-    csv_paths = discover_result_csvs(tmp_path)
+    csv_paths = discover_result_csvs([tmp_path])
     rows = load_rows(csv_paths)
     summary = summarize_rows(rows)
 
@@ -103,3 +103,51 @@ def test_summarize_rows_aggregates_trials(tmp_path: Path):
     assert second["answer_1_rate"] == 1.0
     assert second["mean_turns"] == 5
     assert second["mean_specimen_turns"] == 3
+
+
+def test_discover_result_csvs_accepts_multiple_roots(tmp_path: Path):
+    first_root = tmp_path / "results"
+    second_root = tmp_path / "artifacts"
+    _write_results_csv(
+        first_root / "run_a" / "results.csv",
+        [
+            {
+                "trial_id": 0,
+                "actor_model": "model-a",
+                "distinguisher_model": "model-b",
+                "success": True,
+                "turns": 2,
+                "answer": 1,
+                "transcript_path": "a.json",
+                "condition": "no_query_no_explanation",
+                "reasoning": None,
+                "specimen_turns": None,
+            }
+        ],
+    )
+    _write_results_csv(
+        second_root / "run_b" / "results.csv",
+        [
+            {
+                "trial_id": 0,
+                "actor_model": "model-c",
+                "distinguisher_model": "model-d",
+                "success": True,
+                "turns": 3,
+                "answer": 0,
+                "transcript_path": "b.json",
+                "condition": "yes_query_no_explanation",
+                "reasoning": None,
+                "specimen_turns": None,
+            }
+        ],
+    )
+
+    csv_paths = discover_result_csvs([first_root, second_root])
+
+    assert csv_paths == sorted(
+        [
+            first_root / "run_a" / "results.csv",
+            second_root / "run_b" / "results.csv",
+        ]
+    )
