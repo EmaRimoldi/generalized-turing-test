@@ -74,7 +74,7 @@
 
 ## Artifacts
 - Branch: emanuele/mixed-backends-autonomous
-- Last pushed commit: 93ac409 on emanuele/mixed-backends-autonomous
+- Last pushed commit: c5a4597 on emanuele/mixed-backends-autonomous
 - Apptainer version: apptainer version 1.4.5-3.el8
 - Apptainer build status: success via --fakeroot
 - Apptainer container SHA-256: e4967d6d9ba478d975ce036bfb70219ae4461d01333f405e7958fd743ea49b5e
@@ -82,3 +82,4 @@
 - Smoke test results: smoke_A PASS (`answer=1`), smoke_A_cross PASS (`answer=0`), smoke_B PASS (`answer=0`), smoke_C PASS (`answer=0`)
 - Matrix smoke result: PASS after quota workaround and surrogate-sanitization fix; seven directories exist under `results/matrix_smoke/`, covering all six pairings plus one Claude-to-Mistral verification rerun.
 - Environment verification: PASS in `results/smoke_envcheck/` with non-null `git_commit`, `python_version`, `docker_image`, and `apptainer_container_sha256`.
+- Slurm HF validation: PASS via job `11559075` on `pi_tpoggio` / `node3807`; artifacts in `artifacts/hf-slurm-smoke/` and shared log in `artifacts/slurm-logs/llm-eval-hf-smoke-11559075.out`.
