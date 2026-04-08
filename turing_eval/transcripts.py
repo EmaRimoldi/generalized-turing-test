@@ -11,6 +11,8 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
+from .environment import capture_environment
+
 SUSAN_CSV_FIELDS = [
     "trial_id",
     "actor_model",
@@ -40,6 +42,7 @@ def save_transcript_json(
         "condition": condition,
         "actor_model": actor_model,
         "distinguisher_model": distinguisher_model,
+        "environment": capture_environment(),
         **{key: value for key, value in trial_result.items() if key != "trial_id"},
     }
     path.parent.mkdir(parents=True, exist_ok=True)

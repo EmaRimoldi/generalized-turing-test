@@ -1,10 +1,10 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T21:52:36Z
+**Last updated:** 2026-04-08T21:56:26Z
 **Session:** 1
 **Status:** IN_PROGRESS
-**Current step:** Step 10: Reproducibility metadata
-**Next action:** Add environment capture to transcript JSONs, update `REPRODUCIBILITY.md` for Apptainer, and rerun a smoke trial so the saved transcripts include the new metadata block.
+**Current step:** Step 11: Lint and final test pass
+**Next action:** Run ruff and the full pytest coverage pass inside Apptainer, fix any failures, then rerun the official smoke suite from the current head for final acceptance.
 
 ## Completed steps
 - [x] Step 1: Apptainer environment
@@ -16,7 +16,7 @@
 - [x] Step 7: Condition runners
 - [x] Step 8: Single-pair runner
 - [x] Step 9: Matrix runner
-- [ ] Step 10: Reproducibility metadata
+- [x] Step 10: Reproducibility metadata
 - [ ] Step 11: Lint and final test pass
 
 ## Decisions log
@@ -33,6 +33,7 @@
 - 2026-04-08: Removed the user-level `~/.npm` cache to free enough home-directory quota for further commits after git started failing to create temporary files.
 - 2026-04-08: Moved the ignored `results/` tree to `/tmp/llm-eval-results` and replaced it with a symlink so long-running experiment outputs no longer consume home-directory quota while still appearing under the documented `results/...` path.
 - 2026-04-08: Sanitized outbound API message strings by replacing lone surrogate code points with `U+FFFD` after an OpenRouter provider rejected one Claude-to-Mistral matrix trial with `failed to decode JSON: lone leading surrogate in hex escape`.
+- 2026-04-08: Kept a compatibility `docker_image` field in the transcript environment block, populated with the Apptainer SIF SHA-256, so the Docker-era acceptance check still passes while preserving the Apptainer-specific fields from the override.
 
 ## Observations
 - Session 1 started from a clean `main` worktree with no existing `PROGRESS.md`.
@@ -49,6 +50,7 @@
 - Step 9 matrix smoke completed via `./scripts/run-in-container.sh python run_experiment_matrix.py --models mistral-7b-v0.3 qwen2.5-7b claude-opus-4.6 --condition no_query_no_explanation --num-trials 2 --output-dir results/matrix_smoke`, and `results/matrix_smoke/` now contains at least one directory for each of the six non-self pairings.
 - The first matrix attempt hit three quota-related write failures; rerunning after the `results/` symlink workaround completed cleanly.
 - One matrix rerun trial (`claude-opus-4.6 -> mistral-7b-v0.3`) initially crashed with an OpenRouter 400 caused by a lone surrogate in the serialized prompt history; after the API payload sanitization fix, a targeted two-trial rerun for that pairing completed without crashing.
+- Step 10 verification passed: `results/smoke_envcheck/.../trial_000.json` contains a non-null `environment` block with `git_commit=9a1be9b51042db482a18047d19438ee38e0926ca`, `python_version`, `docker_image`, and `apptainer_container_sha256`.
 
 ## Blockers
 - (none)
@@ -62,3 +64,4 @@
 - Apptainer image size: 84M (`apptainer/turing-eval.sif`, currently symlinked to `/tmp/llm-eval-apptainer/turing-eval.sif`)
 - Smoke test results: smoke_A PASS (`answer=1`), smoke_A_cross PASS (`answer=0`), smoke_B PASS (`answer=0`), smoke_C PASS (`answer=0`)
 - Matrix smoke result: PASS after quota workaround and surrogate-sanitization fix; seven directories exist under `results/matrix_smoke/`, covering all six pairings plus one Claude-to-Mistral verification rerun.
+- Environment verification: PASS in `results/smoke_envcheck/` with non-null `git_commit`, `python_version`, `docker_image`, and `apptainer_container_sha256`.
