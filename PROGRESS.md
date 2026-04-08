@@ -1,10 +1,10 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T20:43:36Z
+**Last updated:** 2026-04-08T20:44:24Z
 **Session:** 1
 **Status:** IN_PROGRESS
-**Current step:** Step 6: Transcript persistence
-**Next action:** Add JSON transcript persistence and Susan-compatible CSV writing, then commit and push the persistence layer before implementing the condition runners.
+**Current step:** Step 7: Condition runners
+**Next action:** Implement the three per-condition trial runners plus extraction helpers, then run the full test suite in the Apptainer container before the next push.
 
 ## Completed steps
 - [x] Step 1: Apptainer environment
@@ -12,7 +12,7 @@
 - [x] Step 3: Backend abstraction
 - [x] Step 4: Model registry
 - [x] Step 5: Slug verification
-- [ ] Step 6: Transcript persistence
+- [x] Step 6: Transcript persistence
 - [ ] Step 7: Condition runners
 - [ ] Step 8: Single-pair runner
 - [ ] Step 9: Matrix runner
