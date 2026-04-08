@@ -1,10 +1,10 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T21:58:32Z
+**Last updated:** 2026-04-08T22:07:04Z
 **Session:** 1
-**Status:** IN_PROGRESS
-**Current step:** Acceptance verification
-**Next action:** Rerun the four official smoke tests from the current head, then run the remaining acceptance checks and finish with a `STATUS: COMPLETE` progress update.
+**Status:** COMPLETE
+**Current step:** Section 13 acceptance criteria
+**Next action:** None - branch is complete and ready for review.
 
 ## Completed steps
 - [x] Step 1: Apptainer environment
@@ -52,13 +52,14 @@
 - One matrix rerun trial (`claude-opus-4.6 -> mistral-7b-v0.3`) initially crashed with an OpenRouter 400 caused by a lone surrogate in the serialized prompt history; after the API payload sanitization fix, a targeted two-trial rerun for that pairing completed without crashing.
 - Step 10 verification passed: `results/smoke_envcheck/.../trial_000.json` contains a non-null `environment` block with `git_commit=9a1be9b51042db482a18047d19438ee38e0926ca`, `python_version`, `docker_image`, and `apptainer_container_sha256`.
 - Step 11 verification passed: `./scripts/run-in-container.sh ruff check turing_eval tests scripts run_experiment.py run_experiment_matrix.py` returned clean, and `./scripts/run-in-container.sh pytest tests/ -v --cov=turing_eval --cov-report=term-missing` reached 75% coverage with 42 passing tests.
+- Final acceptance verification passed: the exact `ruff check .` command is clean, live slug verification returns 0, the refreshed `results/smoke_*` transcripts all contain non-null environment metadata, `git diff main...HEAD -- run_openrouter_single_stage_experiment.py` is empty, and `git grep -E "sk-or-[A-Za-z0-9]{20,}"` returns no matches.
 
 ## Blockers
 - (none)
 
 ## Artifacts
 - Branch: emanuele/mixed-backends-autonomous
-- Last pushed commit: 1bc35d7 on emanuele/mixed-backends-autonomous
+- Last pushed commit: 93ac409 on emanuele/mixed-backends-autonomous
 - Apptainer version: apptainer version 1.4.5-3.el8
 - Apptainer build status: success via --fakeroot
 - Apptainer container SHA-256: e4967d6d9ba478d975ce036bfb70219ae4461d01333f405e7958fd743ea49b5e
