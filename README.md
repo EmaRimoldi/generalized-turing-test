@@ -1,137 +1,395 @@
 # LLM Actor/Distinguisher Experiments
 
-This repository contains two experiment runners based on a modified Turing test:
+This repository runs controlled actor/distinguisher experiments for large language models. The core question is: can one model imitate another model's conversational style well enough to fool a fresh instance of that target model?
 
-- `run_hf_experiment.py` for the original two-stage experiment using local Hugging Face models
-- `run_openrouter_single_stage_experiment.py` for a single-stage experiment using remote OpenRouter models
+The codebase is organized around a single modern experiment path:
 
-## Experiment Variants
+- [run_experiment.py](run_experiment.py): run one actor/distinguisher pair for `N` trials under one condition
+- [run_experiment_matrix.py](run_experiment_matrix.py): sweep many actor/distinguisher pairings
+- [scripts/render_results_summary.py](scripts/render_results_summary.py): aggregate `results.csv` files into summary CSVs and PNGs
+- [scripts/verify_model_slugs.py](scripts/verify_model_slugs.py): validate current OpenRouter model IDs against the live catalog
 
-### Hugging Face two-stage
+The older scripts [run_hf_experiment.py](run_hf_experiment.py) and [run_openrouter_single_stage_experiment.py](run_openrouter_single_stage_experiment.py) are legacy references. The main experiment workflow in this repo is the `run_experiment.py` / `run_experiment_matrix.py` path.
 
-1. **Stage 1 – Actor training.** The actor talks to a distinguisher instance to learn its style.
-2. **Stage 2 – Distinguisher interrogation.** The same actor then talks to a fresh distinguisher instance that decides whether it is speaking to itself.
+## Goal
 
-### OpenRouter single-stage
+The experiment compares two roles:
 
-1. **Immediate interrogation.** The actor does not get a prior training interaction.
-2. The distinguisher sends the first message.
-3. The actor is prompted to imitate the distinguisher model immediately and continue the conversation.
+- `actor`: tries to imitate the target model
+- `distinguisher`: interrogates the actor and decides whether it is talking to itself
 
-## Requirements
+The final scientific signal is the distinguisher's parsed `<answer>`:
 
-- Python 3.9+
+- `1`: "I think I am talking to the same model"
+- `0`: "I think I am talking to a different model"
 
-For `run_hf_experiment.py`:
+The `success` field in result CSVs does not mean "the actor fooled the distinguisher." It only means the run completed cleanly enough to produce a valid parsed answer.
 
-- [PyTorch](https://pytorch.org/get-started/locally/) built for your CPU/GPU environment
-- `transformers` ≥ 4.37
-- `accelerate`
-- Optional: `bitsandbytes` or other quantization/offloading libraries
+## Motivation
 
-For `run_openrouter_single_stage_experiment.py`:
+This setup is useful for:
 
-- an OpenRouter API key
-- no mandatory third-party Python packages beyond the standard library
+- measuring how recognizable a model's conversational style is
+- testing whether weaker or cheaper models can impersonate stronger ones
+- comparing direct interrogation against a two-stage "query the specimen first" protocol
+- studying which model families are easy or hard to distinguish
+- generating reproducible transcripts with environment metadata for later analysis
 
-Install the Hugging Face dependencies with:
+## Experiment Types
+
+The repo currently supports three experimental conditions from [turing_eval/conditions.py](turing_eval/conditions.py):
+
+### 1. `no_query_no_explanation`
+
+The distinguisher opens immediately. The actor receives an imitation prompt and must respond without any prior specimen interaction.
+
+Use this when you want the cleanest direct imitation test.
+
+### 2. `yes_query_no_explanation`
+
+The actor first talks to a specimen instance of the target model, then the real distinguisher starts a fresh interrogation.
+
+Use this when you want to test whether a short warm-up interaction improves mimicry.
+
+### 3. `no_query_yes_explanation`
+
+This is the same direct interrogation setup as condition 1, but the distinguisher is asked to include explicit reasoning in its final response.
+
+Use this when you care about both the answer and the distinguisher's rationale.
+
+## Routing Policy
+
+The intended runtime policy in this repo is:
+
+1. Use OpenRouter when the model is available there.
+2. Use local Hugging Face inference as the fallback path.
+3. If a model is not available on OpenRouter, run it through the HF backend on a GPU node.
+
+That policy is implemented in the model registry at [turing_eval/models.py](turing_eval/models.py). Most models use `primary_backend="api"` with OpenRouter as the primary route and HF as the fallback route. Models that are not presently routed through OpenRouter in this repo use HF directly.
+
+Important nuance: some registry nicknames intentionally point to the nearest currently routed OpenRouter slug rather than an exact family/version match. For example:
+
+- `qwen2.5-7b` uses OpenRouter `qwen/qwen3-8b`, with exact HF fallback `Qwen/Qwen2.5-7B-Instruct`
+- `qwen2.5-32b` uses OpenRouter `qwen/qwen3-32b`, with exact HF fallback `Qwen/Qwen2.5-32B-Instruct`
+- `mistral-7b-v0.3` uses OpenRouter `mistralai/mistral-7b-instruct-v0.1`, with exact HF fallback `mistralai/Mistral-7B-Instruct-v0.3`
+
+## Model Tiers
+
+The repo can run the following model nicknames today. The tiers below are the recommended conceptual grouping for experiments.
+
+### Tier 0: Frontier closed
+
+Use these as the strongest "gold-standard" distinguishers or actors via OpenRouter.
+
+- `gpt-5.4`
+- `gemini-3-pro`
+- `claude-opus-4.6`
+
+Also registered:
+
+- `claude-sonnet-4.6`
+
+### Tier 1: Frontier open
+
+These are the largest open-weight or open-ish frontier models in the current registry.
+
+- `glm-5-reasoning`
+- `deepseek-v3.2`
+- `kimi-k2.5`
+- `llama-3.3-70b`
+
+Recommended policy:
+
+- default to OpenRouter
+- use HF only when you explicitly want a local run and the model has an HF fallback configured
+
+### Tier 2: Mid
+
+These fit well on serious lab GPUs and are good for controlled local runs.
+
+- `qwen3-30b-a3b`
+- `qwen2.5-32b`
+- `exaone-4-32b`
+- `gemma-3-27b`
+
+Recommended policy:
+
+- default to OpenRouter when available
+- prefer HF on the cluster when you want reproducibility, exact sampling control, or high trial counts
+- `exaone-4-32b` is currently configured as HF-local in this repo
+
+### Tier 3: Weak baseline
+
+These are the cheap baselines and easiest local models to run repeatedly.
+
+- `gemma-3-12b`
+- `qwen2.5-7b`
+- `llama-3.1-8b`
+- `phi-4`
+- `mistral-7b-v0.3`
+
+Note: the current registry exposes `llama-3.1-8b`, not `llama-3.2-8b`.
+
+## Environment
+
+This cluster uses Apptainer, not Docker.
+
+For the API-only workflow:
+
+- build with [scripts/build-container.sh](scripts/build-container.sh)
+- run commands with [scripts/run-in-container.sh](scripts/run-in-container.sh)
+
+For the HF workflow:
+
+- build with [scripts/build-container-hf.sh](scripts/build-container-hf.sh)
+- run commands with [scripts/run-in-container-hf.sh](scripts/run-in-container-hf.sh)
+
+API keys are forwarded automatically by the container wrapper when present in your shell or `.env`.
+
+Supported provider environment variables:
+
+- `OPENROUTER_API_KEY`
+- `DEEPSEEK_API_KEY`
+- `MOONSHOT_API_KEY`
+- `TOGETHER_API_KEY`
+- `GROQ_API_KEY`
+- `MISTRAL_API_KEY`
+- `HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN` for gated HF repos
+
+## Quick Start
+
+Build the default image:
 
 ```bash
-pip install torch --extra-index-url https://download.pytorch.org/whl/cu121
-pip install transformers accelerate
+./scripts/build-container.sh
 ```
 
-## Running the Hugging Face Experiment
-
-Run the original two-stage local experiment with:
+Check the test suite:
 
 ```bash
-python run_hf_experiment.py \
-  --actor-model meta-llama/Llama-2-7b-chat-hf \
-  --distinguisher-model mistralai/Mixtral-8x7B-Instruct-v0.1 \
+./scripts/run-in-container.sh pytest tests/ -v
+```
+
+Validate OpenRouter slugs before a long API run:
+
+```bash
+./scripts/run-in-container.sh python -m scripts.verify_model_slugs
+```
+
+## Running Single-Pair Experiments
+
+### Default behavior: let the registry choose
+
+This uses the model registry's primary route, which is usually OpenRouter.
+
+```bash
+./scripts/run-in-container.sh python run_experiment.py \
+  --actor qwen2.5-7b \
+  --distinguisher mistral-7b-v0.3 \
+  --condition no_query_no_explanation \
   --num-trials 5 \
-  --stage1-turn-limit 12 \
-  --stage2-turn-limit 18 \
-  --output-csv results/mixtral_vs_llama.csv \
-  --transcript-dir transcripts \
-  --actor-device cuda \
-  --distinguisher-device cuda \
-  --actor-dtype bfloat16 \
-  --distinguisher-dtype bfloat16 \
-  --verbose
+  --turn-limit 20 \
+  --output-dir results
 ```
 
-Important flags:
+### Force API on both sides
 
-- `--stage1-turn-limit`, `--stage2-turn-limit`
-- `--actor-device`, `--distinguisher-device`
-- `--actor-dtype`, `--distinguisher-dtype`
-- `--revision`, `--cache-dir`, `--trust-remote-code`, `--no-fast-tokenizer`
-
-## Running the OpenRouter Single-Stage Experiment
-
-Set your API key:
+Use this when you want to guarantee an OpenRouter-backed run.
 
 ```bash
-export OPENROUTER_API_KEY=your_key_here
+./scripts/run-in-container.sh python run_experiment.py \
+  --actor deepseek-v3.2 \
+  --actor-backend api \
+  --distinguisher glm-5-reasoning \
+  --distinguisher-backend api \
+  --condition no_query_yes_explanation \
+  --num-trials 3 \
+  --turn-limit 25 \
+  --output-dir results
 ```
 
-Optionally list available models:
+### Force HF on one or both sides
+
+Use the HF image and wrapper for local inference.
 
 ```bash
-python run_openrouter_single_stage_experiment.py --list-models --model-search qwen --model-limit 20
+./scripts/run-in-container-hf.sh python run_experiment.py \
+  --actor qwen2.5-7b \
+  --actor-backend hf \
+  --distinguisher mistral-7b-v0.3 \
+  --distinguisher-backend hf \
+  --condition no_query_no_explanation \
+  --num-trials 2 \
+  --turn-limit 12 \
+  --output-dir results
 ```
 
-Run the single-stage experiment with:
+### Mixed API/HF runs
+
+This is often the most useful comparison setup.
 
 ```bash
-python run_openrouter_single_stage_experiment.py \
-  --actor-model openai/gpt-5.4 \
-  --distinguisher-model anthropic/claude-sonnet-4.6 \
-  --num-trials 5 \
-  --turn-limit 100 \
-  --output-csv results/gpt54_vs_claude46_single_stage.csv \
-  --transcript-dir transcripts \
-  --verbose
+./scripts/run-in-container-hf.sh python run_experiment.py \
+  --actor qwen2.5-7b \
+  --actor-backend hf \
+  --distinguisher claude-opus-4.6 \
+  --distinguisher-backend api \
+  --condition no_query_no_explanation \
+  --num-trials 2 \
+  --turn-limit 12 \
+  --output-dir results
 ```
 
-Important flags:
+### Condition B with specimen warm-up
 
-- `--turn-limit`
-- `--openrouter-api-key`
-- `--openrouter-base-url`
-- `--request-timeout`
-- `--http-referer`, `--x-title`
-- `--skip-model-validation`
-- `--list-models`, `--model-search`, `--model-limit`
+This is the two-stage imitation condition.
 
-## Shared Generation Flags
+```bash
+./scripts/run-in-container.sh python run_experiment.py \
+  --actor gemma-3-12b \
+  --distinguisher qwen2.5-7b \
+  --condition yes_query_no_explanation \
+  --num-trials 3 \
+  --turn-limit 15 \
+  --specimen-turn-limit 8 \
+  --output-dir results
+```
 
-Both scripts support:
+## Running Matrix Experiments
 
-- `--max-new-tokens`
-- `--temperature`
-- `--top-p`
-- `--top-k`
-- `--do-sample` / `--no-do-sample`
-- actor-specific overrides such as `--actor-max-new-tokens`
-- distinguisher-specific overrides such as `--distinguisher-temperature`
+Sweep every actor/distinguisher pairing from a short list:
 
-## Output Artifacts
+```bash
+./scripts/run-in-container.sh python run_experiment_matrix.py \
+  --models mistral-7b-v0.3 qwen2.5-7b claude-opus-4.6 \
+  --condition no_query_no_explanation \
+  --num-trials 2 \
+  --output-dir results/matrix_smoke
+```
 
-### `run_hf_experiment.py`
+Include self-matches if you want the full square matrix:
 
-- CSV output includes Stage 1 and Stage 2 success flags and turn counts, final answer, reasoning, and transcript path
-- transcripts contain separate Stage 1 and Stage 2 sections
+```bash
+./scripts/run-in-container.sh python run_experiment_matrix.py \
+  --models gpt-5.4 gemini-3-pro claude-opus-4.6 \
+  --condition no_query_yes_explanation \
+  --num-trials 1 \
+  --include-self-match \
+  --output-dir results/frontier_matrix
+```
 
-### `run_openrouter_single_stage_experiment.py`
+## Running HF Jobs on a GPU Node
 
-- CSV output includes single-stage success, turn count, final answer, and transcript path
-- transcripts contain one interaction section plus the generated actor prompt and first distinguisher message
+Do not expect meaningful HF inference from a login node. Use Slurm.
 
-## Tips
+Build the HF image:
 
-- Start with small models and low trial counts before scaling up.
-- Use `--verbose` while validating prompts and control flow.
-- For OpenRouter runs, use `--list-models` first to confirm exact model IDs.
-- For local Hugging Face runs, `--actor-device auto --distinguisher-device auto` is usually the best default on GPU machines.
+```bash
+./scripts/build-container-hf.sh
+```
+
+Then submit a GPU batch job that uses the HF wrapper:
+
+```bash
+sbatch <<'EOF'
+#!/bin/bash
+#SBATCH --job-name=llm-eval-hf
+#SBATCH --partition=pi_tpoggio
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --time=04:00:00
+
+set -euo pipefail
+cd /path/to/llm-eval
+
+./scripts/run-in-container-hf.sh python run_experiment.py \
+  --actor qwen2.5-7b \
+  --actor-backend hf \
+  --distinguisher mistral-7b-v0.3 \
+  --distinguisher-backend api \
+  --condition no_query_no_explanation \
+  --num-trials 1 \
+  --turn-limit 10 \
+  --max-new-tokens 64 \
+  --output-dir artifacts/hf-slurm-smoke \
+  --run-name qwen_hf_actor_vs_mistral_api_smoke
+EOF
+```
+
+Use this path when:
+
+- the model is not available on OpenRouter
+- you want exact local HF weights rather than the provider-routed API version
+- you need higher throughput on repeated weak-baseline or mid-tier experiments
+
+## Result Artifacts
+
+Each run writes a directory containing:
+
+- `results.csv`
+- one `trial_XXX.json` file per trial
+
+The transcript JSON includes:
+
+- actor and distinguisher names
+- raw conversation turns
+- condition name
+- parsed answer and optional reasoning
+- environment metadata such as git commit and container SHA
+
+## Aggregating Results
+
+Render all discovered `results.csv` files into a summary CSV and PNG table:
+
+```bash
+./scripts/run-in-container.sh env MPLCONFIGDIR=/tmp/matplotlib \
+  python scripts/render_results_summary.py \
+  --input-root results \
+  --output-dir artifacts/results-summary
+```
+
+To combine standard runs with tracked Slurm artifacts:
+
+```bash
+./scripts/run-in-container.sh env MPLCONFIGDIR=/tmp/matplotlib \
+  python scripts/render_results_summary.py \
+  --input-root results \
+  --input-root artifacts/hf-slurm-smoke \
+  --output-dir artifacts/results-summary
+```
+
+This writes:
+
+- `artifacts/results-summary/summary.csv`
+- `artifacts/results-summary/summary_table.png`
+- one per-condition PNG heatmap
+
+## Choosing Experiments
+
+Good first runs:
+
+- Tier 3 vs Tier 3 under `no_query_no_explanation`
+- Tier 3 actor vs Tier 0 distinguisher under `no_query_no_explanation`
+- Tier 3 actor vs Tier 3 distinguisher under `yes_query_no_explanation`
+
+Good scaling runs:
+
+- Tier 2 matrix under `no_query_no_explanation`
+- Tier 0 vs Tier 1 cross-family comparisons
+- API vs HF comparisons for the same nickname where the OpenRouter and HF routes differ
+
+Good validation runs:
+
+- exact HF fallback vs OpenRouter route for `qwen2.5-7b`
+- exact HF fallback vs OpenRouter route for `mistral-7b-v0.3`
+- OpenRouter slug validation before every large API sweep
+
+## Practical Notes
+
+- Start with `--num-trials 1` and a small `--turn-limit`.
+- Use OpenRouter by default for convenience and reach.
+- Use HF on a GPU node when OpenRouter does not have the model, or when local reproducibility matters more than convenience.
+- Use the HF wrapper for any run with `--actor-backend hf` or `--distinguisher-backend hf`.
+- Public HF repos do not require a token; gated repos do.
+- For tracked summaries, keep PNG outputs under `artifacts/results-summary/` because the live `results/` tree may be ignored or symlinked outside the repo.

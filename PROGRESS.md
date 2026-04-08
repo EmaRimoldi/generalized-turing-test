@@ -1,6 +1,6 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T19:31:35Z
+**Last updated:** 2026-04-08T19:47:10Z
 **Session:** 1
 **Status:** COMPLETE
 **Current step:** Follow-up enhancements after initial acceptance
@@ -43,6 +43,7 @@
 - 2026-04-08: Used a public HF repo (`Qwen/Qwen2.5-7B-Instruct`) for the first live GPU validation, so the user-provided HF token was not needed for this smoke and was not written into the repo or batch script.
 - 2026-04-08: Wrote Slurm logs to `artifacts/slurm-logs/` and experiment outputs to `artifacts/hf-slurm-smoke/` because node-local `/tmp` is not visible back on the login node.
 - 2026-04-08: Expanded `scripts/render_results_summary.py` to accept multiple input roots so the tracked PNG/CSV summaries can combine the ignored `results/` tree with tracked Slurm artifacts under `artifacts/hf-slurm-smoke/`.
+- 2026-04-08: Rewrote `README.md` around the current `run_experiment.py` / `run_experiment_matrix.py` workflow, documenting the three supported conditions, the OpenRouter-first/HF-fallback routing policy, the four model tiers, and the Slurm GPU path for live HF runs.
 
 ## Observations
 - Session 1 started from a clean `main` worktree with no existing `PROGRESS.md`.
