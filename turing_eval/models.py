@@ -56,11 +56,11 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
     ),
     "gemini-3-pro": ModelSpec(
         nickname="gemini-3-pro",
-        display_name="google/gemini-3-pro-preview",  # VERIFIED
+        display_name="google/gemini-3.1-pro-preview",  # VERIFIED
         tier="frontier",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="google/gemini-3-pro-preview",
+        primary_model_id="google/gemini-3.1-pro-preview",
     ),
     # ---- Tier 1: Frontier open ----
     "deepseek-v3.2": ModelSpec(
@@ -76,11 +76,11 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
     ),
     "glm-5-reasoning": ModelSpec(
         nickname="glm-5-reasoning",
-        display_name="z-ai/glm-5-reasoning",  # TODO-VERIFY
+        display_name="z-ai/glm-5",  # VERIFIED
         tier="tier1",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="z-ai/glm-5-reasoning",
+        primary_model_id="z-ai/glm-5",
     ),
     "kimi-k2.5": ModelSpec(
         nickname="kimi-k2.5",
@@ -104,21 +104,21 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
     # ---- Tier 2: Mid ----
     "qwen3-30b-a3b": ModelSpec(
         nickname="qwen3-30b-a3b",
-        display_name="qwen/qwen3-30b-a3b-instruct",  # TODO-VERIFY
+        display_name="qwen/qwen3-30b-a3b",  # VERIFIED
         tier="tier2",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="qwen/qwen3-30b-a3b-instruct",
+        primary_model_id="qwen/qwen3-30b-a3b",
         fallback_backend="hf",
         fallback_hf_repo="Qwen/Qwen3-30B-A3B-Instruct",
     ),
     "qwen2.5-32b": ModelSpec(
         nickname="qwen2.5-32b",
-        display_name="qwen/qwen2.5-32b-instruct",  # TODO-VERIFY
+        display_name="qwen/qwen3-32b",  # VERIFIED
         tier="tier2",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="qwen/qwen2.5-32b-instruct",
+        primary_model_id="qwen/qwen3-32b",
         fallback_backend="hf",
         fallback_hf_repo="Qwen/Qwen2.5-32B-Instruct",
     ),
@@ -153,11 +153,11 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
     ),
     "qwen2.5-7b": ModelSpec(
         nickname="qwen2.5-7b",
-        display_name="qwen/qwen2.5-7b-instruct",  # TODO-VERIFY
+        display_name="qwen/qwen3-8b",  # VERIFIED
         tier="tier3",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="qwen/qwen2.5-7b-instruct",
+        primary_model_id="qwen/qwen3-8b",
         fallback_backend="hf",
         fallback_hf_repo="Qwen/Qwen2.5-7B-Instruct",
     ),
@@ -183,11 +183,11 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
     ),
     "mistral-7b-v0.3": ModelSpec(
         nickname="mistral-7b-v0.3",
-        display_name="mistralai/mistral-7b-instruct-v0.3",  # TODO-VERIFY
+        display_name="mistralai/mistral-7b-instruct-v0.1",  # VERIFIED
         tier="tier3",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="mistralai/mistral-7b-instruct-v0.3",
+        primary_model_id="mistralai/mistral-7b-instruct-v0.1",
         fallback_backend="hf",
         fallback_hf_repo="mistralai/Mistral-7B-Instruct-v0.3",
     ),
