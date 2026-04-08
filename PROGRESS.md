@@ -1,10 +1,10 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T21:56:26Z
+**Last updated:** 2026-04-08T21:58:32Z
 **Session:** 1
 **Status:** IN_PROGRESS
-**Current step:** Step 11: Lint and final test pass
-**Next action:** Run ruff and the full pytest coverage pass inside Apptainer, fix any failures, then rerun the official smoke suite from the current head for final acceptance.
+**Current step:** Acceptance verification
+**Next action:** Rerun the four official smoke tests from the current head, then run the remaining acceptance checks and finish with a `STATUS: COMPLETE` progress update.
 
 ## Completed steps
 - [x] Step 1: Apptainer environment
@@ -17,7 +17,7 @@
 - [x] Step 8: Single-pair runner
 - [x] Step 9: Matrix runner
 - [x] Step 10: Reproducibility metadata
-- [ ] Step 11: Lint and final test pass
+- [x] Step 11: Lint and final test pass
 
 ## Decisions log
 - 2026-04-08: Replaced the repository's prior catch-all `.gitignore` with a standard ignore list because the original file would have prevented committing the new package, scripts, docs, and tests required by the guide.
@@ -51,6 +51,7 @@
 - The first matrix attempt hit three quota-related write failures; rerunning after the `results/` symlink workaround completed cleanly.
 - One matrix rerun trial (`claude-opus-4.6 -> mistral-7b-v0.3`) initially crashed with an OpenRouter 400 caused by a lone surrogate in the serialized prompt history; after the API payload sanitization fix, a targeted two-trial rerun for that pairing completed without crashing.
 - Step 10 verification passed: `results/smoke_envcheck/.../trial_000.json` contains a non-null `environment` block with `git_commit=9a1be9b51042db482a18047d19438ee38e0926ca`, `python_version`, `docker_image`, and `apptainer_container_sha256`.
+- Step 11 verification passed: `./scripts/run-in-container.sh ruff check turing_eval tests scripts run_experiment.py run_experiment_matrix.py` returned clean, and `./scripts/run-in-container.sh pytest tests/ -v --cov=turing_eval --cov-report=term-missing` reached 75% coverage with 42 passing tests.
 
 ## Blockers
 - (none)
