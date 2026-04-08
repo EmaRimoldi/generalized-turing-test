@@ -1,10 +1,10 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T20:44:24Z
+**Last updated:** 2026-04-08T20:45:29Z
 **Session:** 1
 **Status:** IN_PROGRESS
-**Current step:** Step 7: Condition runners
-**Next action:** Implement the three per-condition trial runners plus extraction helpers, then run the full test suite in the Apptainer container before the next push.
+**Current step:** Step 8: Single-pair runner
+**Next action:** Build the single-pair CLI runner, then execute the four smoke tests in sequence and debug any failures before moving on.
 
 ## Completed steps
 - [x] Step 1: Apptainer environment
@@ -13,7 +13,7 @@
 - [x] Step 4: Model registry
 - [x] Step 5: Slug verification
 - [x] Step 6: Transcript persistence
-- [ ] Step 7: Condition runners
+- [x] Step 7: Condition runners
 - [ ] Step 8: Single-pair runner
 - [ ] Step 9: Matrix runner
 - [ ] Step 10: Reproducibility metadata
@@ -38,6 +38,7 @@
 - Step 3 verification passed: `./scripts/run-in-container.sh pytest tests/test_api_backend_offline.py -v` reported 5 passing tests.
 - Step 4 verification passed: `./scripts/run-in-container.sh pytest tests/test_registry.py -v` reported 5 passing tests.
 - Step 5 verification passed: `./scripts/run-in-container.sh python -m scripts.verify_model_slugs` exited 0 against 352 live OpenRouter catalog entries.
+- Step 7 verification passed: `./scripts/run-in-container.sh pytest tests/ -v` reported 22 passing tests.
 
 ## Blockers
 - (none)
