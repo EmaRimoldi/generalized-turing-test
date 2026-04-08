@@ -1,36 +1,49 @@
 # LLM Actor/Distinguisher Experiments
 
-This repository contains a CLI utility for running a two-stage experiment to perturb LLM relative intelligence as defined by a modified Turing test.
+This repository contains two experiment runners based on a modified Turing test:
 
-1. **Stage 1 – Actor training.** An actor model converses with a distinguisher instance to learn the distinguisher’s style. The actor can keep asking questions until it emits `STOP 1` or the Stage‑1 turn limit is reached.
-2. **Stage 2 – Distinguisher interrogation.** The same actor (memory intact) now talks to a *fresh* distinguisher instance that tries to determine if it is speaking to itself. Stage 2 begins when the distinguisher’s first message is prefixed with `START 2:` for the actor. The run ends when the distinguisher produces `<answer>0|1</answer>` plus 1‑3 sentences in `<reasoning></reasoning>`, or the Stage‑2 turn cap is hit.
+- `run_hf_experiment.py` for the original two-stage experiment using local Hugging Face models
+- `run_openrouter_single_stage_experiment.py` for a single-stage experiment using remote OpenRouter models
 
-Each trial records whether both stages completed successfully, the distinguisher’s final answer/reasoning, and paths to full chat transcripts for later inspection. This lets you batch experiments externally by simply calling the CLI repeatedly with different model pairings.
+## Experiment Variants
 
----
+### Hugging Face two-stage
+
+1. **Stage 1 – Actor training.** The actor talks to a distinguisher instance to learn its style.
+2. **Stage 2 – Distinguisher interrogation.** The same actor then talks to a fresh distinguisher instance that decides whether it is speaking to itself.
+
+### OpenRouter single-stage
+
+1. **Immediate interrogation.** The actor does not get a prior training interaction.
+2. The distinguisher sends the first message.
+3. The actor is prompted to imitate the distinguisher model immediately and continue the conversation.
 
 ## Requirements
 
 - Python 3.9+
-- [PyTorch](https://pytorch.org/get-started/locally/) built for your CPU/GPU environment
-- `transformers` ≥ 4.37 (older versions lack the `TextGenerationPipeline` chat features used here)
-- `accelerate` (required because the script always sets a `device_map`; even `--*-device cpu` routes through Accelerate)
-- Optional: `bitsandbytes` or any other libraries you rely on for quantization/offloading.
 
-You can install the essentials via:
+For `run_hf_experiment.py`:
+
+- [PyTorch](https://pytorch.org/get-started/locally/) built for your CPU/GPU environment
+- `transformers` ≥ 4.37
+- `accelerate`
+- Optional: `bitsandbytes` or other quantization/offloading libraries
+
+For `run_openrouter_single_stage_experiment.py`:
+
+- an OpenRouter API key
+- no mandatory third-party Python packages beyond the standard library
+
+Install the Hugging Face dependencies with:
 
 ```bash
-pip install torch --extra-index-url https://download.pytorch.org/whl/cu121   # pick the wheel that matches your setup
+pip install torch --extra-index-url https://download.pytorch.org/whl/cu121
 pip install transformers accelerate
 ```
 
-If you plan to run large models, consider adding `bitsandbytes` or using Hugging Face’s `device_map="auto"` sharding on multi-GPU servers (Accelerate handles placement automatically once installed).
+## Running the Hugging Face Experiment
 
----
-
-## Running an Experiment
-
-All logic lives inside `run_hf_experiment.py`. Invoke it with the actor/distinguisher model IDs (either Hugging Face Hub IDs like `meta-llama/Llama-2-7b-chat-hf` or local directories) plus your preferred limits:
+Run the original two-stage local experiment with:
 
 ```bash
 python run_hf_experiment.py \
@@ -41,72 +54,84 @@ python run_hf_experiment.py \
   --stage2-turn-limit 18 \
   --output-csv results/mixtral_vs_llama.csv \
   --transcript-dir transcripts \
-  --actor-device cuda --distinguisher-device cuda \
-  --actor-dtype bfloat16 --distinguisher-dtype bfloat16 \
+  --actor-device cuda \
+  --distinguisher-device cuda \
+  --actor-dtype bfloat16 \
+  --distinguisher-dtype bfloat16 \
   --verbose
 ```
 
-Key behaviors:
+Important flags:
 
-- **Actor prompt** instills the mimicry objective; Stage 1 automatically starts with `START 1`, and Stage 2 uses `START 2:` as required.
-- **Distinguisher prompt** instructs the model to decide between “self” vs “other” and produce `<answer>`/`<reasoning>` tags.
-- **Turn limits** (`--stage1-turn-limit`, `--stage2-turn-limit`) cap the number of back-and-forth exchanges if the actor never emits `STOP 1` or the distinguisher never produces `<answer>…</answer>`.
-- **Verbose mode** mirrors the entire conversation to stdout so you can watch learning/interrogation live.
-- **Transcripts** for every trial are serialized to JSON with names like `transcripts/run_20240512-153055_trial_000.json`. The CSV row references the corresponding file so you can jump straight to the logs whenever something looks off.
+- `--stage1-turn-limit`, `--stage2-turn-limit`
+- `--actor-device`, `--distinguisher-device`
+- `--actor-dtype`, `--distinguisher-dtype`
+- `--revision`, `--cache-dir`, `--trust-remote-code`, `--no-fast-tokenizer`
 
----
+## Running the OpenRouter Single-Stage Experiment
 
-## CLI Reference
+Set your API key:
 
-| Flag | Purpose |
-| --- | --- |
-| `--actor-model`, `--distinguisher-model` | Hugging Face model ID or local path for each role. |
-| `--num-trials` (`x`) | Number of repeated trials with the same configuration. |
-| `--stage1-turn-limit` (`n`) | Max Stage‑1 exchanges (actor ↔ distinguisher trainer). |
-| `--stage2-turn-limit` (`m`) | Max Stage‑2 exchanges (actor ↔ fresh distinguisher). |
-| `--output-csv` | Target CSV with aggregated per-trial results. |
-| `--transcript-dir` | Directory for JSON transcripts. |
-| `--run-name` | Custom prefix for transcript filenames (defaults to timestamp). |
-| `--verbose` | Stream both conversations while they run. |
-
-### Device / precision overrides
-
-- `--actor-device`, `--distinguisher-device`: Accept any `transformers` `device_map` string (`auto`, `cuda`, `cuda:1`, `cpu`, etc.).
-- `--actor-dtype`, `--distinguisher-dtype`: Force `float16`, `bfloat16`, or `float32`.
-- `--revision`, `--cache-dir`, `--trust-remote-code`, `--no-fast-tokenizer`: Passed directly into `AutoModelForCausalLM` / `AutoTokenizer`.
-
-### Generation controls
-
-Set defaults (apply to both agents) with:
-
-```
---max-new-tokens 256 --temperature 0.7 --top-p 0.9 --top-k 50 --do-sample/--no-do-sample
+```bash
+export OPENROUTER_API_KEY=your_key_here
 ```
 
-Override per role via prefixed flags, e.g.:
+Optionally list available models:
 
-```
---actor-max-new-tokens 128 --actor-no-do-sample
---distinguisher-temperature 0.3 --distinguisher-top-p 0.8
+```bash
+python run_openrouter_single_stage_experiment.py --list-models --model-search qwen --model-limit 20
 ```
 
----
+Run the single-stage experiment with:
+
+```bash
+python run_openrouter_single_stage_experiment.py \
+  --actor-model openai/gpt-5.4 \
+  --distinguisher-model anthropic/claude-sonnet-4.6 \
+  --num-trials 5 \
+  --turn-limit 100 \
+  --output-csv results/gpt54_vs_claude46_single_stage.csv \
+  --transcript-dir transcripts \
+  --verbose
+```
+
+Important flags:
+
+- `--turn-limit`
+- `--openrouter-api-key`
+- `--openrouter-base-url`
+- `--request-timeout`
+- `--http-referer`, `--x-title`
+- `--skip-model-validation`
+- `--list-models`, `--model-search`, `--model-limit`
+
+## Shared Generation Flags
+
+Both scripts support:
+
+- `--max-new-tokens`
+- `--temperature`
+- `--top-p`
+- `--top-k`
+- `--do-sample` / `--no-do-sample`
+- actor-specific overrides such as `--actor-max-new-tokens`
+- distinguisher-specific overrides such as `--distinguisher-temperature`
 
 ## Output Artifacts
 
-1. **CSV summary (`--output-csv`)**
-   - Columns: trial ID, actor/distinguisher IDs, Stage 1 & Stage 2 success flags + turn counts, final `<answer>` value, `<reasoning>` text, transcript path.
-   - Use this for downstream statistics—e.g., compute how often the actor successfully fools the distinguisher.
-2. **Transcripts (`--transcript-dir`)**
-   - JSON files containing Stage 1 and Stage 2 message lists (exact role/content pairs), success indicators, and the distinguisher’s raw final emission.
-   - These stay separate so you can keep CSVs lightweight but still audit any run.
+### `run_hf_experiment.py`
 
----
+- CSV output includes Stage 1 and Stage 2 success flags and turn counts, final answer, reasoning, and transcript path
+- transcripts contain separate Stage 1 and Stage 2 sections
+
+### `run_openrouter_single_stage_experiment.py`
+
+- CSV output includes single-stage success, turn count, final answer, and transcript path
+- transcripts contain one interaction section plus the generated actor prompt and first distinguisher message
 
 ## Tips
 
-- **Small local tests:** Start with lightweight instruct models (`HuggingFaceTB/SmolLM2-1.7B-Instruct` etc.) on CPU to validate the flow before scaling up.
-- **GPU servers:** Supply `--actor-device auto --distinguisher-device auto` to let Transformers shard models across available GPUs. Mix precision (`--*-dtype bfloat16`) to conserve memory.
-- **Batching:** Use your scheduler (bash loop, Python script, SLURM job array) to fire off multiple CLI calls with different pairings and turn limits; every invocation can reuse the same transcript directory and just point to a different CSV.
-
-With this setup you can efficiently explore how well different actors can mimic distinguishers across model families, contexts, and hardware targets. Happy experimenting!
+- Start with small models and low trial counts before scaling up.
+- Use `--verbose` while validating prompts and control flow.
+- For OpenRouter runs, use `--list-models` first to confirm exact model IDs.
+- For local Hugging Face runs, `--actor-device auto --distinguisher-device auto` is usually the best default on GPU machines.

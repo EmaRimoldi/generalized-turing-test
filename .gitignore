@@ -5,3 +5,6 @@
 !.gitignore
 !README.md
 !run_hf_experiment.py
+!run_openrouter_experiment.py
+!run_openrouter_single_stage_experiment.py
+!run_openrouter_single_stage_start_experiment.py
