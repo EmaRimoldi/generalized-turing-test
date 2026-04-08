@@ -1,0 +1,6 @@
+# Core runtime - API-only path.
+# All HTTP uses stdlib urllib intentionally (matches Susan's convention); no requests/httpx/openai SDK.
+# Testing and tooling only:
+pytest==8.3.3
+pytest-cov==5.0.0
+ruff==0.6.9

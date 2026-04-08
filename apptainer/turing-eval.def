@@ -1,0 +1,37 @@
+Bootstrap: docker
+From: python:3.11.9-slim-bookworm
+
+%labels
+    Author turing-eval-team
+    Version 1.0.0
+    Purpose Reproducible environment for the Turing ordering experiment runner
+
+%post
+    set -eux
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        git \
+        ca-certificates \
+        curl
+    rm -rf /var/lib/apt/lists/*
+
+    pip install --no-cache-dir --upgrade pip==24.2
+    pip install --no-cache-dir \
+        pytest==8.3.3 \
+        pytest-cov==5.0.0 \
+        ruff==0.6.9
+
+%environment
+    export PYTHONDONTWRITEBYTECODE=1
+    export PYTHONUNBUFFERED=1
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+
+%runscript
+    exec "$@"
+
+%test
+    python --version
+    python -c "import sys; assert sys.version_info[:3] == (3, 11, 9), sys.version_info"
+    pytest --version
+    ruff --version

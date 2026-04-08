@@ -1,10 +1,27 @@
-# Ignore everything by default
-*
+# Environment
+.env
+.venv/
+venv/
 
-# Allow these files
-!.gitignore
-!README.md
-!run_hf_experiment.py
-!run_openrouter_experiment.py
-!run_openrouter_single_stage_experiment.py
-!run_openrouter_single_stage_start_experiment.py
+# Local operator guides
+APPTAINER_OVERRIDE.md
+CODEX_AUTONOMOUS_GUIDE.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Apptainer
+apptainer/*.sif
+.venv-container/
+
+# Experiment outputs
+results/
+transcripts/
+*.jsonl
+*.csv.bak
