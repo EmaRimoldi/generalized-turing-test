@@ -255,6 +255,38 @@ This is the two-stage imitation condition.
   --output-dir results
 ```
 
+What these parameters mean:
+
+- `--actor gemma-3-12b`: the model that tries to imitate the target model
+- `--distinguisher qwen2.5-7b`: the model that interrogates the actor and returns the final `<answer>`
+- `--condition yes_query_no_explanation`: use the two-stage setup where the actor first talks to a specimen instance of the distinguisher model, then faces a fresh distinguisher
+- `--num-trials 3`: run three independent trials of the same actor/distinguisher/condition setup
+- `--turn-limit 15`: cap the second-stage interrogation loop at 15 turns after the distinguisher starts
+- `--specimen-turn-limit 8`: cap the specimen warm-up loop at 8 turns before the real distinguisher begins
+- `--output-dir results`: write a timestamped run directory under `results/`, containing `results.csv` and one `trial_XXX.json` transcript per trial
+
+In practical terms, this command asks:
+
+1. Can `gemma-3-12b` learn the style of `qwen2.5-7b` from a short specimen conversation?
+2. After that warm-up, can it fool a fresh `qwen2.5-7b` distinguisher?
+3. Does that happen consistently across three trials?
+
+### Common `run_experiment.py` flags
+
+- `--actor`: actor model nickname from the registry
+- `--distinguisher`: distinguisher model nickname from the registry
+- `--condition`: one of `no_query_no_explanation`, `yes_query_no_explanation`, or `no_query_yes_explanation`
+- `--num-trials`: number of repeated trials for the same setup
+- `--turn-limit`: maximum number of interrogation turns in the main actor/distinguisher interaction
+- `--specimen-turn-limit`: only used for `yes_query_no_explanation`; limits the warm-up conversation with the specimen
+- `--output-dir`: parent directory for run outputs
+- `--run-name`: optional explicit name for the run directory; otherwise the script auto-generates one
+- `--actor-backend`: force `api` or `hf` for the actor instead of using the registry default
+- `--distinguisher-backend`: force `api` or `hf` for the distinguisher instead of using the registry default
+- `--max-new-tokens`: generation cap per model response
+- `--temperature`: optional sampling temperature shared by both roles
+- `--verbose`: print the conversation live to stdout while the trial runs
+
 ## Running Matrix Experiments
 
 Sweep every actor/distinguisher pairing from a short list:
@@ -364,6 +396,19 @@ This writes:
 - `artifacts/results-summary/summary.csv`
 - `artifacts/results-summary/summary_table.png`
 - one per-condition PNG heatmap
+
+## Access And Credentials
+
+You can use your GitHub account to clone the repo, push branches, and open PRs. GitHub does not provide runtime access to model providers in this workflow.
+
+What actually controls model access:
+
+- OpenRouter runs require `OPENROUTER_API_KEY`
+- other API providers require their own provider-specific API keys
+- Hugging Face local/gated model access requires `HF_TOKEN` or `HUGGING_FACE_HUB_TOKEN`
+- public HF repos do not require an HF token
+
+So if by "access with my ghub" you mean "can GitHub authenticate model runs?", the answer is no. GitHub is for repository access only; model execution uses provider keys or HF credentials.
 
 ## Choosing Experiments
 
