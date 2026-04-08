@@ -1,16 +1,16 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T20:39:46Z
+**Last updated:** 2026-04-08T20:41:24Z
 **Session:** 1
 **Status:** IN_PROGRESS
-**Current step:** Step 4: Model registry
-**Next action:** Add the model registry and HF stub backend, then run the registry tests before starting slug verification against OpenRouter.
+**Current step:** Step 5: Slug verification
+**Next action:** Run the live OpenRouter slug verifier, correct every invalid registry slug, and keep re-running until the verifier exits cleanly or the remaining no-route cases are documented.
 
 ## Completed steps
 - [x] Step 1: Apptainer environment
 - [x] Step 2: Prompts package
 - [x] Step 3: Backend abstraction
-- [ ] Step 4: Model registry
+- [x] Step 4: Model registry
 - [ ] Step 5: Slug verification
 - [ ] Step 6: Transcript persistence
 - [ ] Step 7: Condition runners
@@ -30,6 +30,7 @@
 - The built Apptainer image verified `Python 3.11.9`, `pip 24.2`, `pytest 8.3.3`, `pytest-cov 5.0.0`, and `ruff 0.6.9`.
 - Step 2 verification passed: `./scripts/run-in-container.sh pytest tests/test_prompts.py -v` reported 5 passing tests.
 - Step 3 verification passed: `./scripts/run-in-container.sh pytest tests/test_api_backend_offline.py -v` reported 5 passing tests.
+- Step 4 verification passed: `./scripts/run-in-container.sh pytest tests/test_registry.py -v` reported 5 passing tests.
 
 ## Blockers
 - (none)
