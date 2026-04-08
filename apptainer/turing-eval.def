@@ -3,7 +3,7 @@ From: python:3.11.9-slim-bookworm
 
 %labels
     Author turing-eval-team
-    Version 1.0.0
+    Version 1.1.0
     Purpose Reproducible environment for the Turing ordering experiment runner
 
 %post
@@ -17,6 +17,7 @@ From: python:3.11.9-slim-bookworm
 
     pip install --no-cache-dir --upgrade pip==24.2
     pip install --no-cache-dir \
+        matplotlib==3.9.2 \
         pytest==8.3.3 \
         pytest-cov==5.0.0 \
         ruff==0.6.9
@@ -35,3 +36,4 @@ From: python:3.11.9-slim-bookworm
     python -c "import sys; assert sys.version_info[:3] == (3, 11, 9), sys.version_info"
     pytest --version
     ruff --version
+    python -c "import matplotlib"

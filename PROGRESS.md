@@ -1,9 +1,9 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T22:07:04Z
+**Last updated:** 2026-04-08T18:47:30Z
 **Session:** 1
 **Status:** COMPLETE
-**Current step:** Section 13 acceptance criteria
+**Current step:** Follow-up enhancements after initial acceptance
 **Next action:** None - branch is complete and ready for review.
 
 ## Completed steps
@@ -34,6 +34,11 @@
 - 2026-04-08: Moved the ignored `results/` tree to `/tmp/llm-eval-results` and replaced it with a symlink so long-running experiment outputs no longer consume home-directory quota while still appearing under the documented `results/...` path.
 - 2026-04-08: Sanitized outbound API message strings by replacing lone surrogate code points with `U+FFFD` after an OpenRouter provider rejected one Claude-to-Mistral matrix trial with `failed to decode JSON: lone leading surrogate in hex escape`.
 - 2026-04-08: Kept a compatibility `docker_image` field in the transcript environment block, populated with the Apptainer SIF SHA-256, so the Docker-era acceptance check still passes while preserving the Apptainer-specific fields from the override.
+- 2026-04-08: Added `scripts/render_results_summary.py` plus tracked artifacts under `artifacts/results-summary/` because the existing `results/` tree is intentionally ignored and symlinked into `/tmp`, so branch-visible PNG outputs need a separate tracked location.
+- 2026-04-08: Implemented `turing_eval/backends/hf_backend.py` as a real lazy-loading Transformers backend with CPU fallback for non-quantized models and an explicit CUDA requirement for 4-bit quantization.
+- 2026-04-08: Kept the HF image as a separate Apptainer definition and wrapper because the CUDA-enabled torch wheel set is large and should not bloat the default API-only image.
+- 2026-04-08: No `nvidia-smi` binary or `/dev/nvidia*` devices are visible on this node, so live local HF model runs were not attempted here; the HF path was validated with unit tests and shell/build wrapper checks instead.
+- 2026-04-08: Updated both build-wrapper scripts so a manual interrupt exits cleanly instead of falling through into the non-fakeroot retry path.
 
 ## Observations
 - Session 1 started from a clean `main` worktree with no existing `PROGRESS.md`.
@@ -53,6 +58,10 @@
 - Step 10 verification passed: `results/smoke_envcheck/.../trial_000.json` contains a non-null `environment` block with `git_commit=9a1be9b51042db482a18047d19438ee38e0926ca`, `python_version`, `docker_image`, and `apptainer_container_sha256`.
 - Step 11 verification passed: `./scripts/run-in-container.sh ruff check turing_eval tests scripts run_experiment.py run_experiment_matrix.py` returned clean, and `./scripts/run-in-container.sh pytest tests/ -v --cov=turing_eval --cov-report=term-missing` reached 75% coverage with 42 passing tests.
 - Final acceptance verification passed: the exact `ruff check .` command is clean, live slug verification returns 0, the refreshed `results/smoke_*` transcripts all contain non-null environment metadata, `git diff main...HEAD -- run_openrouter_single_stage_experiment.py` is empty, and `git grep -E "sk-or-[A-Za-z0-9]{20,}"` returns no matches.
+- Follow-up verification passed: `./scripts/run-in-container.sh env COVERAGE_FILE=/tmp/llm-eval.coverage MPLCONFIGDIR=/tmp/matplotlib pytest tests/ -v --cov=turing_eval --cov-report=term-missing -o cache_dir=/tmp/pytest-cache` reported 46 passing tests at 75% coverage after the HF backend and results-summary additions.
+- Follow-up verification passed: `./scripts/run-in-container.sh ruff check .` is clean after the HF backend and results-summary additions.
+- Follow-up verification passed: `./scripts/run-in-container.sh env MPLCONFIGDIR=/tmp/matplotlib python scripts/render_results_summary.py --results-root results --output-dir artifacts/results-summary` generated tracked summary outputs at `artifacts/results-summary/summary.csv`, `artifacts/results-summary/summary_table.png`, and the three per-condition heatmaps.
+- The follow-up HF image build was intentionally interrupted on the login node after verifying the wrapper path, because the CUDA-enabled torch package set is large and there is no visible GPU on this node to justify waiting for a full local-inference image build.
 
 ## Blockers
 - (none)

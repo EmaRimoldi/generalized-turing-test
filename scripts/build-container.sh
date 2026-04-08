@@ -7,25 +7,49 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 DEF_FILE="${REPO_ROOT}/apptainer/turing-eval.def"
-SIF_FILE="${REPO_ROOT}/apptainer/turing-eval.sif"
+IMAGE_LINK="${REPO_ROOT}/apptainer/turing-eval.sif"
+IMAGE_STORE_DIR="${APPTAINER_IMAGE_DIR:-/tmp/llm-eval-apptainer}"
+SIF_FILE="${IMAGE_STORE_DIR}/turing-eval.sif"
 
 if [[ ! -f "${DEF_FILE}" ]]; then
     echo "ERROR: Definition file ${DEF_FILE} not found." >&2
     exit 1
 fi
 
+mkdir -p "${IMAGE_STORE_DIR}"
+if [[ -e "${IMAGE_LINK}" && ! -L "${IMAGE_LINK}" ]]; then
+    rm -f "${IMAGE_LINK}"
+fi
+ln -sfn "${SIF_FILE}" "${IMAGE_LINK}"
+rm -f "${SIF_FILE}"
+
 echo "Building ${SIF_FILE} from ${DEF_FILE}..."
 
-# Try --fakeroot first (works on most modern HPC clusters).
-if apptainer build --fakeroot "${SIF_FILE}" "${DEF_FILE}"; then
+if (
+    cd "${REPO_ROOT}"
+    apptainer build --fakeroot "${SIF_FILE}" "apptainer/turing-eval.def"
+); then
     echo "Build successful via --fakeroot."
     exit 0
 fi
+build_rc=$?
+if [[ ${build_rc} -eq 130 ]]; then
+    echo "Build interrupted." >&2
+    exit 130
+fi
 
 echo "WARNING: --fakeroot build failed. Trying without..." >&2
-if apptainer build "${SIF_FILE}" "${DEF_FILE}"; then
+if (
+    cd "${REPO_ROOT}"
+    apptainer build "${SIF_FILE}" "apptainer/turing-eval.def"
+); then
     echo "Build successful without --fakeroot."
     exit 0
+fi
+build_rc=$?
+if [[ ${build_rc} -eq 130 ]]; then
+    echo "Build interrupted." >&2
+    exit 130
 fi
 
 cat >&2 <<ERR
