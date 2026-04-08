@@ -39,6 +39,12 @@ This setup is useful for:
 
 The repo currently supports three experimental conditions from [turing_eval/conditions.py](turing_eval/conditions.py):
 
+Terminology:
+
+- `specimen`: a separate helper instance of the target model used only in the warm-up stage of `yes_query_no_explanation`
+
+The specimen is not the final judge. It is a same-model exemplar that the actor can interact with briefly in order to pick up style, phrasing, and conversational habits before facing the real distinguisher.
+
 ### 1. `no_query_no_explanation`
 
 The distinguisher opens immediately. The actor receives an imitation prompt and must respond without any prior specimen interaction.
@@ -48,6 +54,8 @@ Use this when you want the cleanest direct imitation test.
 ### 2. `yes_query_no_explanation`
 
 The actor first talks to a specimen instance of the target model, then the real distinguisher starts a fresh interrogation.
+
+In other words, if the distinguisher model is `qwen2.5-7b`, the specimen is another `qwen2.5-7b` instance used for a short practice conversation. After that warm-up ends, a fresh `qwen2.5-7b` distinguisher begins the actual test.
 
 Use this when you want to test whether a short warm-up interaction improves mimicry.
 
@@ -243,6 +251,8 @@ This is often the most useful comparison setup.
 ### Condition B with specimen warm-up
 
 This is the two-stage imitation condition.
+
+Here, "specimen" means a same-model exemplar of the distinguisher. The actor talks to that exemplar first, then a fresh distinguisher of the same model family runs the real evaluation.
 
 ```bash
 ./scripts/run-in-container.sh python run_experiment.py \
