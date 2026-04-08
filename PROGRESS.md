@@ -1,15 +1,15 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T20:38:28Z
+**Last updated:** 2026-04-08T20:39:46Z
 **Session:** 1
 **Status:** IN_PROGRESS
-**Current step:** Step 3: Backend abstraction
-**Next action:** Implement the provider-agnostic API backend and shared chat session classes, then run the offline backend extraction tests inside the Apptainer container.
+**Current step:** Step 4: Model registry
+**Next action:** Add the model registry and HF stub backend, then run the registry tests before starting slug verification against OpenRouter.
 
 ## Completed steps
 - [x] Step 1: Apptainer environment
 - [x] Step 2: Prompts package
-- [ ] Step 3: Backend abstraction
+- [x] Step 3: Backend abstraction
 - [ ] Step 4: Model registry
 - [ ] Step 5: Slug verification
 - [ ] Step 6: Transcript persistence
@@ -29,6 +29,7 @@
 - The cluster-specific workflow uses Apptainer instead of Docker, with `./scripts/run-in-container.sh` as the command translation layer.
 - The built Apptainer image verified `Python 3.11.9`, `pip 24.2`, `pytest 8.3.3`, `pytest-cov 5.0.0`, and `ruff 0.6.9`.
 - Step 2 verification passed: `./scripts/run-in-container.sh pytest tests/test_prompts.py -v` reported 5 passing tests.
+- Step 3 verification passed: `./scripts/run-in-container.sh pytest tests/test_api_backend_offline.py -v` reported 5 passing tests.
 
 ## Blockers
 - (none)
