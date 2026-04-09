@@ -27,6 +27,7 @@ EXTRA_CSV_FIELDS = [
     "condition",
     "reasoning",
     "specimen_turns",
+    "specimen_stopped_cleanly",
 ]
 
 
@@ -75,5 +76,6 @@ def write_csv(
                     "condition": condition,
                     "reasoning": row.get("reasoning"),
                     "specimen_turns": row.get("specimen_turns"),
+                    "specimen_stopped_cleanly": row.get("specimen_stopped_cleanly"),
                 }
             )

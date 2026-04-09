@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import csv
 
 import turing_eval.environment as environment
 import turing_eval.transcripts as transcripts
@@ -60,6 +61,7 @@ def test_write_csv_uses_superset_schema(tmp_path):
                 "transcript_path": "trial_001.json",
                 "reasoning": "because",
                 "specimen_turns": 2,
+                "specimen_stopped_cleanly": True,
             }
         ],
         output,
@@ -71,3 +73,26 @@ def test_write_csv_uses_superset_schema(tmp_path):
     assert contents[0].startswith("trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path")
     assert "no_query_yes_explanation" in contents[1]
     assert "because" in contents[1]
+    assert "specimen_stopped_cleanly" in contents[0]
+
+
+def test_write_csv_leaves_specimen_stopped_cleanly_blank_without_specimen_phase(tmp_path):
+    output = tmp_path / "results.csv"
+    transcripts.write_csv(
+        [
+            {
+                "trial_id": 2,
+                "success": False,
+                "turns": 0,
+                "answer": None,
+                "transcript_path": "trial_002.json",
+            }
+        ],
+        output,
+        "actor/model",
+        "dist/model",
+        "no_query_no_explanation",
+    )
+    with output.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows[0]["specimen_stopped_cleanly"] == ""
