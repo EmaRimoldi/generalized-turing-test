@@ -13,9 +13,10 @@ def test_actor_no_query_fills_placeholders():
     assert "{first_message}" not in prompt
 
 
-def test_actor_no_query_escapes_quotes():
+def test_actor_no_query_preserves_quotes_verbatim():
     prompt = build_actor_prompt_no_query("model", 'say "hi"')
-    assert '\\"hi\\"' in prompt
+    assert '"hi"' in prompt
+    assert '\\"hi\\"' not in prompt
 
 
 def test_actor_yes_query_has_specimen_language():

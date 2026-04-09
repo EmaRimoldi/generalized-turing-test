@@ -57,7 +57,16 @@ def test_is_stop_signal_accepts_leading_stop_with_extra_text():
     assert is_stop_signal("STOP")
     assert is_stop_signal("STOP.")
     assert is_stop_signal(" stop\n\nI have enough information.")
+    assert not is_stop_signal("STOPPING")
     assert not is_stop_signal("I should not stop yet")
+
+
+def test_run_trial_no_query_no_explanation_accepts_uppercase_answer_tag():
+    actor = ScriptedBackend("actor/model", ["actor opening"])
+    distinguisher = ScriptedBackend("dist/model", ["d opening", "<ANSWER>1</ANSWER>"])
+    result = run_trial_no_query_no_explanation(5, actor, distinguisher, turn_limit=3)
+    assert result["success"] is True
+    assert result["answer"] == 1
 
 
 def test_run_trial_no_query_yes_explanation_extracts_reasoning():

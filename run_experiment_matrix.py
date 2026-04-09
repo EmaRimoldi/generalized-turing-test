@@ -14,8 +14,15 @@ def main() -> int:
     parser.add_argument("--models", nargs="+", required=True)
     parser.add_argument("--condition", required=True)
     parser.add_argument("--num-trials", type=int, default=5)
+    parser.add_argument("--turn-limit", type=int, default=None)
+    parser.add_argument("--specimen-turn-limit", type=int, default=None)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--include-self-match", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--actor-backend", choices=["api", "hf"], default=None)
+    parser.add_argument("--distinguisher-backend", choices=["api", "hf"], default=None)
+    parser.add_argument("--max-new-tokens", type=int, default=None)
+    parser.add_argument("--temperature", type=float, default=None)
     args = parser.parse_args()
 
     pairs = []
@@ -46,6 +53,20 @@ def main() -> int:
             "--output-dir",
             str(out_root),
         ]
+        if args.turn_limit is not None:
+            command.extend(["--turn-limit", str(args.turn_limit)])
+        if args.specimen_turn_limit is not None:
+            command.extend(["--specimen-turn-limit", str(args.specimen_turn_limit)])
+        if args.verbose:
+            command.append("--verbose")
+        if args.actor_backend is not None:
+            command.extend(["--actor-backend", args.actor_backend])
+        if args.distinguisher_backend is not None:
+            command.extend(["--distinguisher-backend", args.distinguisher_backend])
+        if args.max_new_tokens is not None:
+            command.extend(["--max-new-tokens", str(args.max_new_tokens)])
+        if args.temperature is not None:
+            command.extend(["--temperature", str(args.temperature)])
         return_code = subprocess.run(command).returncode
         if return_code != 0:
             failures.append((actor, distinguisher, return_code))

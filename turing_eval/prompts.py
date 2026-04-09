@@ -80,7 +80,7 @@ def build_actor_prompt_no_query(distinguisher_model: str, first_message: str) ->
     """Used in conditions A and C."""
     return ACTOR_PROMPT_NO_QUERY_NO_EXPLANATION.format(
         distinguisher_model=distinguisher_model,
-        first_message=first_message.replace('"', '\\"'),
+        first_message=first_message,
     )
 
 

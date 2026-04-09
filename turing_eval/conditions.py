@@ -60,20 +60,21 @@ def run_trial_no_query_no_explanation(
     if verbose:
         print("[D]", d_reply)
 
+    answer = extract_answer(d_reply)
     turns = 0
-    while "<answer>" not in d_reply and turns < turn_limit:
+    while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:
             print("[A]", actor_reply)
         d_reply = d_session.send(actor_reply)
         if verbose:
             print("[D]", d_reply)
+        answer = extract_answer(d_reply)
         turns += 1
 
-    answer = extract_answer(d_reply)
     return {
         "trial_id": trial_id,
-        "success": ("<answer>" in d_reply) and (answer is not None),
+        "success": answer is not None,
         "turns": turns,
         "answer": answer,
         "first_message": first_message,
@@ -135,20 +136,21 @@ def run_trial_yes_query_no_explanation(
     if verbose:
         print("[D]", d_reply)
 
+    answer = extract_answer(d_reply)
     turns = 0
-    while "<answer>" not in d_reply and turns < turn_limit:
+    while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:
             print("[A]", actor_reply)
         d_reply = d_session.send(actor_reply)
         if verbose:
             print("[D]", d_reply)
+        answer = extract_answer(d_reply)
         turns += 1
 
-    answer = extract_answer(d_reply)
     return {
         "trial_id": trial_id,
-        "success": ("<answer>" in d_reply) and (answer is not None),
+        "success": answer is not None,
         "turns": turns,
         "specimen_turns": specimen_turns,
         "specimen_stopped_cleanly": specimen_stopped_cleanly,
@@ -189,21 +191,22 @@ def run_trial_no_query_yes_explanation(
     if verbose:
         print("[D]", d_reply)
 
+    answer = extract_answer(d_reply)
     turns = 0
-    while "<answer>" not in d_reply and turns < turn_limit:
+    while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:
             print("[A]", actor_reply)
         d_reply = d_session.send(actor_reply)
         if verbose:
             print("[D]", d_reply)
+        answer = extract_answer(d_reply)
         turns += 1
 
-    answer = extract_answer(d_reply)
     reasoning = extract_reasoning(d_reply)
     return {
         "trial_id": trial_id,
-        "success": ("<answer>" in d_reply) and (answer is not None),
+        "success": answer is not None,
         "turns": turns,
         "answer": answer,
         "reasoning": reasoning,
