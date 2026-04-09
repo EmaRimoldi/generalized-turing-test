@@ -24,6 +24,8 @@ def test_actor_yes_query_has_specimen_language():
     assert "specimen" in prompt
     assert "STOP" in prompt
     assert "openai/gpt-5.4" in prompt
+    assert "conversational style" in prompt
+    assert "reasoning patterns" in prompt
 
 
 def test_distinguisher_with_reasoning_has_reasoning_tag():
