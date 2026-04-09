@@ -61,7 +61,7 @@ def run_trial_no_query_no_explanation(
         print("[D]", d_reply)
 
     answer = extract_answer(d_reply)
-    turns = 0
+    turns = 1
     while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:
@@ -137,7 +137,7 @@ def run_trial_yes_query_no_explanation(
         print("[D]", d_reply)
 
     answer = extract_answer(d_reply)
-    turns = 0
+    turns = 1
     while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:
@@ -192,7 +192,7 @@ def run_trial_no_query_yes_explanation(
         print("[D]", d_reply)
 
     answer = extract_answer(d_reply)
-    turns = 0
+    turns = 1
     while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:

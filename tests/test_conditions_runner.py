@@ -27,7 +27,7 @@ def test_run_trial_no_query_no_explanation_success():
     assert result["trial_id"] == 7
     assert result["success"] is True
     assert result["answer"] == 1
-    assert result["turns"] == 1
+    assert result["turns"] == 2
     assert result["first_message"] == "d opening"
     assert result["raw_final_message"] == "<answer>1</answer>"
     assert result["actor_messages"][0]["role"] == "system"
@@ -47,6 +47,7 @@ def test_run_trial_yes_query_no_explanation_records_two_stages():
     )
     assert result["success"] is True
     assert result["answer"] == 0
+    assert result["turns"] == 1
     assert result["specimen_turns"] == 1
     assert result["specimen_stopped_cleanly"] is True
     assert len(result["stage1_actor_messages"]) >= 3
