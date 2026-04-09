@@ -9,7 +9,7 @@ The codebase is organized around a single modern experiment path:
 - [scripts/render_results_summary.py](scripts/render_results_summary.py): aggregate `results.csv` files into summary CSVs and PNGs
 - [scripts/verify_model_slugs.py](scripts/verify_model_slugs.py): validate current OpenRouter model IDs against the live catalog
 
-The older scripts [run_hf_experiment.py](run_hf_experiment.py) and [run_openrouter_single_stage_experiment.py](run_openrouter_single_stage_experiment.py) are legacy references. The main experiment workflow in this repo is the `run_experiment.py` / `run_experiment_matrix.py` path.
+The older script [run_openrouter_single_stage_experiment.py](run_openrouter_single_stage_experiment.py) is retained only as a historical reference. The maintained experiment workflow in this repo is the `run_experiment.py` / `run_experiment_matrix.py` path.
 
 ## Goal
 
@@ -532,6 +532,95 @@ The repo does not currently save:
 - intermediate hidden states
 
 If you need those, the persistence layer would need to be extended.
+
+## How To Interpret A Result
+
+There are two levels of interpretation:
+
+- per-trial interpretation from `trial_XXX.json`
+- aggregate interpretation from `results.csv` and `artifacts/results-summary/summary.csv`
+
+### Per-trial interpretation
+
+Use the tracked HF smoke artifact as a concrete example:
+
+- CSV row: [artifacts/hf-slurm-smoke/qwen_hf_actor_vs_mistral_api_smoke/results.csv](/home/erimoldi/projects/llm-eval/artifacts/hf-slurm-smoke/qwen_hf_actor_vs_mistral_api_smoke/results.csv)
+- transcript: [artifacts/hf-slurm-smoke/qwen_hf_actor_vs_mistral_api_smoke/trial_000.json](/home/erimoldi/projects/llm-eval/artifacts/hf-slurm-smoke/qwen_hf_actor_vs_mistral_api_smoke/trial_000.json)
+
+That trial records:
+
+- `actor_model = qwen/qwen3-8b`
+- `distinguisher_model = mistralai/mistral-7b-instruct-v0.1`
+- `condition = no_query_no_explanation`
+- `success = false`
+- `turns = 2`
+- `answer = null`
+
+How to read that:
+
+- the run did not crash outright, because a full transcript was saved
+- the conversation lasted 2 interrogation turns
+- the distinguisher never produced a valid `<answer>0</answer>` or `<answer>1</answer>` tag
+- because no valid final answer was emitted, `success` is `false`
+- because there was no valid parsed answer, `answer` is `null`
+
+So this trial is not evidence that the actor fooled the distinguisher. It is an incomplete trial that should be counted as a completion failure, not as either a win or a loss for the actor.
+
+When reading the transcript itself:
+
+- `first_message` shows how the interrogation started
+- `actor_prompt` shows exactly how the actor was instructed to imitate the target
+- `actor_messages` and `distinguisher_messages` let you inspect the full exchange turn by turn
+- `raw_final_message` shows the actual last distinguisher message, which in this case was plain text rather than a tagged final decision
+- `environment` tells you which code revision, container image, and host produced the artifact
+
+### Aggregate interpretation
+
+The aggregate summaries live in:
+
+- [artifacts/results-summary/summary.csv](/home/erimoldi/projects/llm-eval/artifacts/results-summary/summary.csv)
+- [artifacts/results-summary/summary_table.png](/home/erimoldi/projects/llm-eval/artifacts/results-summary/summary_table.png)
+
+Each row in `summary.csv` groups trials by:
+
+- `condition`
+- `actor_model`
+- `distinguisher_model`
+
+The most important fields are:
+
+- `n_trials`: how many trials were attempted
+- `n_completed`: how many trials produced a valid parsed final answer
+- `completion_rate`: `n_completed / n_trials`
+- `n_answer_1`: how many completed trials ended with "same model"
+- `n_answer_0`: how many completed trials ended with "different model"
+- `answer_1_rate`: `n_answer_1 / n_trials`
+- `answer_0_rate`: `n_answer_0 / n_trials`
+
+How to interpret them correctly:
+
+- high `completion_rate` means the protocol was stable for that pairing
+- high `answer_1_rate` means the actor often convinced the distinguisher it was the same model
+- high `answer_0_rate` means the distinguisher often detected the imitation
+- `answer_1_rate + answer_0_rate` can be less than `1.0` when some trials failed to complete cleanly
+
+Concrete example from the current summary:
+
+- `qwen/qwen3-8b` vs `mistralai/mistral-7b-instruct-v0.1` under `no_query_no_explanation`
+- `n_trials = 3`
+- `n_completed = 1`
+- `completion_rate = 0.33`
+- `n_answer_1 = 1`
+- `n_answer_0 = 0`
+
+Correct interpretation:
+
+- 3 trials were attempted
+- only 1 produced a valid final decision
+- in that 1 completed trial, the distinguisher answered `1`, meaning the actor fooled it
+- the other 2 trials should not be read as wins or losses; they are failed completions
+
+So the evidence for successful imitation here is weak and noisy: one apparent success, but poor protocol reliability.
 
 ## Aggregating Results
 
