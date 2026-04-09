@@ -1,6 +1,6 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-08T20:19:10Z
+**Last updated:** 2026-04-09T00:11:20Z
 **Session:** 1
 **Status:** COMPLETE
 **Current step:** Follow-up enhancements after initial acceptance
@@ -49,6 +49,7 @@
 - 2026-04-08: Clarified `specimen` in `README.md` as a same-model helper instance used only in the warm-up stage of `yes_query_no_explanation`, not the final judge.
 - 2026-04-08: Removed the obsolete standalone `run_hf_experiment.py` entrypoint because the maintained workflow is now `run_experiment.py` plus `run_experiment_matrix.py`; kept the teammate-owned `run_openrouter_single_stage_experiment.py` untouched as instructed.
 - 2026-04-08: Added a concrete "How To Interpret A Result" section to `README.md` covering both per-trial transcript reading and aggregate summary reading, including how to treat incomplete trials where `success=False` and `answer=null`.
+- 2026-04-09: Expanded `README.md` with a prompt-reference section that points directly to `turing_eval/prompts.py` for each condition, and added a markdown table of the currently tracked grouped results from `artifacts/results-summary/summary.csv` plus a short interpretation guide.
 
 ## Observations
 - Session 1 started from a clean `main` worktree with no existing `PROGRESS.md`.

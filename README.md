@@ -65,6 +65,31 @@ This is the same direct interrogation setup as condition 1, but the distinguishe
 
 Use this when you care about both the answer and the distinguisher's rationale.
 
+## Prompt Reference
+
+All maintained prompt templates live in [turing_eval/prompts.py](turing_eval/prompts.py).
+
+Condition A, `no_query_no_explanation`:
+
+- actor prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `ACTOR_PROMPT_NO_QUERY_NO_EXPLANATION`
+- distinguisher prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `DISTINGUISHER_PROMPT_NO_EXPLANATION`
+- builder functions used at runtime: [turing_eval/prompts.py](turing_eval/prompts.py) `build_actor_prompt_no_query(...)` and `build_distinguisher_prompt(with_reasoning=False)`
+
+Condition B, `yes_query_no_explanation`:
+
+- actor prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `ACTOR_PROMPT_YES_QUERY_NO_EXPLANATION`
+- distinguisher prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `DISTINGUISHER_PROMPT_NO_EXPLANATION`
+- specimen prompt: none; the specimen receives no system prompt
+- builder functions used at runtime: [turing_eval/prompts.py](turing_eval/prompts.py) `build_actor_prompt_yes_query(...)` and `build_distinguisher_prompt(with_reasoning=False)`
+
+Condition C, `no_query_yes_explanation`:
+
+- actor prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `ACTOR_PROMPT_NO_QUERY_NO_EXPLANATION`
+- distinguisher prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `DISTINGUISHER_PROMPT_YES_EXPLANATION`
+- builder functions used at runtime: [turing_eval/prompts.py](turing_eval/prompts.py) `build_actor_prompt_no_query(...)` and `build_distinguisher_prompt(with_reasoning=True)`
+
+If you want the exact prompt text that was actually used in one trial, open that trial's `trial_XXX.json` and inspect `actor_prompt`, plus the distinguisher-side `system` message under `distinguisher_messages`.
+
 ## Routing Policy
 
 The intended runtime policy in this repo is:
@@ -621,6 +646,31 @@ Correct interpretation:
 - the other 2 trials should not be read as wins or losses; they are failed completions
 
 So the evidence for successful imitation here is weak and noisy: one apparent success, but poor protocol reliability.
+
+## Results So Far
+
+Tracked aggregate results currently live in [artifacts/results-summary/summary.csv](/home/erimoldi/projects/llm-eval/artifacts/results-summary/summary.csv) and [artifacts/results-summary/summary_table.png](/home/erimoldi/projects/llm-eval/artifacts/results-summary/summary_table.png).
+
+Current grouped results:
+
+| Condition | Actor | Distinguisher | Trials | Completed | P(answer=1) | P(answer=0) |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| `no_query_no_explanation` | `anthropic/claude-opus-4.6` | `mistralai/mistral-7b-instruct-v0.1` | 4 | 3 | 0.75 | 0.00 |
+| `no_query_no_explanation` | `anthropic/claude-opus-4.6` | `qwen/qwen3-8b` | 2 | 2 | 0.50 | 0.50 |
+| `no_query_no_explanation` | `mistralai/mistral-7b-instruct-v0.1` | `anthropic/claude-opus-4.6` | 3 | 3 | 0.00 | 1.00 |
+| `no_query_no_explanation` | `mistralai/mistral-7b-instruct-v0.1` | `mistralai/mistral-7b-instruct-v0.1` | 2 | 0 | 0.00 | 0.00 |
+| `no_query_no_explanation` | `mistralai/mistral-7b-instruct-v0.1` | `qwen/qwen3-8b` | 2 | 2 | 1.00 | 0.00 |
+| `no_query_no_explanation` | `qwen/qwen3-8b` | `anthropic/claude-opus-4.6` | 2 | 2 | 0.00 | 1.00 |
+| `no_query_no_explanation` | `qwen/qwen3-8b` | `mistralai/mistral-7b-instruct-v0.1` | 3 | 1 | 0.33 | 0.00 |
+| `no_query_yes_explanation` | `mistralai/mistral-7b-instruct-v0.1` | `anthropic/claude-opus-4.6` | 1 | 1 | 0.00 | 1.00 |
+| `yes_query_no_explanation` | `qwen/qwen3-8b` | `anthropic/claude-opus-4.6` | 1 | 1 | 0.00 | 1.00 |
+
+Brief interpretation:
+
+- read `P(answer=1)` as "how often the actor convinced the distinguisher it was the same model"
+- read `P(answer=0)` as "how often the distinguisher detected the imitation"
+- always check `Completed` before trusting the rates, because incomplete trials lower confidence and can make the rates look better or worse than they really are
+- these results are still small-sample smoke data, not stable benchmark estimates
 
 ## Aggregating Results
 
