@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 class GenerationConfig:
     """Generation parameters expressible in both OpenAI-compatible and HF formats."""
 
-    max_new_tokens: int = 512
+    max_new_tokens: int = 2048
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     top_k: Optional[int] = None
@@ -50,8 +50,14 @@ class ChatBackend(ABC):
     model_id: str
 
     @abstractmethod
-    def generate(self, messages: List[Dict[str, str]]) -> str:
+    def generate(self, messages: List[Dict[str, object]]) -> str:
         """Given an OpenAI-style messages list, return the assistant's reply text."""
+
+    def generate_with_metadata(
+        self, messages: List[Dict[str, object]]
+    ) -> tuple[str, Dict[str, object]]:
+        """Return the reply plus optional provider metadata for transcript persistence."""
+        return self.generate(messages), {}
 
 
 class ChatSession:
@@ -60,18 +66,23 @@ class ChatSession:
     def __init__(self, backend: ChatBackend, name: str, system_prompt: Optional[str] = None) -> None:
         self.backend = backend
         self.name = name
-        self.messages: List[Dict[str, str]] = []
+        self.messages: List[Dict[str, object]] = []
         if system_prompt:
             self.messages.append({"role": "system", "content": system_prompt})
 
+    def _append_assistant_message(self, reply: str, metadata: Dict[str, object]) -> None:
+        message: Dict[str, object] = {"role": "assistant", "content": reply}
+        message.update(metadata)
+        self.messages.append(message)
+
     def send(self, content: str) -> str:
         self.messages.append({"role": "user", "content": content})
-        reply = self.backend.generate(self.messages)
-        self.messages.append({"role": "assistant", "content": reply})
+        reply, metadata = self.backend.generate_with_metadata(self.messages)
+        self._append_assistant_message(reply, metadata)
         return reply
 
     def generate_opening(self) -> str:
         """Generate the first assistant turn from the current session state."""
-        reply = self.backend.generate(self.messages)
-        self.messages.append({"role": "assistant", "content": reply})
+        reply, metadata = self.backend.generate_with_metadata(self.messages)
+        self._append_assistant_message(reply, metadata)
         return reply

@@ -13,6 +13,17 @@ class EchoBackend(ChatBackend):
         return f"{self.prefix}-{self.calls}-{len(messages)}"
 
 
+class MetadataBackend(EchoBackend):
+    def generate_with_metadata(self, messages):
+        reply = self.generate(messages)
+        return reply, {"finish_reason": "length", "truncated": True}
+
+
+def test_generation_config_defaults_to_2048_tokens():
+    cfg = GenerationConfig()
+    assert cfg.max_new_tokens == 2048
+
+
 def test_generation_config_to_openai_payload_sampling():
     cfg = GenerationConfig(max_new_tokens=123, temperature=0.3, top_p=0.8, top_k=20)
     assert cfg.to_openai_payload() == {
@@ -61,3 +72,16 @@ def test_chat_session_generate_opening_uses_current_messages():
         {"role": "system", "content": "system"},
         {"role": "assistant", "content": "open-1-1"},
     ]
+
+
+def test_chat_session_preserves_generation_metadata_on_assistant_messages():
+    backend = MetadataBackend("meta")
+    session = ChatSession(backend, "test", system_prompt="system")
+    reply = session.send("hello")
+    assert reply == "meta-1-2"
+    assert session.messages[-1] == {
+        "role": "assistant",
+        "content": "meta-1-2",
+        "finish_reason": "length",
+        "truncated": True,
+    }

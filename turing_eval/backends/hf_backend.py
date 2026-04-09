@@ -100,9 +100,10 @@ class HFChatBackend(ChatBackend):
         self._model = AutoModelForCausalLM.from_pretrained(repo_id, **model_kwargs)
         self.device_summary = _summarize_devices(self._model)
 
-    def _prepare_inputs(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    def _prepare_inputs(self, messages: List[Dict[str, object]]) -> Dict[str, Any]:
+        chat_messages = [{"role": message["role"], "content": message["content"]} for message in messages]
         prompt = self._tokenizer.apply_chat_template(
-            messages,
+            chat_messages,
             tokenize=False,
             add_generation_prompt=True,
         )
@@ -112,7 +113,7 @@ class HFChatBackend(ChatBackend):
             encoded = encoded.to(model_device)
         return dict(encoded)
 
-    def generate(self, messages: List[Dict[str, str]]) -> str:
+    def generate(self, messages: List[Dict[str, object]]) -> str:
         inputs = self._prepare_inputs(messages)
         input_ids = inputs["input_ids"]
         prompt_length = int(input_ids.shape[-1])

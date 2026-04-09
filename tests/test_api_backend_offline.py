@@ -29,6 +29,24 @@ def test_extract_text_empty_returns_none():
 
 
 def test_sanitize_messages_replaces_lone_surrogates():
-    msg = [{"role": "user", "content": "bad \ud800 text"}]
+    msg = [{"role": "user", "content": "bad \ud800 text", "finish_reason": "length"}]
     sanitized = APIChatBackend._sanitize_messages(msg)
     assert sanitized[0]["content"] == "bad \ufffd text"
+    assert "finish_reason" not in sanitized[0]
+
+
+def test_generate_with_metadata_surfaces_finish_reason():
+    backend = object.__new__(APIChatBackend)
+    backend.provider_config = PROVIDERS["openrouter"]
+    backend.model_id = "openai/test-model"
+    backend._post_chat_completion = lambda messages: {
+        "choices": [
+            {
+                "finish_reason": "length",
+                "message": {"content": "trimmed reply"},
+            }
+        ]
+    }
+    reply, metadata = APIChatBackend.generate_with_metadata(backend, [])
+    assert reply == "trimmed reply"
+    assert metadata == {"finish_reason": "length", "truncated": True}

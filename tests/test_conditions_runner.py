@@ -19,6 +19,9 @@ class ScriptedBackend:
             raise AssertionError("No scripted response left")
         return self._responses.pop(0)
 
+    def generate_with_metadata(self, messages):
+        return self.generate(messages), {}
+
 
 def test_run_trial_no_query_no_explanation_success():
     actor = ScriptedBackend("actor/model", ["actor opening", "actor followup"])

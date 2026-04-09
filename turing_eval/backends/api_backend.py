@@ -96,18 +96,19 @@ class APIChatBackend(ChatBackend):
         return "".join("\ufffd" if 0xD800 <= ord(char) <= 0xDFFF else char for char in text)
 
     @classmethod
-    def _sanitize_messages(cls, messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        sanitized: List[Dict[str, str]] = []
+    def _sanitize_messages(cls, messages: List[Dict[str, object]]) -> List[Dict[str, object]]:
+        sanitized: List[Dict[str, object]] = []
         for message in messages:
-            sanitized.append(
-                {
-                    key: cls._sanitize_text(value) if isinstance(value, str) else value
-                    for key, value in message.items()
-                }
-            )
+            sanitized_message: Dict[str, object] = {}
+            for key in ("role", "content", "name"):
+                if key not in message:
+                    continue
+                value = message[key]
+                sanitized_message[key] = cls._sanitize_text(value) if isinstance(value, str) else value
+            sanitized.append(sanitized_message)
         return sanitized
 
-    def _post_chat_completion(self, messages: List[Dict[str, str]]) -> Dict[str, object]:
+    def _post_chat_completion(self, messages: List[Dict[str, object]]) -> Dict[str, object]:
         payload: Dict[str, object] = {
             "model": self.model_id,
             "messages": self._sanitize_messages(messages),
@@ -178,14 +179,19 @@ class APIChatBackend(ChatBackend):
 
         return None
 
-    def generate(self, messages: List[Dict[str, str]]) -> str:
+    def generate_with_metadata(
+        self, messages: List[Dict[str, object]]
+    ) -> tuple[str, Dict[str, object]]:
         response = self._post_chat_completion(messages)
         choices = response.get("choices")
         if not isinstance(choices, list) or not choices:
             raise RuntimeError(
                 f"{self.provider_config.name} returned no choices for {self.model_id}: {response}"
             )
-        message = choices[0].get("message", {})
+        choice = choices[0]
+        if not isinstance(choice, dict):
+            raise RuntimeError(f"{self.provider_config.name} returned invalid choice: {choice}")
+        message = choice.get("message", {})
         if not isinstance(message, dict):
             raise RuntimeError(f"{self.provider_config.name} returned invalid message: {message}")
         extracted = self._extract_text_from_message(message)
@@ -193,4 +199,14 @@ class APIChatBackend(ChatBackend):
             raise RuntimeError(
                 f"{self.provider_config.name} returned unparseable message for {self.model_id}: {message}"
             )
-        return extracted
+        metadata: Dict[str, object] = {}
+        finish_reason = choice.get("finish_reason")
+        if finish_reason is not None:
+            metadata["finish_reason"] = finish_reason
+        if finish_reason == "length":
+            metadata["truncated"] = True
+        return extracted, metadata
+
+    def generate(self, messages: List[Dict[str, object]]) -> str:
+        reply, _metadata = self.generate_with_metadata(messages)
+        return reply

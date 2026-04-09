@@ -37,7 +37,7 @@ def main() -> int:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--actor-backend", choices=["api", "hf"], default=None)
     parser.add_argument("--distinguisher-backend", choices=["api", "hf"], default=None)
-    parser.add_argument("--max-new-tokens", type=int, default=512)
+    parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=None)
     args = parser.parse_args()
 
