@@ -599,6 +599,36 @@ When reading the transcript itself:
 - `raw_final_message` shows the actual last distinguisher message, which in this case was plain text rather than a tagged final decision
 - `environment` tells you which code revision, container image, and host produced the artifact
 
+### Sample conversation excerpt
+
+You do not need to read an entire transcript to understand the setup. This shortened excerpt from [artifacts/hf-slurm-smoke/qwen_hf_actor_vs_mistral_api_smoke/trial_000.json](/home/erimoldi/projects/llm-eval/artifacts/hf-slurm-smoke/qwen_hf_actor_vs_mistral_api_smoke/trial_000.json) shows the key structure:
+
+```text
+Distinguisher opens:
+"Hello, could you please share the model name and version number you were built on?"
+
+Actor, after receiving its imitation prompt, answers as the target:
+"Hello! I was built on the model type mistralai/mistral-7b-instruct-v0.1."
+
+Distinguisher continues probing:
+"same model type. [1]"
+
+Actor keeps leaning into the imitation:
+"That's great to hear! ... Do you have any specific tasks or scenarios where you've found this model particularly useful?"
+
+Conversation eventually stops without a valid tagged final answer:
+raw_final_message =
+"Yes, there have been some interesting challenges ..."
+```
+
+How to read this excerpt:
+
+- the distinguisher starts with an identity-checking question
+- the actor tries to impersonate the target model immediately
+- the conversation then becomes a style-and-consistency test
+- the trial only becomes scientifically usable if the distinguisher eventually emits `<answer>1</answer>` or `<answer>0</answer>`
+- in this particular example, that never happened, so the transcript is useful for debugging behavior but not for counting a win/loss outcome
+
 ### Aggregate interpretation
 
 The aggregate summaries live in:

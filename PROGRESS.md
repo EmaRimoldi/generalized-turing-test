@@ -1,6 +1,6 @@
 # Codex Autonomous Progress
 
-**Last updated:** 2026-04-09T00:11:20Z
+**Last updated:** 2026-04-09T00:16:05Z
 **Session:** 1
 **Status:** COMPLETE
 **Current step:** Follow-up enhancements after initial acceptance
@@ -50,6 +50,7 @@
 - 2026-04-08: Removed the obsolete standalone `run_hf_experiment.py` entrypoint because the maintained workflow is now `run_experiment.py` plus `run_experiment_matrix.py`; kept the teammate-owned `run_openrouter_single_stage_experiment.py` untouched as instructed.
 - 2026-04-08: Added a concrete "How To Interpret A Result" section to `README.md` covering both per-trial transcript reading and aggregate summary reading, including how to treat incomplete trials where `success=False` and `answer=null`.
 - 2026-04-09: Expanded `README.md` with a prompt-reference section that points directly to `turing_eval/prompts.py` for each condition, and added a markdown table of the currently tracked grouped results from `artifacts/results-summary/summary.csv` plus a short interpretation guide.
+- 2026-04-09: Added a short real transcript excerpt to `README.md` so readers can see the shape of an experiment conversation without opening a full JSON transcript.
 
 ## Observations
 - Session 1 started from a clean `main` worktree with no existing `PROGRESS.md`.
