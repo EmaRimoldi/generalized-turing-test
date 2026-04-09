@@ -70,6 +70,18 @@ def test_run_trial_no_query_no_explanation_accepts_uppercase_answer_tag():
     assert result["answer"] == 1
 
 
+def test_run_trial_no_query_no_explanation_rejects_answer_in_opening():
+    actor = ScriptedBackend("actor/model", ["actor opening"])
+    distinguisher = ScriptedBackend("dist/model", ["<answer>1</answer>"])
+    result = run_trial_no_query_no_explanation(6, actor, distinguisher, turn_limit=3)
+    assert result["success"] is False
+    assert result["answer"] is None
+    assert result["turns"] == 0
+    assert result["error"] == "distinguisher_answered_in_opening"
+    assert result["raw_final_message"] == "<answer>1</answer>"
+    assert result["actor_messages"] == []
+
+
 def test_run_trial_no_query_yes_explanation_extracts_reasoning():
     actor = ScriptedBackend("actor/model", ["actor opening"])
     distinguisher = ScriptedBackend(
@@ -83,6 +95,26 @@ def test_run_trial_no_query_yes_explanation_extracts_reasoning():
     assert result["success"] is True
     assert result["answer"] == 0
     assert result["reasoning"] == "too generic"
+
+
+def test_run_trial_yes_query_no_explanation_rejects_answer_in_opening():
+    actor = ScriptedBackend("actor/model", ["teach me", "STOP"])
+    specimen = ScriptedBackend("dist/model", ["specimen answer"])
+    distinguisher = ScriptedBackend("dist/model", ["<answer>0</answer>"])
+    result = run_trial_yes_query_no_explanation(
+        9,
+        actor,
+        distinguisher,
+        specimen,
+        specimen_turn_limit=4,
+        turn_limit=4,
+    )
+    assert result["success"] is False
+    assert result["answer"] is None
+    assert result["turns"] == 0
+    assert result["error"] == "distinguisher_answered_in_opening"
+    assert result["specimen_turns"] == 1
+    assert result["stage2_actor_messages"] == []
 
 
 def test_run_trial_yes_query_no_explanation_requires_matching_specimen():
