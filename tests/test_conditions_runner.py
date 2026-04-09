@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from turing_eval.conditions import (
+    is_stop_signal,
     run_trial_no_query_no_explanation,
     run_trial_no_query_yes_explanation,
     run_trial_yes_query_no_explanation,
@@ -50,6 +51,13 @@ def test_run_trial_yes_query_no_explanation_records_two_stages():
     assert result["specimen_stopped_cleanly"] is True
     assert len(result["stage1_actor_messages"]) >= 3
     assert len(result["stage2_actor_messages"]) == 2
+
+
+def test_is_stop_signal_accepts_leading_stop_with_extra_text():
+    assert is_stop_signal("STOP")
+    assert is_stop_signal("STOP.")
+    assert is_stop_signal(" stop\n\nI have enough information.")
+    assert not is_stop_signal("I should not stop yet")
 
 
 def test_run_trial_no_query_yes_explanation_extracts_reasoning():

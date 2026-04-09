@@ -14,6 +14,7 @@ from .prompts import (
 
 _ANSWER_RE = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
 _REASONING_RE = re.compile(r"<reasoning>(.*?)</reasoning>", re.DOTALL | re.IGNORECASE)
+_STOP_RE = re.compile(r"^\s*STOP\b", re.IGNORECASE)
 
 
 def extract_answer(text: str) -> Optional[int]:
@@ -27,6 +28,10 @@ def extract_answer(text: str) -> Optional[int]:
 def extract_reasoning(text: str) -> Optional[str]:
     match = _REASONING_RE.search(text)
     return match.group(1).strip() if match else None
+
+
+def is_stop_signal(text: str) -> bool:
+    return bool(_STOP_RE.match(text))
 
 
 def run_trial_no_query_no_explanation(
@@ -101,7 +106,7 @@ def run_trial_yes_query_no_explanation(
         print("[A->S]", actor_to_specimen)
 
     specimen_turns = 0
-    while "STOP" not in actor_to_specimen and specimen_turns < specimen_turn_limit:
+    while not is_stop_signal(actor_to_specimen) and specimen_turns < specimen_turn_limit:
         specimen_reply = s_session.send(actor_to_specimen)
         if verbose:
             print("[S->A]", specimen_reply)
@@ -110,7 +115,7 @@ def run_trial_yes_query_no_explanation(
             print("[A->S]", actor_to_specimen)
         specimen_turns += 1
 
-    specimen_stopped_cleanly = "STOP" in actor_to_specimen
+    specimen_stopped_cleanly = is_stop_signal(actor_to_specimen)
     stage1_actor_messages = copy.deepcopy(a_session.messages)
     specimen_messages = copy.deepcopy(s_session.messages)
 
