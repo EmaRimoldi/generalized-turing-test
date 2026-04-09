@@ -59,6 +59,7 @@ def test_write_csv_uses_superset_schema(tmp_path):
                 "turns": 3,
                 "answer": 0,
                 "transcript_path": "trial_001.json",
+                "error": "distinguisher_answered_in_opening",
                 "reasoning": "because",
                 "specimen_turns": 2,
                 "specimen_stopped_cleanly": True,
@@ -72,7 +73,9 @@ def test_write_csv_uses_superset_schema(tmp_path):
     contents = output.read_text().strip().splitlines()
     assert contents[0].startswith("trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path")
     assert "no_query_yes_explanation" in contents[1]
+    assert "distinguisher_answered_in_opening" in contents[1]
     assert "because" in contents[1]
+    assert "error" in contents[0]
     assert "specimen_stopped_cleanly" in contents[0]
 
 

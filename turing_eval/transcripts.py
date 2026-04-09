@@ -25,6 +25,7 @@ SUSAN_CSV_FIELDS = [
 
 EXTRA_CSV_FIELDS = [
     "condition",
+    "error",
     "reasoning",
     "specimen_turns",
     "specimen_stopped_cleanly",
@@ -74,6 +75,7 @@ def write_csv(
                     "answer": row.get("answer"),
                     "transcript_path": row.get("transcript_path"),
                     "condition": condition,
+                    "error": row.get("error"),
                     "reasoning": row.get("reasoning"),
                     "specimen_turns": row.get("specimen_turns"),
                     "specimen_stopped_cleanly": row.get("specimen_stopped_cleanly"),

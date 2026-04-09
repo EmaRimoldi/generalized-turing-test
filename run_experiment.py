@@ -24,6 +24,15 @@ CONDITIONS = {
 }
 
 
+def _is_valid_trial_result(result: dict[str, object]) -> bool:
+    return bool(result.get("success")) or result.get("error") == "distinguisher_answered_in_opening"
+
+
+def _failed_attempt_path(out_dir: Path, attempt_id: int) -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+    return out_dir / f"failed_attempt_{attempt_id:03d}_{timestamp}.json"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--actor", required=True, choices=sorted(MODEL_REGISTRY))
@@ -39,7 +48,9 @@ def main() -> int:
     parser.add_argument("--distinguisher-backend", choices=["api", "hf"], default=None)
     parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=None)
+    parser.add_argument("--max-attempts", type=int, default=None)
     args = parser.parse_args()
+    max_attempts = args.max_attempts if args.max_attempts is not None else (3 * args.num_trials)
 
     generation = GenerationConfig(max_new_tokens=args.max_new_tokens, temperature=args.temperature)
     actor = load_backend(args.actor, generation, force_backend=args.actor_backend)
@@ -52,8 +63,10 @@ def main() -> int:
 
     runner = CONDITIONS[args.condition]
     results = []
-    for trial_id in range(args.num_trials):
-        print(f"\n=== Trial {trial_id + 1}/{args.num_trials} ===")
+    attempt_id = 0
+    while len(results) < args.num_trials and attempt_id < max_attempts:
+        trial_id = len(results)
+        print(f"\n=== Trial {trial_id + 1}/{args.num_trials} (attempt {attempt_id + 1}/{max_attempts}) ===")
         kwargs: dict[str, object] = {
             "trial_id": trial_id,
             "actor": actor,
@@ -77,20 +90,38 @@ def main() -> int:
                 "answer": None,
                 "error": str(exc),
             }
-        transcript_path = out_dir / f"trial_{trial_id:03d}.json"
-        save_transcript_json(
-            result,
-            transcript_path,
-            actor.display_name,
-            distinguisher.display_name,
-            args.condition,
-        )
-        result["transcript_path"] = str(transcript_path)
-        results.append(result)
+        result["attempt_id"] = attempt_id
+
+        if _is_valid_trial_result(result):
+            transcript_path = out_dir / f"trial_{trial_id:03d}.json"
+            save_transcript_json(
+                result,
+                transcript_path,
+                actor.display_name,
+                distinguisher.display_name,
+                args.condition,
+            )
+            result["transcript_path"] = str(transcript_path)
+            results.append(result)
+        else:
+            failed_path = _failed_attempt_path(out_dir, attempt_id)
+            save_transcript_json(
+                result,
+                failed_path,
+                actor.display_name,
+                distinguisher.display_name,
+                args.condition,
+            )
+        attempt_id += 1
 
     csv_path = out_dir / "results.csv"
     write_csv(results, csv_path, actor.display_name, distinguisher.display_name, args.condition)
-    print(f"\nSaved {len(results)} trials to {out_dir}")
+    if len(results) < args.num_trials:
+        print(
+            f"\nWarning: reached max attempts ({max_attempts}) after collecting "
+            f"{len(results)}/{args.num_trials} valid trials."
+        )
+    print(f"\nSaved {len(results)} valid trials to {out_dir}")
     return 0
 
 

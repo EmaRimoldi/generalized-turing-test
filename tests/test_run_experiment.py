@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+import csv
+import json
+import sys
+from pathlib import Path
+
+import run_experiment
+
+
+class FakeBackend:
+    def __init__(self, display_name: str) -> None:
+        self.display_name = display_name
+        self.model_id = display_name
+
+
+def test_run_experiment_retries_infra_failures_and_keeps_only_valid_trials(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    actor_backend = FakeBackend("actor/model")
+    distinguisher_backend = FakeBackend("dist/model")
+    responses = iter(
+        [
+            {
+                "success": False,
+                "turns": None,
+                "answer": None,
+                "error": "openrouter HTTP 503 Service Unavailable",
+            },
+            {
+                "success": False,
+                "turns": 0,
+                "answer": None,
+                "error": "distinguisher_answered_in_opening",
+                "first_message": "Question\n\n<answer>0</answer>",
+                "raw_final_message": "Question\n\n<answer>0</answer>",
+            },
+            {
+                "success": True,
+                "turns": 2,
+                "answer": 1,
+                "first_message": "hello",
+                "raw_final_message": "<answer>1</answer>",
+            },
+        ]
+    )
+
+    def fake_runner(**kwargs):
+        result = dict(next(responses))
+        result["trial_id"] = kwargs["trial_id"]
+        return result
+
+    def fake_load_backend(model_name, generation, force_backend=None):
+        if model_name == "gpt-5.4":
+            return actor_backend
+        return distinguisher_backend
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "no_query_no_explanation", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", fake_load_backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "no_query_no_explanation",
+            "--num-trials",
+            "2",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "retry-check",
+            "--max-attempts",
+            "5",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    run_path = out_dir / "retry-check"
+    csv_path = run_path / "results.csv"
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 2
+    assert rows[0]["trial_id"] == "0"
+    assert rows[0]["error"] == "distinguisher_answered_in_opening"
+    assert rows[1]["trial_id"] == "1"
+    assert rows[1]["success"] == "True"
+    assert rows[1]["error"] == ""
+    failed_attempts = sorted(run_path.glob("failed_attempt_*.json"))
+    assert len(failed_attempts) == 1
+    failed_payload = json.loads(failed_attempts[0].read_text())
+    assert failed_payload["error"] == "openrouter HTTP 503 Service Unavailable"
+    assert failed_payload["attempt_id"] == 0
+    assert (run_path / "trial_000.json").exists()
+    assert (run_path / "trial_001.json").exists()
+
+
+def test_run_experiment_warns_when_max_attempts_prevents_collecting_target(monkeypatch, tmp_path, capsys):
+    out_dir = tmp_path / "results"
+    backend = FakeBackend("model")
+
+    def fake_runner(**kwargs):
+        return {
+            "trial_id": kwargs["trial_id"],
+            "success": False,
+            "turns": None,
+            "answer": None,
+            "error": "openrouter returned non-JSON",
+        }
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "no_query_no_explanation", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", lambda *args, **kwargs: backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "no_query_no_explanation",
+            "--num-trials",
+            "2",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "max-attempts-check",
+            "--max-attempts",
+            "2",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    stdout = capsys.readouterr().out
+    assert "Warning: reached max attempts (2) after collecting 0/2 valid trials." in stdout
+    csv_path = out_dir / "max-attempts-check" / "results.csv"
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows == []
+    failed_attempts = sorted((out_dir / "max-attempts-check").glob("failed_attempt_*.json"))
+    assert len(failed_attempts) == 2
