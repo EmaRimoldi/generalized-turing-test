@@ -23,11 +23,11 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from urllib import error, request
 
 
-ACTOR_PROMPT_TEMPLATE = """You will be interacting with a language model, which we will refer to as the distinguisher. The distinguisher will be an instance of model type {distinguisher_model}. The distinguisher will be interrogating you. You must imitate the distinguisher's model type, {distinguisher_model}, as closely as possible while interacting with it.
+ACTOR_USER_PROMPT_TEMPLATE = """You will be interacting with a language model, which we will refer to as the distinguisher. The distinguisher will be an instance of model type {distinguisher_model}. The distinguisher will be interrogating you. You must imitate the distinguisher's model type, {distinguisher_model}, as closely as possible while interacting with it.
 
 The distinguisher's objective is to determine whether it is speaking to another instance of its own model type, or to a different type of model that is imitating it.
 
@@ -38,7 +38,7 @@ Once the interaction begins, you must consistently behave as an instance of the 
 The interaction will now begin. The first message from the distinguisher is: "{first_message}." Please respond to it as the model type you are imitating, and the interaction will continue."""
 
 
-DISTINGUISHER_PROMPT = """You will be interacting with another agent.
+DISTINGUISHER_USER_PROMPT = """You will be interacting with another agent.
 
 Your objective is to figure out if the agent is of the same model type as yourself.
 
@@ -52,23 +52,27 @@ If you believe the agent is not the same model as yourself, return 0.
 
 Do not include anything else in your final output.
 
-The interaction will begin now. Please send your first message to the agent, and then the interaction will continue."""
+The interaction will begin now. Please send your first message to the agent, and then the interaction will continue.
+
+Do NOT output an answer in your first message.
+
+"""
 
 
 @dataclass
 class GenerationConfig:
     """Per-agent generation parameters."""
 
-    max_new_tokens: int
+    max_new_tokens: Optional[int]
     temperature: Optional[float]
     top_p: Optional[float]
     top_k: Optional[int]
     do_sample: bool
 
     def to_payload(self) -> Dict[str, object]:
-        payload: Dict[str, object] = {
-            "max_tokens": self.max_new_tokens,
-        }
+        payload: Dict[str, object] = {}
+        if self.max_new_tokens is not None:
+            payload["max_tokens"] = self.max_new_tokens
         if self.temperature is not None:
             payload["temperature"] = self.temperature
         elif not self.do_sample:
@@ -96,8 +100,8 @@ def _normalize_base_url(base_url: str) -> str:
     return base_url.rstrip("/")
 
 
-def build_actor_prompt(distinguisher_model: str, first_message: str) -> str:
-    return ACTOR_PROMPT_TEMPLATE.format(
+def build_actor_user_prompt(distinguisher_model: str, first_message: str) -> str:
+    return ACTOR_USER_PROMPT_TEMPLATE.format(
         distinguisher_model=distinguisher_model,
         first_message=first_message.replace('"', '\\"'),
     )
@@ -176,6 +180,14 @@ class OpenRouterClient:
         return self._request("POST", "/chat/completions", payload)
 
 
+class OpenRouterResponseError(RuntimeError):
+    """Raised when OpenRouter returns a response payload we cannot use."""
+
+    def __init__(self, message: str, response_payload: Optional[Dict[str, object]] = None) -> None:
+        super().__init__(message)
+        self.response_payload = response_payload
+
+
 class OpenRouterChatBackend:
     """Chat backend that keeps model selection on OpenRouter."""
 
@@ -206,43 +218,33 @@ class OpenRouterChatBackend:
             if merged:
                 return merged
 
-        reasoning = message.get("reasoning")
-        if isinstance(reasoning, str):
-            stripped = reasoning.strip()
-            if stripped:
-                return stripped
-
-        reasoning_details = message.get("reasoning_details")
-        if isinstance(reasoning_details, list):
-            text_chunks = []
-            for item in reasoning_details:
-                if not isinstance(item, dict):
-                    continue
-                text = item.get("text", "")
-                if isinstance(text, str):
-                    text_chunks.append(text)
-            merged = "\n".join(chunk.strip() for chunk in text_chunks if chunk.strip()).strip()
-            if merged:
-                return merged
-
         return None
 
-    def generate(self, messages: List[Dict[str, str]]) -> str:
+    def generate_with_payload(self, messages: List[Dict[str, str]]) -> tuple[str, Dict[str, object]]:
         response = self.client.create_chat_completion(self.config.model_id, messages, self.generation)
         choices = response.get("choices")
         if not isinstance(choices, list) or not choices:
-            raise RuntimeError(f"OpenRouter returned no choices for model {self.config.model_id}: {response}")
+            raise OpenRouterResponseError(
+                f"OpenRouter returned no choices for model {self.config.model_id}: {response}",
+                response_payload=response,
+            )
         message = choices[0].get("message", {})
         if not isinstance(message, dict):
-            raise RuntimeError(
-                f"OpenRouter returned an invalid message payload for model {self.config.model_id}: {message}"
+            raise OpenRouterResponseError(
+                f"OpenRouter returned an invalid message payload for model {self.config.model_id}: {message}",
+                response_payload=response,
             )
         extracted = self._extract_text_from_message(message)
         if extracted:
-            return extracted
-        raise RuntimeError(
-            f"OpenRouter returned an unsupported message payload for model {self.config.model_id}: {message}"
+            return extracted, response
+        raise OpenRouterResponseError(
+            f"OpenRouter returned an unsupported message payload for model {self.config.model_id}: {message}",
+            response_payload=response,
         )
+
+    def generate(self, messages: List[Dict[str, str]]) -> str:
+        extracted, _ = self.generate_with_payload(messages)
+        return extracted
 
 
 class ChatSession:
@@ -252,19 +254,25 @@ class ChatSession:
         self,
         backend: OpenRouterChatBackend,
         name: str,
-        system_prompt: Optional[str] = None,
+        initial_user_prompt: Optional[str] = None,
     ) -> None:
         self.backend = backend
         self.name = name
         self.messages: List[Dict[str, str]] = []
-        if system_prompt:
-            self.messages.append({"role": "system", "content": system_prompt})
+        if initial_user_prompt:
+            self.messages.append({"role": "user", "content": initial_user_prompt})
 
     def send(self, content: str) -> str:
         self.messages.append({"role": "user", "content": content})
         reply = self.backend.generate(self.messages)
         self.messages.append({"role": "assistant", "content": reply})
         return reply
+
+    def send_with_payload(self, content: str) -> tuple[str, Dict[str, object]]:
+        self.messages.append({"role": "user", "content": content})
+        reply, response_payload = self.backend.generate_with_payload(self.messages)
+        self.messages.append({"role": "assistant", "content": reply})
+        return reply, response_payload
 
 
 def extract_answer(text: str) -> Optional[int]:
@@ -277,6 +285,63 @@ def extract_answer(text: str) -> Optional[int]:
     return None
 
 
+def count_distinguisher_turns(messages: List[Dict[str, str]]) -> int:
+    """Count full distinguisher/actor turn pairs after the initial prompt."""
+
+    if len(messages) < 1:
+        return 0
+
+    return max((len(messages) - 1) // 2, 0)
+
+
+def append_raw_event(
+    raw_events: List[Dict[str, object]],
+    label: str,
+    speaker: str,
+    request_messages: List[Dict[str, str]],
+    response_payload: Optional[Dict[str, object]],
+    extracted_text: Optional[str] = None,
+    error_message: Optional[str] = None,
+) -> None:
+    raw_events.append(
+        {
+            "label": label,
+            "speaker": speaker,
+            "request_messages": copy.deepcopy(request_messages),
+            "response_payload": response_payload,
+            "extracted_text": extracted_text,
+            "error_message": error_message,
+        }
+    )
+
+
+def build_request_payload(
+    backend: OpenRouterChatBackend,
+    request_messages: List[Dict[str, str]],
+) -> Dict[str, object]:
+    payload: Dict[str, object] = {
+        "model": backend.config.model_id,
+        "messages": copy.deepcopy(request_messages),
+    }
+    payload.update(backend.generation.to_payload())
+    return payload
+
+
+def print_request_payload(
+    label: str,
+    backend: OpenRouterChatBackend,
+    request_messages: List[Dict[str, str]],
+) -> None:
+    payload = build_request_payload(backend, request_messages)
+    print(f"[OpenRouter][{label}][request]")
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def print_response_payload(label: str, response_payload: Dict[str, object]) -> None:
+    print(f"[OpenRouter][{label}][response]")
+    print(json.dumps(response_payload, ensure_ascii=False, indent=2))
+
+
 def run_single_stage_trial(
     actor_backend: OpenRouterChatBackend,
     distinguisher_backend: OpenRouterChatBackend,
@@ -284,49 +349,152 @@ def run_single_stage_trial(
     turn_limit: int,
     verbose: bool,
 ) -> Dict[str, object]:
+    first_message: Optional[str] = None
+    actor_user_prompt: Optional[str] = None
+    last_response: Optional[str] = None
+    raw_events: List[Dict[str, object]] = []
     distinguisher_session = ChatSession(
         distinguisher_backend,
         name="distinguisher",
-        system_prompt=DISTINGUISHER_PROMPT,
+        initial_user_prompt=DISTINGUISHER_USER_PROMPT,
     )
-    first_message = distinguisher_session.backend.generate(distinguisher_session.messages)
-    distinguisher_session.messages.append({"role": "assistant", "content": first_message})
-    if verbose:
-        print("[SingleStage][Distinguisher] ", first_message)
-
-    actor_prompt = build_actor_prompt(distinguisher_model, first_message)
-    actor_session = ChatSession(actor_backend, name="actor", system_prompt=actor_prompt)
-    actor_reply = actor_session.backend.generate(actor_session.messages)
-    actor_session.messages.append({"role": "assistant", "content": actor_reply})
-    if verbose:
-        print("[SingleStage][Actor] ", actor_reply)
-
-    distinguisher_reply = distinguisher_session.send(actor_reply)
-    if verbose:
-        print("[SingleStage][Distinguisher] ", distinguisher_reply)
-
+    actor_session = ChatSession(actor_backend, name="actor", initial_user_prompt=actor_user_prompt)
     turn_count = 0
-    while "<answer>" not in distinguisher_reply and turn_count < turn_limit:
-        actor_reply = actor_session.send(distinguisher_reply)
+
+    try:
+        first_message, response_payload = distinguisher_session.backend.generate_with_payload(distinguisher_session.messages)
+        append_raw_event(
+            raw_events,
+            label="distinguisher_first",
+            speaker="distinguisher",
+            request_messages=distinguisher_session.messages,
+            response_payload=response_payload,
+            extracted_text=first_message,
+        )
+        if verbose:
+            print_request_payload("distinguisher_first", distinguisher_backend, distinguisher_session.messages)
+            print_response_payload("distinguisher_first", response_payload)
+        distinguisher_session.messages.append({"role": "assistant", "content": first_message})
+        last_response = first_message
+        if verbose:
+            print("[SingleStage][Distinguisher] ", first_message)
+
+        actor_user_prompt = build_actor_user_prompt(distinguisher_model, first_message)
+        actor_session.messages = [{"role": "user", "content": actor_user_prompt}]
+        actor_reply, response_payload = actor_session.backend.generate_with_payload(actor_session.messages)
+        append_raw_event(
+            raw_events,
+            label="actor_first",
+            speaker="actor",
+            request_messages=actor_session.messages,
+            response_payload=response_payload,
+            extracted_text=actor_reply,
+        )
+        if verbose:
+            print_request_payload("actor_first", actor_backend, actor_session.messages)
+            print_response_payload("actor_first", response_payload)
+        actor_session.messages.append({"role": "assistant", "content": actor_reply})
+        last_response = actor_reply
         if verbose:
             print("[SingleStage][Actor] ", actor_reply)
-        distinguisher_reply = distinguisher_session.send(actor_reply)
+
+        distinguisher_reply, response_payload = distinguisher_session.send_with_payload(actor_reply)
+        append_raw_event(
+            raw_events,
+            label="distinguisher_turn",
+            speaker="distinguisher",
+            request_messages=distinguisher_session.messages[:-1],
+            response_payload=response_payload,
+            extracted_text=distinguisher_reply,
+        )
+        if verbose:
+            print_request_payload("distinguisher_turn", distinguisher_backend, distinguisher_session.messages[:-1])
+            print_response_payload("distinguisher_turn", response_payload)
+        last_response = distinguisher_reply
         if verbose:
             print("[SingleStage][Distinguisher] ", distinguisher_reply)
-        turn_count += 1
 
-    answer = extract_answer(distinguisher_reply)
-    success = ("<answer>" in distinguisher_reply) and (answer is not None)
-    return {
-        "success": success,
-        "turns": turn_count,
-        "answer": answer,
-        "raw_final_message": distinguisher_reply,
-        "first_message": first_message,
-        "actor_prompt": actor_prompt,
-        "actor_messages": copy.deepcopy(actor_session.messages),
-        "distinguisher_messages": copy.deepcopy(distinguisher_session.messages),
-    }
+        turn_count = count_distinguisher_turns(distinguisher_session.messages)
+        while "<answer>" not in distinguisher_reply and turn_count < turn_limit:
+            actor_reply, response_payload = actor_session.send_with_payload(distinguisher_reply)
+            append_raw_event(
+                raw_events,
+                label="actor_turn",
+                speaker="actor",
+                request_messages=actor_session.messages[:-1],
+                response_payload=response_payload,
+                extracted_text=actor_reply,
+            )
+            if verbose:
+                print_request_payload("actor_turn", actor_backend, actor_session.messages[:-1])
+                print_response_payload("actor_turn", response_payload)
+            last_response = actor_reply
+            if verbose:
+                print("[SingleStage][Actor] ", actor_reply)
+            distinguisher_reply, response_payload = distinguisher_session.send_with_payload(actor_reply)
+            append_raw_event(
+                raw_events,
+                label="distinguisher_turn",
+                speaker="distinguisher",
+                request_messages=distinguisher_session.messages[:-1],
+                response_payload=response_payload,
+                extracted_text=distinguisher_reply,
+            )
+            if verbose:
+                print_request_payload("distinguisher_turn", distinguisher_backend, distinguisher_session.messages[:-1])
+                print_response_payload("distinguisher_turn", response_payload)
+            last_response = distinguisher_reply
+            if verbose:
+                print("[SingleStage][Distinguisher] ", distinguisher_reply)
+            turn_count = count_distinguisher_turns(distinguisher_session.messages)
+
+        answer = extract_answer(distinguisher_reply)
+        success = ("<answer>" in distinguisher_reply) and (answer is not None)
+        return {
+            "success": success,
+            "turns": turn_count,
+            "answer": answer,
+            "raw_final_message": distinguisher_reply,
+            "first_message": first_message,
+            "actor_prompt": actor_user_prompt,
+            "actor_messages": copy.deepcopy(actor_session.messages),
+            "distinguisher_messages": copy.deepcopy(distinguisher_session.messages),
+            "raw_events": raw_events,
+        }
+    except OpenRouterResponseError as exc:
+        append_raw_event(
+            raw_events,
+            label="failed_response",
+            speaker="unknown",
+            request_messages=[],
+            response_payload=exc.response_payload,
+            error_message=str(exc),
+        )
+        return {
+            "success": False,
+            "turns": turn_count,
+            "answer": None,
+            "raw_final_message": last_response,
+            "first_message": first_message,
+            "actor_prompt": actor_user_prompt,
+            "actor_messages": copy.deepcopy(actor_session.messages),
+            "distinguisher_messages": copy.deepcopy(distinguisher_session.messages),
+            "raw_events": raw_events,
+            "error_message": str(exc),
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "turns": turn_count,
+            "answer": None,
+            "raw_final_message": last_response,
+            "first_message": first_message,
+            "actor_prompt": actor_user_prompt,
+            "actor_messages": copy.deepcopy(actor_session.messages),
+            "distinguisher_messages": copy.deepcopy(distinguisher_session.messages),
+            "raw_events": raw_events,
+            "error_message": str(exc),
+        }
 
 
 def build_generation_config(
@@ -378,6 +546,27 @@ def persist_transcript(
     actor_model: str,
     distinguisher_model: str,
 ) -> None:
+    if trial_result.get("error_message"):
+        payload = {
+            "trial_id": trial_result["trial_id"],
+            "actor_model": actor_model,
+            "distinguisher_model": distinguisher_model,
+            "success": trial_result["success"],
+            "error_message": trial_result["error_message"],
+            "first_message": trial_result.get("first_message"),
+            "actor_prompt": trial_result.get("actor_prompt"),
+            "interaction": {
+                "actor_messages": trial_result.get("actor_messages", []),
+                "distinguisher_messages": trial_result.get("distinguisher_messages", []),
+                "turns": trial_result.get("turns"),
+                "success": trial_result["success"],
+                "raw_final_message": trial_result.get("raw_final_message"),
+            },
+        }
+        with transcript_path.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+        return
+
     payload = {
         "trial_id": trial_result["trial_id"],
         "actor_model": actor_model,
@@ -397,6 +586,27 @@ def persist_transcript(
         json.dump(payload, handle, ensure_ascii=False, indent=2)
 
 
+def sanitize_filename_component(value: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9._-]+", "_", value).strip("_")
+    return sanitized or "event"
+
+
+def persist_json_transcripts(
+    trial_result: Dict[str, object],
+    json_transcript_dir: Path,
+    run_name: str,
+) -> None:
+    trial_dir = json_transcript_dir / f"{run_name}_trial_{int(trial_result['trial_id']):03d}"
+    trial_dir.mkdir(parents=True, exist_ok=True)
+    raw_events = trial_result.get("raw_events", [])
+    for index, event in enumerate(raw_events):
+        speaker = sanitize_filename_component(str(event.get("speaker", "unknown")))
+        label = sanitize_filename_component(str(event.get("label", f"event_{index:03d}")))
+        event_path = trial_dir / f"{index:03d}_{speaker}_{label}.json"
+        with event_path.open("w", encoding="utf-8") as handle:
+            json.dump(event, handle, ensure_ascii=False, indent=2)
+
+
 def write_csv(results: List[Dict[str, object]], output_csv: Path, actor_model: str, distinguisher_model: str) -> None:
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     with output_csv.open("w", newline="", encoding="utf-8") as handle:
@@ -407,6 +617,7 @@ def write_csv(results: List[Dict[str, object]], output_csv: Path, actor_model: s
             "success",
             "turns",
             "answer",
+            "error_message",
             "transcript_path",
         ]
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -420,6 +631,7 @@ def write_csv(results: List[Dict[str, object]], output_csv: Path, actor_model: s
                     "success": row["success"],
                     "turns": row["turns"],
                     "answer": row["answer"],
+                    "error_message": row.get("error_message"),
                     "transcript_path": row["transcript_path"],
                 }
             )
@@ -489,18 +701,42 @@ def validate_requested_models(
     raise ValueError("\n".join(message_lines))
 
 
+def resolve_output_paths(
+    experiment_name: Optional[str],
+    run_name_arg: Optional[str],
+) -> tuple[Path, Path, Path, str]:
+    if not experiment_name:
+        raise ValueError("--experiment-name is required.")
+    experiment_dir = Path("experiments") / experiment_name
+    output_csv = experiment_dir / f"{experiment_name}.csv"
+    run_name = run_name_arg or experiment_name
+    run_transcript_dir = experiment_dir / "transcripts"
+    run_json_transcript_dir = experiment_dir / "json_transcripts"
+    return output_csv, run_transcript_dir, run_json_transcript_dir, run_name
+
+
+def parse_optional_int(value: str) -> Optional[int]:
+    if value.lower() == "none":
+        return None
+    return int(value)
+
+
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run single-stage actor/distinguisher trials with OpenRouter chat models.")
 
     parser.add_argument("--actor-model", required=False, help="OpenRouter model ID for the actor.")
     parser.add_argument("--distinguisher-model", required=False, help="OpenRouter model ID for the distinguisher.")
     parser.add_argument("--num-trials", type=int, default=1, help="Number of trials to run with the same configuration.")
-    parser.add_argument("--turn-limit", type=int, default=40, help="Maximum back-and-forth exchanges in the interaction.")
-    parser.add_argument("--output-csv", required=False, help="Path to the CSV file that will store aggregated results.")
     parser.add_argument(
-        "--transcript-dir",
-        default="transcripts",
-        help="Directory where per-trial transcript JSON files will be written.",
+        "--turn-limit",
+        type=int,
+        default=40,
+        help="Maximum counted distinguisher turns after the initial message; a final <answer></answer> message does not count.",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        required=False,
+        help="Experiment name used to create experiments/<name>/<name>.csv and experiments/<name>/transcripts/.",
     )
     parser.add_argument("--run-name", default=None, help="Optional label used when naming transcript files.")
     parser.add_argument("--verbose", action="store_true", help="Print live conversations to stdout.")
@@ -515,21 +751,36 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--model-search", default=None, help="Filter --list-models output by substring.")
     parser.add_argument("--model-limit", type=int, default=50, help="Maximum number of models printed by --list-models.")
 
-    parser.add_argument("--max-new-tokens", type=int, default=256, help="Default max_tokens for all generations.")
+    parser.add_argument(
+        "--max-new-tokens",
+        type=parse_optional_int,
+        default=None,
+        help='Default max_tokens for all generations. Use "None" or omit to send no max_tokens field.',
+    )
     parser.add_argument("--temperature", type=float, default=None, help="Default sampling temperature.")
     parser.add_argument("--top-p", type=float, default=None, help="Default nucleus sampling probability.")
     parser.add_argument("--top-k", type=int, default=None, help="Default top-k sampling value.")
     parser.add_argument("--do-sample", dest="do_sample", action="store_true", default=True, help="Enable sampling (default).")
     parser.add_argument("--no-do-sample", dest="do_sample", action="store_false", help="Disable sampling by forcing temperature=0 when unset.")
 
-    parser.add_argument("--actor-max-new-tokens", type=int, default=None, help="Override max_tokens for actor generations.")
+    parser.add_argument(
+        "--actor-max-new-tokens",
+        type=parse_optional_int,
+        default=None,
+        help='Override max_tokens for actor generations. Use "None" to omit the field.',
+    )
     parser.add_argument("--actor-temperature", type=float, default=None, help="Override temperature for the actor.")
     parser.add_argument("--actor-top-p", type=float, default=None, help="Override top-p for the actor.")
     parser.add_argument("--actor-top-k", type=int, default=None, help="Override top-k for the actor.")
     parser.add_argument("--actor-do-sample", dest="actor_do_sample", action="store_true", default=None, help="Force sampling for the actor.")
     parser.add_argument("--actor-no-do-sample", dest="actor_do_sample", action="store_false", help="Disable sampling for the actor.")
 
-    parser.add_argument("--distinguisher-max-new-tokens", type=int, default=None, help="Override max_tokens for the distinguisher.")
+    parser.add_argument(
+        "--distinguisher-max-new-tokens",
+        type=parse_optional_int,
+        default=None,
+        help='Override max_tokens for the distinguisher. Use "None" to omit the field.',
+    )
     parser.add_argument("--distinguisher-temperature", type=float, default=None, help="Override temperature for the distinguisher.")
     parser.add_argument("--distinguisher-top-p", type=float, default=None, help="Override top-p for the distinguisher.")
     parser.add_argument("--distinguisher-top-k", type=int, default=None, help="Override top-k for the distinguisher.")
@@ -554,8 +805,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
             missing.append("--actor-model")
         if not args.distinguisher_model:
             missing.append("--distinguisher-model")
-        if not args.output_csv:
-            missing.append("--output-csv")
+        if not args.experiment_name:
+            missing.append("--experiment-name")
         if missing:
             parser.error(f"the following arguments are required unless --list-models is used: {', '.join(missing)}")
     return args
@@ -584,8 +835,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     assert args.actor_model is not None
     assert args.distinguisher_model is not None
-    assert args.output_csv is not None
-
     actor_generation = build_generation_config(args, "actor")
     distinguisher_generation = build_generation_config(args, "distinguisher")
 
@@ -621,12 +870,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     actor_backend = OpenRouterChatBackend(client, actor_config, actor_generation)
     distinguisher_backend = OpenRouterChatBackend(client, distinguisher_config, distinguisher_generation)
 
-    transcript_dir = Path(args.transcript_dir)
-    transcript_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-    run_name = args.run_name or f"run_{timestamp}"
-    run_transcript_dir = transcript_dir / run_name
+    output_csv, run_transcript_dir, run_json_transcript_dir, run_name = resolve_output_paths(
+        experiment_name=args.experiment_name,
+        run_name_arg=args.run_name,
+    )
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
     run_transcript_dir.mkdir(parents=True, exist_ok=True)
+    run_json_transcript_dir.mkdir(parents=True, exist_ok=True)
 
     results: List[Dict[str, object]] = []
     for trial_id in range(args.num_trials):
@@ -639,12 +889,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             turn_limit=args.turn_limit,
             verbose=args.verbose,
         )
+        if trial_result.get("error_message"):
+            print(f"[Trial {trial_id}] failed: {trial_result['error_message']}")
         transcript_path = run_transcript_dir / f"{run_name}_trial_{trial_id:03d}.json"
         persist_transcript(trial_result, transcript_path, args.actor_model, args.distinguisher_model)
+        persist_json_transcripts(trial_result, run_json_transcript_dir, run_name)
         trial_result["transcript_path"] = str(transcript_path)
         results.append(trial_result)
 
-    output_csv = Path(args.output_csv)
     write_csv(results, output_csv, args.actor_model, args.distinguisher_model)
     print(f"\nSaved {len(results)} trials to {output_csv}")
     return 0
