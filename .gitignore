@@ -4,7 +4,11 @@
 # Allow these files
 !.gitignore
 !README.md
+!generate_openrouter_single_stage_csv.py
 !run_hf_experiment.py
 !run_openrouter_experiment.py
 !run_openrouter_single_stage_experiment.py
+!run_openrouter_single_stage_no_actor_prompt_experiment.py
 !run_openrouter_single_stage_start_experiment.py
+!run_openrouter_single_stage_batch.py
+!run_openrouter_single_stage_no_actor_prompt_batch.py

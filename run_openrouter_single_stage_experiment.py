@@ -299,6 +299,7 @@ def append_raw_event(
     label: str,
     speaker: str,
     request_messages: List[Dict[str, str]],
+    request_payload: Optional[Dict[str, object]],
     response_payload: Optional[Dict[str, object]],
     extracted_text: Optional[str] = None,
     error_message: Optional[str] = None,
@@ -308,6 +309,7 @@ def append_raw_event(
             "label": label,
             "speaker": speaker,
             "request_messages": copy.deepcopy(request_messages),
+            "request_payload": copy.deepcopy(request_payload),
             "response_payload": response_payload,
             "extracted_text": extracted_text,
             "error_message": error_message,
@@ -368,6 +370,7 @@ def run_single_stage_trial(
             label="distinguisher_first",
             speaker="distinguisher",
             request_messages=distinguisher_session.messages,
+            request_payload=build_request_payload(distinguisher_backend, distinguisher_session.messages),
             response_payload=response_payload,
             extracted_text=first_message,
         )
@@ -387,6 +390,7 @@ def run_single_stage_trial(
             label="actor_first",
             speaker="actor",
             request_messages=actor_session.messages,
+            request_payload=build_request_payload(actor_backend, actor_session.messages),
             response_payload=response_payload,
             extracted_text=actor_reply,
         )
@@ -404,6 +408,7 @@ def run_single_stage_trial(
             label="distinguisher_turn",
             speaker="distinguisher",
             request_messages=distinguisher_session.messages[:-1],
+            request_payload=build_request_payload(distinguisher_backend, distinguisher_session.messages[:-1]),
             response_payload=response_payload,
             extracted_text=distinguisher_reply,
         )
@@ -422,6 +427,7 @@ def run_single_stage_trial(
                 label="actor_turn",
                 speaker="actor",
                 request_messages=actor_session.messages[:-1],
+                request_payload=build_request_payload(actor_backend, actor_session.messages[:-1]),
                 response_payload=response_payload,
                 extracted_text=actor_reply,
             )
@@ -437,6 +443,7 @@ def run_single_stage_trial(
                 label="distinguisher_turn",
                 speaker="distinguisher",
                 request_messages=distinguisher_session.messages[:-1],
+                request_payload=build_request_payload(distinguisher_backend, distinguisher_session.messages[:-1]),
                 response_payload=response_payload,
                 extracted_text=distinguisher_reply,
             )
@@ -467,6 +474,7 @@ def run_single_stage_trial(
             label="failed_response",
             speaker="unknown",
             request_messages=[],
+            request_payload=None,
             response_payload=exc.response_payload,
             error_message=str(exc),
         )
