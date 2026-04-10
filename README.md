@@ -79,7 +79,7 @@ Condition B, `yes_query_no_explanation`:
 
 - actor prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `ACTOR_PROMPT_YES_QUERY_NO_EXPLANATION`
 - distinguisher prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `DISTINGUISHER_PROMPT_NO_EXPLANATION`
-- specimen prompt: none; the specimen receives no system prompt
+- specimen prompt: none; the specimen receives no initial prompt
 - builder functions used at runtime: [turing_eval/prompts.py](turing_eval/prompts.py) `build_actor_prompt_yes_query(...)` and `build_distinguisher_prompt(with_reasoning=False)`
 
 Condition C, `no_query_yes_explanation`:
@@ -88,15 +88,16 @@ Condition C, `no_query_yes_explanation`:
 - distinguisher prompt template: [turing_eval/prompts.py](turing_eval/prompts.py) `DISTINGUISHER_PROMPT_YES_EXPLANATION`
 - builder functions used at runtime: [turing_eval/prompts.py](turing_eval/prompts.py) `build_actor_prompt_no_query(...)` and `build_distinguisher_prompt(with_reasoning=True)`
 
-If you want the exact prompt text that was actually used in one trial, open that trial's `trial_XXX.json` and inspect `actor_prompt`, plus the distinguisher-side `system` message under `distinguisher_messages`.
+If you want the exact prompt text that was actually used in one trial, open that trial's `trial_XXX.json` and inspect `actor_prompt`, plus the distinguisher-side initial `user` message under `distinguisher_messages`.
 
 ## Routing Policy
 
 The intended runtime policy in this repo is:
 
-1. Use OpenRouter when the model is available there.
-2. Use local Hugging Face inference as the fallback path.
-3. If a model is not available on OpenRouter, run it through the HF backend on a GPU node.
+1. Use OpenRouter by default when the model is available there.
+2. For GPT-family models that define a direct OpenAI route, you can opt into OpenAI per role.
+3. Use local Hugging Face inference as the fallback path.
+4. If a model is not available on OpenRouter, run it through the HF backend on a GPU node.
 
 That policy is implemented in the model registry at [turing_eval/models.py](turing_eval/models.py). Most models use `primary_backend="api"` with OpenRouter as the primary route and HF as the fallback route. Models that are not presently routed through OpenRouter in this repo use HF directly.
 
@@ -115,6 +116,7 @@ The repo can run the following model nicknames today. The tiers below are the re
 Use these as the strongest "gold-standard" distinguishers or actors via OpenRouter.
 
 - `gpt-5.4`
+- `gpt-5.4-pro`
 - `gemini-3-pro`
 - `claude-opus-4.6`
 
@@ -182,6 +184,7 @@ API keys are forwarded automatically by the container wrapper when present in yo
 Supported provider environment variables:
 
 - `OPENROUTER_API_KEY`
+- `OPENAI_API_KEY`
 - `DEEPSEEK_API_KEY`
 - `MOONSHOT_API_KEY`
 - `TOGETHER_API_KEY`
@@ -238,6 +241,22 @@ Use this when you want to guarantee an OpenRouter-backed run.
   --condition no_query_yes_explanation \
   --num-trials 3 \
   --turn-limit 25 \
+  --output-dir results
+```
+
+### Opt into direct OpenAI for GPT models
+
+Keep the API path, but route a GPT role directly through OpenAI instead of OpenRouter.
+
+```bash
+./scripts/run-in-container.sh python run_experiment.py \
+  --actor gpt-5.4 \
+  --actor-api-provider openai \
+  --distinguisher gpt-5.4-pro \
+  --distinguisher-api-provider openai \
+  --condition no_query_no_explanation \
+  --num-trials 2 \
+  --turn-limit 12 \
   --output-dir results
 ```
 
@@ -318,6 +337,8 @@ In practical terms, this command asks:
 - `--run-name`: optional explicit name for the run directory; otherwise the script auto-generates one
 - `--actor-backend`: force `api` or `hf` for the actor instead of using the registry default
 - `--distinguisher-backend`: force `api` or `hf` for the distinguisher instead of using the registry default
+- `--actor-api-provider`: when using the API path, force a specific provider such as `openrouter` or `openai`
+- `--distinguisher-api-provider`: same override for the distinguisher, and for the specimen in condition B
 - `--max-new-tokens`: generation cap per model response
 - `--temperature`: optional sampling temperature shared by both roles
 - `--verbose`: print the conversation live to stdout while the trial runs
@@ -464,7 +485,7 @@ Every transcript JSON contains these common top-level fields:
 - `answer`
 - optional `reasoning`
 - `first_message`: the distinguisher's opening message in the interrogation stage
-- `actor_prompt`: the system prompt used to steer the actor
+- `actor_prompt`: the initial prompt used to steer the actor
 - `raw_final_message`: the final raw message from the distinguisher, including `<answer>` and optional `<reasoning>`
 - `environment`: reproducibility metadata captured at save time
 

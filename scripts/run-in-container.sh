@@ -25,7 +25,7 @@ if [[ -f "${REPO_ROOT}/.env" ]]; then
 fi
 
 # Forward all provider API keys that are set in the current shell.
-for VAR in OPENROUTER_API_KEY DEEPSEEK_API_KEY MOONSHOT_API_KEY TOGETHER_API_KEY GROQ_API_KEY MISTRAL_API_KEY; do
+for VAR in OPENAI_API_KEY OPENROUTER_API_KEY DEEPSEEK_API_KEY MOONSHOT_API_KEY TOGETHER_API_KEY GROQ_API_KEY MISTRAL_API_KEY; do
     if [[ -n "${!VAR:-}" ]]; then
         ENV_ARGS+=("--env" "${VAR}=${!VAR}")
     fi

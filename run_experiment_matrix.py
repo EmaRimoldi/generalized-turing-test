@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from turing_eval.backends.api_backend import PROVIDERS
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -21,6 +23,8 @@ def main() -> int:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--actor-backend", choices=["api", "hf"], default=None)
     parser.add_argument("--distinguisher-backend", choices=["api", "hf"], default=None)
+    parser.add_argument("--actor-api-provider", choices=sorted(PROVIDERS), default=None)
+    parser.add_argument("--distinguisher-api-provider", choices=sorted(PROVIDERS), default=None)
     parser.add_argument("--max-new-tokens", type=int, default=None)
     parser.add_argument("--temperature", type=float, default=None)
     args = parser.parse_args()
@@ -63,6 +67,10 @@ def main() -> int:
             command.extend(["--actor-backend", args.actor_backend])
         if args.distinguisher_backend is not None:
             command.extend(["--distinguisher-backend", args.distinguisher_backend])
+        if args.actor_api_provider is not None:
+            command.extend(["--actor-api-provider", args.actor_api_provider])
+        if args.distinguisher_api_provider is not None:
+            command.extend(["--distinguisher-api-provider", args.distinguisher_api_provider])
         if args.max_new_tokens is not None:
             command.extend(["--max-new-tokens", str(args.max_new_tokens)])
         if args.temperature is not None:

@@ -33,3 +33,8 @@ def test_display_name_matches_primary_model_id_for_api():
             assert spec.display_name == spec.primary_model_id, (
                 f"{nickname}: display_name {spec.display_name!r} != model_id {spec.primary_model_id!r}"
             )
+
+
+def test_gpt_models_expose_direct_openai_routes():
+    for nickname in ("gpt-5.4", "gpt-5.4-pro"):
+        assert MODEL_REGISTRY[nickname].alternate_api_routes["openai"].startswith("gpt-5.4")

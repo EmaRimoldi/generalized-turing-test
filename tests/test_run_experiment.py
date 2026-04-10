@@ -49,7 +49,7 @@ def test_run_experiment_retries_infra_failures_and_keeps_only_valid_trials(monke
         result["trial_id"] = kwargs["trial_id"]
         return result
 
-    def fake_load_backend(model_name, generation, force_backend=None):
+    def fake_load_backend(model_name, generation, force_backend=None, force_api_provider=None):
         if model_name == "gpt-5.4":
             return actor_backend
         return distinguisher_backend
@@ -148,3 +148,58 @@ def test_run_experiment_warns_when_max_attempts_prevents_collecting_target(monke
     assert rows == []
     failed_attempts = sorted((out_dir / "max-attempts-check").glob("failed_attempt_*.json"))
     assert len(failed_attempts) == 2
+
+
+def test_run_experiment_passes_api_provider_overrides(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    backend = FakeBackend("model")
+    captured_calls = []
+
+    def fake_runner(**kwargs):
+        return {
+            "trial_id": kwargs["trial_id"],
+            "success": True,
+            "turns": 1,
+            "answer": 1,
+            "first_message": "hello",
+            "raw_final_message": "<answer>1</answer>",
+        }
+
+    def fake_load_backend(model_name, generation, force_backend=None, force_api_provider=None):
+        captured_calls.append((model_name, force_backend, force_api_provider))
+        return backend
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "yes_query_no_explanation", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", fake_load_backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4",
+            "--distinguisher",
+            "gpt-5.4-pro",
+            "--condition",
+            "yes_query_no_explanation",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "provider-override-check",
+            "--actor-api-provider",
+            "openai",
+            "--distinguisher-api-provider",
+            "openai",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    assert captured_calls == [
+        ("gpt-5.4", None, "openai"),
+        ("gpt-5.4-pro", None, "openai"),
+        ("gpt-5.4-pro", None, "openai"),
+    ]

@@ -1,7 +1,7 @@
 """Single source of truth for model nicknames, backends, and provider routing."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Literal, Optional
 
 from .backends.api_backend import APIChatBackend
@@ -26,6 +26,7 @@ class ModelSpec:
     fallback_hf_repo: Optional[str] = None
     fallback_hf_quantization: Optional[str] = None
     fallback_hf_dtype: Optional[str] = "bfloat16"
+    alternate_api_routes: Dict[str, str] = field(default_factory=dict)
 
 
 MODEL_REGISTRY: Dict[str, ModelSpec] = {
@@ -53,6 +54,16 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
         primary_backend="api",
         primary_provider="openrouter",
         primary_model_id="openai/gpt-5.4",
+        alternate_api_routes={"openai": "gpt-5.4"},
+    ),
+    "gpt-5.4-pro": ModelSpec(
+        nickname="gpt-5.4-pro",
+        display_name="openai/gpt-5.4-pro",  # TODO-VERIFY
+        tier="frontier",
+        primary_backend="api",
+        primary_provider="openrouter",
+        primary_model_id="openai/gpt-5.4-pro",
+        alternate_api_routes={"openai": "gpt-5.4-pro"},
     ),
     "gemini-3-pro": ModelSpec(
         nickname="gemini-3-pro",
@@ -198,15 +209,19 @@ def load_backend(
     nickname: str,
     generation: GenerationConfig,
     force_backend: Optional[BackendKind] = None,
+    force_api_provider: Optional[str] = None,
 ) -> ChatBackend:
     """Factory: given a nickname, return a ready-to-use ChatBackend instance."""
     if nickname not in MODEL_REGISTRY:
         raise KeyError(f"Unknown model nickname {nickname!r}. Known: {sorted(MODEL_REGISTRY)}")
     spec = MODEL_REGISTRY[nickname]
-    chosen: BackendKind = force_backend or spec.primary_backend
+    chosen: BackendKind = force_backend or ("api" if force_api_provider else spec.primary_backend)
+
+    if chosen == "hf" and force_api_provider is not None:
+        raise ValueError(f"Cannot request API provider {force_api_provider!r} with HF backend for {nickname}")
 
     if chosen == "api":
-        if spec.primary_backend == "api":
+        if force_api_provider is None and spec.primary_backend == "api":
             assert spec.primary_provider and spec.primary_model_id
             return APIChatBackend(
                 provider=spec.primary_provider,
@@ -214,7 +229,7 @@ def load_backend(
                 display_name=spec.display_name,
                 generation=generation,
             )
-        if spec.fallback_backend == "api":
+        if force_api_provider is None and spec.fallback_backend == "api":
             assert spec.fallback_provider and spec.fallback_model_id
             return APIChatBackend(
                 provider=spec.fallback_provider,
@@ -222,6 +237,31 @@ def load_backend(
                 display_name=spec.display_name,
                 generation=generation,
             )
+        if force_api_provider is not None:
+            if spec.primary_backend == "api" and spec.primary_provider == force_api_provider:
+                assert spec.primary_model_id
+                return APIChatBackend(
+                    provider=force_api_provider,
+                    model_id=spec.primary_model_id,
+                    display_name=spec.display_name,
+                    generation=generation,
+                )
+            if spec.fallback_backend == "api" and spec.fallback_provider == force_api_provider:
+                assert spec.fallback_model_id
+                return APIChatBackend(
+                    provider=force_api_provider,
+                    model_id=spec.fallback_model_id,
+                    display_name=spec.display_name,
+                    generation=generation,
+                )
+            if force_api_provider in spec.alternate_api_routes:
+                return APIChatBackend(
+                    provider=force_api_provider,
+                    model_id=spec.alternate_api_routes[force_api_provider],
+                    display_name=spec.display_name,
+                    generation=generation,
+                )
+            raise ValueError(f"No API provider route {force_api_provider!r} configured for {nickname}")
         raise ValueError(f"No API backend configured for {nickname}")
 
     if chosen == "hf":

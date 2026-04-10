@@ -38,6 +38,10 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
             "hf",
             "--distinguisher-backend",
             "api",
+            "--actor-api-provider",
+            "openai",
+            "--distinguisher-api-provider",
+            "openrouter",
             "--max-new-tokens",
             "123",
             "--temperature",
@@ -55,5 +59,7 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
     assert "--verbose" in first
     assert "--actor-backend" in first and "hf" in first
     assert "--distinguisher-backend" in first and "api" in first
+    assert "--actor-api-provider" in first and "openai" in first
+    assert "--distinguisher-api-provider" in first and "openrouter" in first
     assert "--max-new-tokens" in first and "123" in first
     assert "--temperature" in first and "0.4" in first

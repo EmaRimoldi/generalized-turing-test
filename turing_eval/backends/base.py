@@ -63,12 +63,21 @@ class ChatBackend(ABC):
 class ChatSession:
     """Mutable chat history bound to a single backend instance."""
 
-    def __init__(self, backend: ChatBackend, name: str, system_prompt: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        backend: ChatBackend,
+        name: str,
+        initial_prompt: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> None:
         self.backend = backend
         self.name = name
         self.messages: List[Dict[str, object]] = []
-        if system_prompt:
-            self.messages.append({"role": "system", "content": system_prompt})
+        if initial_prompt is not None and system_prompt is not None:
+            raise ValueError("Pass only one of initial_prompt or system_prompt.")
+        prompt = initial_prompt if initial_prompt is not None else system_prompt
+        if prompt:
+            self.messages.append({"role": "user", "content": prompt})
 
     def _append_assistant_message(self, reply: str, metadata: Dict[str, object]) -> None:
         message: Dict[str, object] = {"role": "assistant", "content": reply}

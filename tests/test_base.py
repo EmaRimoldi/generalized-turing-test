@@ -53,11 +53,11 @@ def test_generation_config_to_hf_kwargs():
 
 def test_chat_session_send_appends_history():
     backend = EchoBackend()
-    session = ChatSession(backend, "test", system_prompt="system")
+    session = ChatSession(backend, "test", initial_prompt="prompt")
     reply = session.send("hello")
     assert reply == "reply-1-2"
     assert session.messages == [
-        {"role": "system", "content": "system"},
+        {"role": "user", "content": "prompt"},
         {"role": "user", "content": "hello"},
         {"role": "assistant", "content": "reply-1-2"},
     ]
@@ -65,18 +65,18 @@ def test_chat_session_send_appends_history():
 
 def test_chat_session_generate_opening_uses_current_messages():
     backend = EchoBackend("open")
-    session = ChatSession(backend, "test", system_prompt="system")
+    session = ChatSession(backend, "test", initial_prompt="prompt")
     reply = session.generate_opening()
     assert reply == "open-1-1"
     assert session.messages == [
-        {"role": "system", "content": "system"},
+        {"role": "user", "content": "prompt"},
         {"role": "assistant", "content": "open-1-1"},
     ]
 
 
 def test_chat_session_preserves_generation_metadata_on_assistant_messages():
     backend = MetadataBackend("meta")
-    session = ChatSession(backend, "test", system_prompt="system")
+    session = ChatSession(backend, "test", initial_prompt="prompt")
     reply = session.send("hello")
     assert reply == "meta-1-2"
     assert session.messages[-1] == {
@@ -85,3 +85,9 @@ def test_chat_session_preserves_generation_metadata_on_assistant_messages():
         "finish_reason": "length",
         "truncated": True,
     }
+
+
+def test_chat_session_legacy_system_prompt_arg_is_user_framed():
+    backend = EchoBackend()
+    session = ChatSession(backend, "test", system_prompt="legacy")
+    assert session.messages == [{"role": "user", "content": "legacy"}]

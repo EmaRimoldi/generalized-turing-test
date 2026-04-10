@@ -8,6 +8,7 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
+from turing_eval.backends.api_backend import PROVIDERS
 from turing_eval.backends.base import GenerationConfig
 from turing_eval.conditions import (
     run_trial_no_query_no_explanation,
@@ -33,6 +34,18 @@ def _failed_attempt_path(out_dir: Path, attempt_id: int) -> Path:
     return out_dir / f"failed_attempt_{attempt_id:03d}_{timestamp}.json"
 
 
+def _describe_backend_route(backend) -> dict[str, object]:
+    route = {
+        "backend": getattr(backend, "backend_kind", None),
+        "display_name": getattr(backend, "display_name", None),
+        "model_id": getattr(backend, "model_id", None),
+    }
+    provider_name = getattr(backend, "provider_name", None)
+    if provider_name is not None:
+        route["provider"] = provider_name
+    return route
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--actor", required=True, choices=sorted(MODEL_REGISTRY))
@@ -46,6 +59,8 @@ def main() -> int:
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--actor-backend", choices=["api", "hf"], default=None)
     parser.add_argument("--distinguisher-backend", choices=["api", "hf"], default=None)
+    parser.add_argument("--actor-api-provider", choices=sorted(PROVIDERS), default=None)
+    parser.add_argument("--distinguisher-api-provider", choices=sorted(PROVIDERS), default=None)
     parser.add_argument("--max-new-tokens", type=int, default=2048)
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--max-attempts", type=int, default=None)
@@ -53,8 +68,18 @@ def main() -> int:
     max_attempts = args.max_attempts if args.max_attempts is not None else (3 * args.num_trials)
 
     generation = GenerationConfig(max_new_tokens=args.max_new_tokens, temperature=args.temperature)
-    actor = load_backend(args.actor, generation, force_backend=args.actor_backend)
-    distinguisher = load_backend(args.distinguisher, generation, force_backend=args.distinguisher_backend)
+    actor = load_backend(
+        args.actor,
+        generation,
+        force_backend=args.actor_backend,
+        force_api_provider=args.actor_api_provider,
+    )
+    distinguisher = load_backend(
+        args.distinguisher,
+        generation,
+        force_backend=args.distinguisher_backend,
+        force_api_provider=args.distinguisher_api_provider,
+    )
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     run_name = args.run_name or f"{args.actor}_vs_{args.distinguisher}_{args.condition}_{timestamp}"
@@ -75,7 +100,12 @@ def main() -> int:
             "verbose": args.verbose,
         }
         if args.condition == "yes_query_no_explanation":
-            specimen = load_backend(args.distinguisher, generation, force_backend=args.distinguisher_backend)
+            specimen = load_backend(
+                args.distinguisher,
+                generation,
+                force_backend=args.distinguisher_backend,
+                force_api_provider=args.distinguisher_api_provider,
+            )
             kwargs["specimen"] = specimen
             kwargs["specimen_turn_limit"] = args.specimen_turn_limit
         try:
@@ -91,6 +121,10 @@ def main() -> int:
                 "error": str(exc),
             }
         result["attempt_id"] = attempt_id
+        result["actor_route"] = _describe_backend_route(actor)
+        result["distinguisher_route"] = _describe_backend_route(distinguisher)
+        if args.condition == "yes_query_no_explanation":
+            result["specimen_route"] = _describe_backend_route(specimen)
 
         if _is_valid_trial_result(result):
             transcript_path = out_dir / f"trial_{trial_id:03d}.json"

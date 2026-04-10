@@ -4,7 +4,7 @@ from turing_eval.backends.api_backend import APIChatBackend, PROVIDERS
 
 
 def test_providers_registered():
-    for name in ("openrouter", "deepseek", "moonshot", "together", "groq", "mistral"):
+    for name in ("openai", "openrouter", "deepseek", "moonshot", "together", "groq", "mistral"):
         assert name in PROVIDERS
 
 

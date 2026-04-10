@@ -9,7 +9,7 @@ The placeholder {distinguisher_model} is the identity the actor is instructed to
 Per team convention (match Susan's current code), this holds the raw OpenRouter slug
 (e.g. "anthropic/claude-opus-4.6"), not a human-readable display name.
 The placeholder {first_message} is the distinguisher's opening turn, inlined into the
-actor's system prompt in the two single-stage conditions only.
+actor's initial prompt in the two single-stage conditions only.
 """
 
 # ---- Condition A: no_query_no_explanation ----
@@ -53,7 +53,7 @@ Once the first stage is over, the interaction with the distinguisher will begin,
 Please provide your first message to the specimen (return "STOP" to end this stage)"""
 
 # The distinguisher prompt in condition B is identical to condition A's distinguisher prompt.
-# The specimen receives no system prompt at all.
+# The specimen receives no initial prompt at all.
 
 # ---- Condition C: no_query_yes_explanation ----
 

@@ -252,13 +252,17 @@ class ChatSession:
         self,
         backend: OpenRouterChatBackend,
         name: str,
+        initial_prompt: Optional[str] = None,
         system_prompt: Optional[str] = None,
     ) -> None:
         self.backend = backend
         self.name = name
         self.messages: List[Dict[str, str]] = []
-        if system_prompt:
-            self.messages.append({"role": "system", "content": system_prompt})
+        if initial_prompt is not None and system_prompt is not None:
+            raise ValueError("Pass only one of initial_prompt or system_prompt.")
+        prompt = initial_prompt if initial_prompt is not None else system_prompt
+        if prompt:
+            self.messages.append({"role": "user", "content": prompt})
 
     def send(self, content: str) -> str:
         self.messages.append({"role": "user", "content": content})
@@ -287,7 +291,7 @@ def run_single_stage_trial(
     distinguisher_session = ChatSession(
         distinguisher_backend,
         name="distinguisher",
-        system_prompt=DISTINGUISHER_PROMPT,
+        initial_prompt=DISTINGUISHER_PROMPT,
     )
     first_message = distinguisher_session.backend.generate(distinguisher_session.messages)
     distinguisher_session.messages.append({"role": "assistant", "content": first_message})
@@ -295,7 +299,7 @@ def run_single_stage_trial(
         print("[SingleStage][Distinguisher] ", first_message)
 
     actor_prompt = build_actor_prompt(distinguisher_model, first_message)
-    actor_session = ChatSession(actor_backend, name="actor", system_prompt=actor_prompt)
+    actor_session = ChatSession(actor_backend, name="actor", initial_prompt=actor_prompt)
     actor_reply = actor_session.backend.generate(actor_session.messages)
     actor_session.messages.append({"role": "assistant", "content": actor_reply})
     if verbose:

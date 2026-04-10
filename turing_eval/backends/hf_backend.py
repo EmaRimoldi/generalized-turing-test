@@ -57,6 +57,8 @@ class HFChatBackend(ChatBackend):
     ) -> None:
         torch, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig = _import_hf_dependencies()
 
+        self.backend_kind = "hf"
+        self.provider_name = None
         self.model_id = repo_id
         self.display_name = display_name
         self.generation = generation

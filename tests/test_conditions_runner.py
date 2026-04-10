@@ -33,7 +33,7 @@ def test_run_trial_no_query_no_explanation_success():
     assert result["turns"] == 2
     assert result["first_message"] == "d opening"
     assert result["raw_final_message"] == "<answer>1</answer>"
-    assert result["actor_messages"][0]["role"] == "system"
+    assert result["actor_messages"][0]["role"] == "user"
 
 
 def test_run_trial_yes_query_no_explanation_records_two_stages():

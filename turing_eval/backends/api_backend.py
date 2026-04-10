@@ -19,6 +19,11 @@ class ProviderConfig:
 
 
 PROVIDERS: Dict[str, ProviderConfig] = {
+    "openai": ProviderConfig(
+        name="openai",
+        base_url="https://api.openai.com/v1",
+        api_key_env="OPENAI_API_KEY",
+    ),
     "openrouter": ProviderConfig(
         name="openrouter",
         base_url="https://openrouter.ai/api/v1",
@@ -70,6 +75,8 @@ class APIChatBackend(ChatBackend):
         if provider not in PROVIDERS:
             raise ValueError(f"Unknown provider {provider!r}. Known: {sorted(PROVIDERS)}")
         self.provider_config = PROVIDERS[provider]
+        self.backend_kind = "api"
+        self.provider_name = provider
         self.model_id = model_id
         self.display_name = display_name
         self.generation = generation

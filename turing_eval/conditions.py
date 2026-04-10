@@ -88,7 +88,7 @@ def run_trial_no_query_no_explanation(
     d_session = ChatSession(
         distinguisher,
         "distinguisher",
-        system_prompt=build_distinguisher_prompt(with_reasoning=False),
+        initial_prompt=build_distinguisher_prompt(with_reasoning=False),
     )
     first_message = d_session.generate_opening()
     if verbose:
@@ -105,7 +105,7 @@ def run_trial_no_query_no_explanation(
             actor_messages=[],
         )
 
-    a_session = ChatSession(actor, "actor", system_prompt=actor_prompt)
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
     actor_reply = a_session.generate_opening()
     if verbose:
         print("[A]", actor_reply)
@@ -153,8 +153,8 @@ def run_trial_yes_query_no_explanation(
     )
 
     actor_prompt = build_actor_prompt_yes_query(distinguisher.display_name)
-    a_session = ChatSession(actor, "actor", system_prompt=actor_prompt)
-    s_session = ChatSession(specimen, "specimen", system_prompt=None)
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    s_session = ChatSession(specimen, "specimen", initial_prompt=None)
 
     actor_to_specimen = a_session.generate_opening()
     if verbose:
@@ -177,7 +177,7 @@ def run_trial_yes_query_no_explanation(
     d_session = ChatSession(
         distinguisher,
         "distinguisher",
-        system_prompt=build_distinguisher_prompt(with_reasoning=False),
+        initial_prompt=build_distinguisher_prompt(with_reasoning=False),
     )
     first_message = d_session.generate_opening()
     if verbose:
@@ -243,7 +243,7 @@ def run_trial_no_query_yes_explanation(
     d_session = ChatSession(
         distinguisher,
         "distinguisher",
-        system_prompt=build_distinguisher_prompt(with_reasoning=True),
+        initial_prompt=build_distinguisher_prompt(with_reasoning=True),
     )
     first_message = d_session.generate_opening()
     if verbose:
@@ -261,7 +261,7 @@ def run_trial_no_query_yes_explanation(
             actor_messages=[],
         )
 
-    a_session = ChatSession(actor, "actor", system_prompt=actor_prompt)
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
     actor_reply = a_session.generate_opening()
     if verbose:
         print("[A]", actor_reply)
