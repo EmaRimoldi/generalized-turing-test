@@ -50,7 +50,7 @@ def test_run_experiment_retries_infra_failures_and_keeps_only_valid_trials(monke
         return result
 
     def fake_load_backend(model_name, generation, force_backend=None, force_api_provider=None):
-        if model_name == "gpt-5.4":
+        if model_name == "gpt-5.4-pro":
             return actor_backend
         return distinguisher_backend
 
@@ -62,7 +62,7 @@ def test_run_experiment_retries_infra_failures_and_keeps_only_valid_trials(monke
         [
             "run_experiment.py",
             "--actor",
-            "gpt-5.4",
+            "gpt-5.4-pro",
             "--distinguisher",
             "claude-opus-4.6",
             "--condition",
@@ -121,7 +121,7 @@ def test_run_experiment_warns_when_max_attempts_prevents_collecting_target(monke
         [
             "run_experiment.py",
             "--actor",
-            "gpt-5.4",
+            "gpt-5.4-pro",
             "--distinguisher",
             "claude-opus-4.6",
             "--condition",
@@ -177,7 +177,7 @@ def test_run_experiment_passes_api_provider_overrides(monkeypatch, tmp_path):
         [
             "run_experiment.py",
             "--actor",
-            "gpt-5.4",
+            "gpt-5.4-pro",
             "--distinguisher",
             "gpt-5.4-pro",
             "--condition",
@@ -199,7 +199,7 @@ def test_run_experiment_passes_api_provider_overrides(monkeypatch, tmp_path):
 
     assert rc == 0
     assert captured_calls == [
-        ("gpt-5.4", None, "openai"),
+        ("gpt-5.4-pro", None, "openai"),
         ("gpt-5.4-pro", None, "openai"),
         ("gpt-5.4-pro", None, "openai"),
     ]

@@ -43,9 +43,22 @@ def test_load_backend_uses_api_fallback(monkeypatch):
             captured.update(provider=provider, model_id=model_id, display_name=display_name)
 
     monkeypatch.setattr(models, "APIChatBackend", FakeAPIBackend)
-    models.load_backend("deepseek-v3.2", GenerationConfig(), force_backend="api")
+    monkeypatch.setitem(
+        models.MODEL_REGISTRY,
+        "temp-fallback-api",
+        models.ModelSpec(
+            nickname="temp-fallback-api",
+            display_name="fallback/display",
+            tier="tier3",
+            primary_backend="hf",
+            fallback_backend="api",
+            fallback_provider="openrouter",
+            fallback_model_id="fallback/model",
+        ),
+    )
+    models.load_backend("temp-fallback-api", GenerationConfig(), force_backend="api")
     assert captured["provider"] == "openrouter"
-    assert captured["model_id"] == "deepseek/deepseek-v3.2"
+    assert captured["model_id"] == "fallback/model"
 
 
 def test_load_backend_can_force_direct_openai_for_gpt(monkeypatch):
@@ -57,10 +70,10 @@ def test_load_backend_can_force_direct_openai_for_gpt(monkeypatch):
 
     monkeypatch.setattr(models, "APIChatBackend", FakeAPIBackend)
     generation = GenerationConfig()
-    models.load_backend("gpt-5.4", generation, force_api_provider="openai")
+    models.load_backend("gpt-5.4-pro", generation, force_api_provider="openai")
     assert captured["provider"] == "openai"
-    assert captured["model_id"] == "gpt-5.4"
-    assert captured["display_name"] == "openai/gpt-5.4"
+    assert captured["model_id"] == "gpt-5.4-pro"
+    assert captured["display_name"] == "openai/gpt-5.4-pro"
     assert captured["generation"] is generation
 
 
@@ -72,7 +85,22 @@ def test_load_backend_can_force_fallback_api_provider(monkeypatch):
             captured.update(provider=provider, model_id=model_id, display_name=display_name)
 
     monkeypatch.setattr(models, "APIChatBackend", FakeAPIBackend)
-    models.load_backend("deepseek-v3.2", GenerationConfig(), force_api_provider="deepseek")
+    monkeypatch.setitem(
+        models.MODEL_REGISTRY,
+        "temp-provider-route",
+        models.ModelSpec(
+            nickname="temp-provider-route",
+            display_name="provider/display",
+            tier="tier3",
+            primary_backend="api",
+            primary_provider="openrouter",
+            primary_model_id="openrouter/model",
+            fallback_backend="api",
+            fallback_provider="deepseek",
+            fallback_model_id="deepseek-chat",
+        ),
+    )
+    models.load_backend("temp-provider-route", GenerationConfig(), force_api_provider="deepseek")
     assert captured["provider"] == "deepseek"
     assert captured["model_id"] == "deepseek-chat"
 
@@ -92,9 +120,23 @@ def test_load_backend_uses_hf_backend(monkeypatch):
 
     monkeypatch.setattr("turing_eval.backends.hf_backend.HFChatBackend", FakeHFBackend)
     generation = GenerationConfig()
-    models.load_backend("llama-3.3-70b", generation, force_backend="hf")
-    assert captured["repo_id"] == "meta-llama/Llama-3.3-70B-Instruct"
-    assert captured["display_name"] == "meta-llama/llama-3.3-70b-instruct"
+    monkeypatch.setitem(
+        models.MODEL_REGISTRY,
+        "temp-hf-model",
+        models.ModelSpec(
+            nickname="temp-hf-model",
+            display_name="temp/hf-model",
+            tier="tier3",
+            primary_backend="api",
+            primary_provider="openrouter",
+            primary_model_id="temp/hf-model",
+            fallback_hf_repo="org/temp-hf-model",
+            fallback_hf_quantization="4bit",
+        ),
+    )
+    models.load_backend("temp-hf-model", generation, force_backend="hf")
+    assert captured["repo_id"] == "org/temp-hf-model"
+    assert captured["display_name"] == "temp/hf-model"
     assert captured["generation"] is generation
     assert captured["quantization"] == "4bit"
 
@@ -106,8 +148,21 @@ def test_load_backend_missing_hf_route_raises():
 
 def test_load_backend_rejects_api_provider_override_for_hf(monkeypatch):
     monkeypatch.setattr("turing_eval.backends.hf_backend.HFChatBackend", object)
+    monkeypatch.setitem(
+        models.MODEL_REGISTRY,
+        "temp-hf-only",
+        models.ModelSpec(
+            nickname="temp-hf-only",
+            display_name="temp/hf-only",
+            tier="tier3",
+            primary_backend="api",
+            primary_provider="openrouter",
+            primary_model_id="temp/hf-only",
+            fallback_hf_repo="org/temp-hf-only",
+        ),
+    )
     with pytest.raises(ValueError, match="Cannot request API provider"):
-        models.load_backend("llama-3.3-70b", GenerationConfig(), force_backend="hf", force_api_provider="openai")
+        models.load_backend("temp-hf-only", GenerationConfig(), force_backend="hf", force_api_provider="openai")
 
 
 def test_load_backend_rejects_unknown_provider_route():
@@ -200,8 +255,8 @@ def test_hf_backend_generate_with_mocked_hf_stack(monkeypatch):
     )
 
     backend = HFChatBackend(
-        "Qwen/Qwen2.5-7B-Instruct",
-        "qwen/qwen2.5-7b",
+        "meta-llama/Llama-3.3-8B-Instruct",
+        "meta-llama/llama-3.3-8b-instruct",
         GenerationConfig(max_new_tokens=12),
     )
     reply = backend.generate([{"role": "user", "content": "hello"}])
@@ -231,8 +286,8 @@ def test_hf_backend_4bit_requires_cuda(monkeypatch):
 
     with pytest.raises(RuntimeError, match="4bit HF quantization requires CUDA"):
         HFChatBackend(
-            "meta-llama/Llama-3.3-70B-Instruct",
-            "meta-llama/llama-3.3-70b-instruct",
+            "meta-llama/Llama-3.3-8B-Instruct",
+            "meta-llama/llama-3.3-8b-instruct",
             GenerationConfig(),
             quantization="4bit",
         )

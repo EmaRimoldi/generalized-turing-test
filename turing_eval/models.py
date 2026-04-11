@@ -30,7 +30,7 @@ class ModelSpec:
 
 
 MODEL_REGISTRY: Dict[str, ModelSpec] = {
-    # ---- Frontier closed ----
+    # ---- Tier 0: Frontier closed ----
     "claude-opus-4.6": ModelSpec(
         nickname="claude-opus-4.6",
         display_name="anthropic/claude-opus-4.6",  # VERIFIED
@@ -39,26 +39,9 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
         primary_provider="openrouter",
         primary_model_id="anthropic/claude-opus-4.6",
     ),
-    "claude-sonnet-4.6": ModelSpec(
-        nickname="claude-sonnet-4.6",
-        display_name="anthropic/claude-sonnet-4.6",  # TODO-VERIFY
-        tier="frontier",
-        primary_backend="api",
-        primary_provider="openrouter",
-        primary_model_id="anthropic/claude-sonnet-4.6",
-    ),
-    "gpt-5.4": ModelSpec(
-        nickname="gpt-5.4",
-        display_name="openai/gpt-5.4",  # TODO-VERIFY
-        tier="frontier",
-        primary_backend="api",
-        primary_provider="openrouter",
-        primary_model_id="openai/gpt-5.4",
-        alternate_api_routes={"openai": "gpt-5.4"},
-    ),
     "gpt-5.4-pro": ModelSpec(
         nickname="gpt-5.4-pro",
-        display_name="openai/gpt-5.4-pro",  # TODO-VERIFY
+        display_name="openai/gpt-5.4-pro",  # VERIFIED
         tier="frontier",
         primary_backend="api",
         primary_provider="openrouter",
@@ -73,7 +56,7 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
         primary_provider="openrouter",
         primary_model_id="google/gemini-3.1-pro-preview",
     ),
-    # ---- Tier 1: Frontier open ----
+    # ---- Tier 1: Large MoE ----
     "deepseek-v3.2": ModelSpec(
         nickname="deepseek-v3.2",
         display_name="deepseek/deepseek-v3.2",  # VERIFIED
@@ -81,126 +64,48 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
         primary_backend="api",
         primary_provider="openrouter",
         primary_model_id="deepseek/deepseek-v3.2",
-        fallback_backend="api",
-        fallback_provider="deepseek",
-        fallback_model_id="deepseek-chat",
     ),
-    "glm-5-reasoning": ModelSpec(
-        nickname="glm-5-reasoning",
-        display_name="z-ai/glm-5",  # VERIFIED
+    "mistral-large-2512": ModelSpec(
+        nickname="mistral-large-2512",
+        display_name="mistralai/mistral-large-2512",
         tier="tier1",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="z-ai/glm-5",
+        primary_model_id="mistralai/mistral-large-2512",
     ),
-    "kimi-k2.5": ModelSpec(
-        nickname="kimi-k2.5",
-        display_name="moonshotai/kimi-k2.5",  # TODO-VERIFY
-        tier="tier1",
-        primary_backend="api",
-        primary_provider="openrouter",
-        primary_model_id="moonshotai/kimi-k2.5",
-    ),
-    "llama-3.3-70b": ModelSpec(
-        nickname="llama-3.3-70b",
-        display_name="meta-llama/llama-3.3-70b-instruct",  # VERIFIED
-        tier="tier1",
-        primary_backend="api",
-        primary_provider="openrouter",
-        primary_model_id="meta-llama/llama-3.3-70b-instruct",
-        fallback_backend="hf",
-        fallback_hf_repo="meta-llama/Llama-3.3-70B-Instruct",
-        fallback_hf_quantization="4bit",
-    ),
-    # ---- Tier 2: Mid ----
-    "qwen3-30b-a3b": ModelSpec(
-        nickname="qwen3-30b-a3b",
-        display_name="qwen/qwen3-30b-a3b",  # VERIFIED
-        tier="tier2",
-        primary_backend="api",
-        primary_provider="openrouter",
-        primary_model_id="qwen/qwen3-30b-a3b",
-        fallback_backend="hf",
-        fallback_hf_repo="Qwen/Qwen3-30B-A3B-Instruct",
-    ),
-    "qwen2.5-32b": ModelSpec(
-        nickname="qwen2.5-32b",
+    # ---- Tier 2: Medium dense ----
+    "qwen3-32b": ModelSpec(
+        nickname="qwen3-32b",
         display_name="qwen/qwen3-32b",  # VERIFIED
         tier="tier2",
         primary_backend="api",
         primary_provider="openrouter",
         primary_model_id="qwen/qwen3-32b",
-        fallback_backend="hf",
-        fallback_hf_repo="Qwen/Qwen2.5-32B-Instruct",
     ),
-    "exaone-4-32b": ModelSpec(
-        nickname="exaone-4-32b",
-        display_name="LGAI-EXAONE/EXAONE-4.0-32B-Instruct",
-        tier="tier2",
-        primary_backend="hf",
-        fallback_hf_repo="LGAI-EXAONE/EXAONE-4.0-32B-Instruct",
-        fallback_hf_dtype="bfloat16",
-    ),
-    "gemma-3-27b": ModelSpec(
-        nickname="gemma-3-27b",
-        display_name="google/gemma-3-27b-it",  # VERIFIED
+    "gemma-4-31b": ModelSpec(
+        nickname="gemma-4-31b",
+        display_name="google/gemma-4-31b-it",
         tier="tier2",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="google/gemma-3-27b-it",
-        fallback_backend="hf",
-        fallback_hf_repo="google/gemma-3-27b-it",
+        primary_model_id="google/gemma-4-31b-it",
     ),
-    # ---- Tier 3: Weak baseline ----
-    "gemma-3-12b": ModelSpec(
-        nickname="gemma-3-12b",
-        display_name="google/gemma-3-12b-it",  # VERIFIED
+    # ---- Tier 3: Small dense ----
+    "ministral-8b-2512": ModelSpec(
+        nickname="ministral-8b-2512",
+        display_name="mistralai/ministral-8b-2512",
         tier="tier3",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="google/gemma-3-12b-it",
-        fallback_backend="hf",
-        fallback_hf_repo="google/gemma-3-12b-it",
+        primary_model_id="mistralai/ministral-8b-2512",
     ),
-    "qwen2.5-7b": ModelSpec(
-        nickname="qwen2.5-7b",
-        display_name="qwen/qwen3-8b",  # VERIFIED
+    "llama-3.3-8b": ModelSpec(
+        nickname="llama-3.3-8b",
+        display_name="meta-llama/llama-3.3-8b-instruct",
         tier="tier3",
         primary_backend="api",
         primary_provider="openrouter",
-        primary_model_id="qwen/qwen3-8b",
-        fallback_backend="hf",
-        fallback_hf_repo="Qwen/Qwen2.5-7B-Instruct",
-    ),
-    "llama-3.1-8b": ModelSpec(
-        nickname="llama-3.1-8b",
-        display_name="meta-llama/llama-3.1-8b-instruct",  # TODO-VERIFY
-        tier="tier3",
-        primary_backend="api",
-        primary_provider="openrouter",
-        primary_model_id="meta-llama/llama-3.1-8b-instruct",
-        fallback_backend="hf",
-        fallback_hf_repo="meta-llama/Llama-3.1-8B-Instruct",
-    ),
-    "phi-4": ModelSpec(
-        nickname="phi-4",
-        display_name="microsoft/phi-4",  # TODO-VERIFY
-        tier="tier3",
-        primary_backend="api",
-        primary_provider="openrouter",
-        primary_model_id="microsoft/phi-4",
-        fallback_backend="hf",
-        fallback_hf_repo="microsoft/phi-4",
-    ),
-    "mistral-7b-v0.3": ModelSpec(
-        nickname="mistral-7b-v0.3",
-        display_name="mistralai/mistral-7b-instruct-v0.1",  # VERIFIED
-        tier="tier3",
-        primary_backend="api",
-        primary_provider="openrouter",
-        primary_model_id="mistralai/mistral-7b-instruct-v0.1",
-        fallback_backend="hf",
-        fallback_hf_repo="mistralai/Mistral-7B-Instruct-v0.3",
+        primary_model_id="meta-llama/llama-3.3-8b-instruct",
     ),
 }
 

@@ -1,8 +1,20 @@
 from turing_eval.models import MODEL_REGISTRY, ModelSpec
 
+EXPECTED_NICKNAMES = {
+    "claude-opus-4.6",
+    "gpt-5.4-pro",
+    "gemini-3-pro",
+    "deepseek-v3.2",
+    "mistral-large-2512",
+    "qwen3-32b",
+    "gemma-4-31b",
+    "ministral-8b-2512",
+    "llama-3.3-8b",
+}
+
 
 def test_registry_not_empty():
-    assert len(MODEL_REGISTRY) >= 10
+    assert set(MODEL_REGISTRY) == EXPECTED_NICKNAMES
 
 
 def test_every_spec_has_required_fields():
@@ -36,5 +48,4 @@ def test_display_name_matches_primary_model_id_for_api():
 
 
 def test_gpt_models_expose_direct_openai_routes():
-    for nickname in ("gpt-5.4", "gpt-5.4-pro"):
-        assert MODEL_REGISTRY[nickname].alternate_api_routes["openai"].startswith("gpt-5.4")
+    assert MODEL_REGISTRY["gpt-5.4-pro"].alternate_api_routes["openai"] == "gpt-5.4-pro"

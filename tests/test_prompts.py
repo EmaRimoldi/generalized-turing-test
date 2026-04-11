@@ -20,10 +20,10 @@ def test_actor_no_query_preserves_quotes_verbatim():
 
 
 def test_actor_yes_query_has_specimen_language():
-    prompt = build_actor_prompt_yes_query("openai/gpt-5.4")
+    prompt = build_actor_prompt_yes_query("openai/gpt-5.4-pro")
     assert "specimen" in prompt
     assert "STOP" in prompt
-    assert "openai/gpt-5.4" in prompt
+    assert "openai/gpt-5.4-pro" in prompt
     assert "conversational style" in prompt
     assert "reasoning patterns" in prompt
 
