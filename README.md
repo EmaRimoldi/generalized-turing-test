@@ -185,6 +185,8 @@ Validate OpenRouter slugs:
 - `--max-attempts`
 - `--verbose`
 
+By default, `run_experiment.py` does not send any `max_tokens` cap to the backend. Use `--max-new-tokens` only when you want to impose one explicitly.
+
 Important retry behavior:
 
 - the runner keeps retrying infra/provider failures until it collects the requested number of analyzable trials, up to `--max-attempts`
@@ -281,3 +283,82 @@ Saved transcripts include an `environment` block from [turing_eval/environment.p
 For the current list of supported model nicknames and their routes, inspect [turing_eval/models.py](turing_eval/models.py).
 
 If you are unsure whether a nickname uses OpenRouter, direct OpenAI, or HF fallback, the registry is the source of truth.
+
+## CSV Batch Runs
+
+The repository also includes a separate batch entrypoint, [run_experiment_batch.py](run_experiment_batch.py), for running an explicit list of experiments from a CSV file.
+
+This section is additive documentation for that entrypoint only. The maintained single-run and matrix workflows above are unchanged.
+
+### CSV schema
+
+Each CSV row represents one `run_experiment.py` invocation.
+
+Relevant columns:
+
+- `run_name`
+- `actor`
+- `distinguisher`
+- `num_trials`
+- `turn_limit`
+- `specimen_turn_limit`
+- `condition`
+
+Extra columns are ignored.
+
+Column-to-flag mapping:
+
+- `actor` -> `--actor`
+- `distinguisher` -> `--distinguisher`
+- `condition` -> `--condition`
+- `num_trials` -> `--num-trials`
+- `turn_limit` -> `--turn-limit`
+- `specimen_turn_limit` -> `--specimen-turn-limit`
+- `run_name` -> `--run-name`
+
+Validation rules:
+
+- `specimen_turn_limit` is required only for `yes_query_no_explanation`
+- for other conditions, `specimen_turn_limit` may be blank or omitted
+- `actor` and `distinguisher` must be valid model nicknames from [turing_eval/models.py](turing_eval/models.py)
+- `condition` must be one of `no_query_no_explanation`, `yes_query_no_explanation`, or `no_query_yes_explanation`
+
+### Batch-level flags
+
+These remain CLI flags on `run_experiment_batch.py` and apply to every row in the CSV:
+
+- `--output-dir`
+- `--actor-backend`
+- `--distinguisher-backend`
+- `--actor-api-provider`
+- `--distinguisher-api-provider`
+- `--max-new-tokens`
+- `--temperature`
+- `--max-attempts`
+- `--verbose`
+
+### Example CSV
+
+```csv
+run_name,actor,distinguisher,num_trials,turn_limit,specimen_turn_limit,condition,notes
+smoke_a,llama-3.3-8b,ministral-8b-2512,2,20,,no_query_no_explanation,extra columns are ignored
+smoke_b,ministral-8b-2512,qwen3-32b,3,15,8,yes_query_no_explanation,this row needs specimen_turn_limit
+```
+
+### Example invocation
+
+```bash
+./scripts/run-in-container.sh python run_experiment_batch.py \
+  --csv experiments.csv \
+  --output-dir results/batch_smoke \
+  --max-new-tokens 512 \
+  --temperature 0.7 \
+  --max-attempts 12 \
+  --verbose
+```
+
+Behavior:
+
+- one subprocess call to `run_experiment.py` is made per CSV row
+- each row writes its own run directory under `--output-dir`
+- the batch runner continues past failed rows and reports a summary at the end
