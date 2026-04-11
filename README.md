@@ -540,7 +540,6 @@ What this means:
 Saved conversation fields:
 
 - `stage1_actor_messages`
-- `specimen_messages`
 - `stage2_actor_messages`
 - `distinguisher_messages`
 - `specimen_turns`
@@ -548,9 +547,10 @@ Saved conversation fields:
 
 What this means:
 
-- the warm-up conversation with the specimen is saved
+- the warm-up conversation with the specimen is saved once, from the actor's point of view
 - the later interrogation with the fresh distinguisher is also saved
 - the actor history is split into stage 1 and stage 2 so you can analyze transfer effects
+- the stage 1 array includes the actor's initial prompt plus the warm-up exchange
 - `specimen_stopped_cleanly` tells you whether the actor ended the specimen phase by emitting `STOP`
 
 ### What is saved on failures

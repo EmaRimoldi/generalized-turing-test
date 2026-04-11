@@ -55,6 +55,7 @@ def test_run_trial_yes_query_no_explanation_records_two_stages():
     assert result["specimen_stopped_cleanly"] is True
     assert len(result["stage1_actor_messages"]) >= 3
     assert len(result["stage2_actor_messages"]) == 2
+    assert "specimen_messages" not in result
 
 
 def test_is_stop_signal_accepts_leading_stop_with_extra_text():
@@ -118,6 +119,7 @@ def test_run_trial_yes_query_no_explanation_rejects_answer_in_opening():
     assert result["error"] == "distinguisher_answered_in_opening"
     assert result["specimen_turns"] == 1
     assert result["stage2_actor_messages"] == []
+    assert "specimen_messages" not in result
 
 
 def test_run_trial_yes_query_no_explanation_requires_matching_specimen():

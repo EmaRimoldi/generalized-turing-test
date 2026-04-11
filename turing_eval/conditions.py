@@ -45,7 +45,6 @@ def _invalid_opening_result(
     specimen_turns: Optional[int] = None,
     specimen_stopped_cleanly: Optional[bool] = None,
     stage1_actor_messages: Optional[list[dict[str, object]]] = None,
-    specimen_messages: Optional[list[dict[str, object]]] = None,
     stage2_actor_messages: Optional[list[dict[str, object]]] = None,
     reasoning: Optional[str] = None,
 ) -> Dict[str, object]:
@@ -69,8 +68,6 @@ def _invalid_opening_result(
         result["specimen_stopped_cleanly"] = specimen_stopped_cleanly
     if stage1_actor_messages is not None:
         result["stage1_actor_messages"] = stage1_actor_messages
-    if specimen_messages is not None:
-        result["specimen_messages"] = specimen_messages
     if stage2_actor_messages is not None:
         result["stage2_actor_messages"] = stage2_actor_messages
     if reasoning is not None:
@@ -172,7 +169,6 @@ def run_trial_yes_query_no_explanation(
 
     specimen_stopped_cleanly = is_stop_signal(actor_to_specimen)
     stage1_actor_messages = copy.deepcopy(a_session.messages)
-    specimen_messages = copy.deepcopy(s_session.messages)
 
     d_session = ChatSession(
         distinguisher,
@@ -192,7 +188,6 @@ def run_trial_yes_query_no_explanation(
             specimen_turns=specimen_turns,
             specimen_stopped_cleanly=specimen_stopped_cleanly,
             stage1_actor_messages=stage1_actor_messages,
-            specimen_messages=specimen_messages,
             stage2_actor_messages=[],
             distinguisher_messages=copy.deepcopy(d_session.messages),
         )
@@ -227,7 +222,6 @@ def run_trial_yes_query_no_explanation(
         "actor_prompt": actor_prompt,
         "raw_final_message": d_reply,
         "stage1_actor_messages": stage1_actor_messages,
-        "specimen_messages": specimen_messages,
         "stage2_actor_messages": copy.deepcopy(a_session.messages[len(stage1_actor_messages) :]),
         "distinguisher_messages": copy.deepcopy(d_session.messages),
     }
