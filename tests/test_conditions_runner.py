@@ -58,6 +58,23 @@ def test_run_trial_yes_query_no_explanation_records_two_stages():
     assert "specimen_messages" not in result
 
 
+def test_run_trial_yes_query_no_explanation_counts_specimen_turns_by_specimen_replies():
+    actor = ScriptedBackend("actor/model", ["question one", "question two", "STOP", "stage2 reply"])
+    specimen = ScriptedBackend("dist/model", ["specimen answer one", "specimen answer two"])
+    distinguisher = ScriptedBackend("dist/model", ["d opening", "<answer>1</answer>"])
+    result = run_trial_yes_query_no_explanation(
+        4,
+        actor,
+        distinguisher,
+        specimen,
+        specimen_turn_limit=4,
+        turn_limit=4,
+    )
+    assert result["success"] is True
+    assert result["specimen_turns"] == 2
+    assert result["specimen_stopped_cleanly"] is True
+
+
 def test_is_stop_signal_accepts_leading_stop_with_extra_text():
     assert is_stop_signal("STOP")
     assert is_stop_signal("STOP.")
@@ -98,6 +115,7 @@ def test_run_trial_no_query_yes_explanation_extracts_reasoning():
     result = run_trial_no_query_yes_explanation(11, actor, distinguisher, turn_limit=3)
     assert result["success"] is True
     assert result["answer"] == 0
+    assert result["turns"] == 1
     assert result["reasoning"] == "too generic"
 
 

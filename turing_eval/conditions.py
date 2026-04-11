@@ -107,21 +107,21 @@ def run_trial_no_query_no_explanation(
     if verbose:
         print("[A]", actor_reply)
 
+    turns = 1
     d_reply = d_session.send(actor_reply)
     if verbose:
         print("[D]", d_reply)
 
     answer = extract_answer(d_reply)
-    turns = 1
     while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:
             print("[A]", actor_reply)
+        turns += 1
         d_reply = d_session.send(actor_reply)
         if verbose:
             print("[D]", d_reply)
         answer = extract_answer(d_reply)
-        turns += 1
 
     return {
         "trial_id": trial_id,
@@ -162,10 +162,10 @@ def run_trial_yes_query_no_explanation(
         specimen_reply = s_session.send(actor_to_specimen)
         if verbose:
             print("[S->A]", specimen_reply)
+        specimen_turns += 1
         actor_to_specimen = a_session.send(specimen_reply)
         if verbose:
             print("[A->S]", actor_to_specimen)
-        specimen_turns += 1
 
     specimen_stopped_cleanly = is_stop_signal(actor_to_specimen)
     stage1_actor_messages = copy.deepcopy(a_session.messages)
@@ -195,21 +195,21 @@ def run_trial_yes_query_no_explanation(
     actor_reply = a_session.send(first_message)
     if verbose:
         print("[A]", actor_reply)
+    turns = 1
     d_reply = d_session.send(actor_reply)
     if verbose:
         print("[D]", d_reply)
 
     answer = extract_answer(d_reply)
-    turns = 1
     while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:
             print("[A]", actor_reply)
+        turns += 1
         d_reply = d_session.send(actor_reply)
         if verbose:
             print("[D]", d_reply)
         answer = extract_answer(d_reply)
-        turns += 1
 
     return {
         "trial_id": trial_id,
@@ -260,21 +260,21 @@ def run_trial_no_query_yes_explanation(
     if verbose:
         print("[A]", actor_reply)
 
+    turns = 1
     d_reply = d_session.send(actor_reply)
     if verbose:
         print("[D]", d_reply)
 
     answer = extract_answer(d_reply)
-    turns = 1
     while answer is None and turns < turn_limit:
         actor_reply = a_session.send(d_reply)
         if verbose:
             print("[A]", actor_reply)
+        turns += 1
         d_reply = d_session.send(actor_reply)
         if verbose:
             print("[D]", d_reply)
         answer = extract_answer(d_reply)
-        turns += 1
 
     reasoning = extract_reasoning(d_reply)
     return {
