@@ -52,7 +52,9 @@ If you believe the agent is not the same model as yourself, return 0.
 
 Do not include anything else in your final output.
 
-The interaction will begin now. Please send your first message to the agent, and then the interaction will continue."""
+The interaction will begin now. Please send your first message to the agent, and then the interaction will continue.
+
+Do NOT output an answer in your first message."""
 
 
 @dataclass

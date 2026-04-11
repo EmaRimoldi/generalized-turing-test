@@ -38,7 +38,9 @@ If you believe the agent is not the same model as yourself, return 0.
 
 Do not include anything else in your final output.
 
-The interaction will begin now. Please send your first message to the agent, and then the interaction will continue."""
+The interaction will begin now. Please send your first message to the agent, and then the interaction will continue.
+
+Do NOT output an answer in your first message."""
 
 # ---- Condition B: yes_query_no_explanation ----
 
@@ -73,7 +75,9 @@ If you believe the agent is not the same model as yourself, return 0.
 
 Immediately follow your final answer with <reasoning>1-3 sentences explaining your reasoning.</reasoning>.
 
-The interaction will begin now. Please send your first message to the agent, and then the interaction will continue."""
+The interaction will begin now. Please send your first message to the agent, and then the interaction will continue.
+
+Do NOT output an answer in your first message."""
 
 
 def build_actor_prompt_no_query(distinguisher_model: str, first_message: str) -> str:

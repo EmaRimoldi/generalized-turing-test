@@ -31,8 +31,10 @@ def test_actor_yes_query_has_specimen_language():
 def test_distinguisher_with_reasoning_has_reasoning_tag():
     prompt = build_distinguisher_prompt(with_reasoning=True)
     assert "<reasoning>" in prompt
+    assert "Do NOT output an answer in your first message." in prompt
 
 
 def test_distinguisher_without_reasoning_has_no_reasoning_tag():
     prompt = build_distinguisher_prompt(with_reasoning=False)
     assert "<reasoning>" not in prompt
+    assert "Do NOT output an answer in your first message." in prompt
