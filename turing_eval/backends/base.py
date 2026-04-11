@@ -10,14 +10,16 @@ from typing import Dict, List, Optional
 class GenerationConfig:
     """Generation parameters expressible in both OpenAI-compatible and HF formats."""
 
-    max_new_tokens: int = 2048
+    max_new_tokens: Optional[int] = None
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     top_k: Optional[int] = None
     do_sample: bool = True
 
     def to_openai_payload(self) -> Dict[str, object]:
-        payload: Dict[str, object] = {"max_tokens": self.max_new_tokens}
+        payload: Dict[str, object] = {}
+        if self.max_new_tokens is not None:
+            payload["max_tokens"] = self.max_new_tokens
         if self.temperature is not None:
             payload["temperature"] = self.temperature
         elif not self.do_sample:
@@ -30,10 +32,11 @@ class GenerationConfig:
 
     def to_hf_kwargs(self) -> Dict[str, object]:
         kwargs: Dict[str, object] = {
-            "max_new_tokens": self.max_new_tokens,
             "do_sample": self.do_sample,
             "return_full_text": True,
         }
+        if self.max_new_tokens is not None:
+            kwargs["max_new_tokens"] = self.max_new_tokens
         if self.temperature is not None:
             kwargs["temperature"] = self.temperature
         if self.top_p is not None:

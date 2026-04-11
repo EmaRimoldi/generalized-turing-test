@@ -61,7 +61,12 @@ def main() -> int:
     parser.add_argument("--distinguisher-backend", choices=["api", "hf"], default=None)
     parser.add_argument("--actor-api-provider", choices=sorted(PROVIDERS), default=None)
     parser.add_argument("--distinguisher-api-provider", choices=sorted(PROVIDERS), default=None)
-    parser.add_argument("--max-new-tokens", type=int, default=2048)
+    parser.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=None,
+        help="Maximum new tokens per response. Defaults to provider/model default when omitted.",
+    )
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--max-attempts", type=int, default=None)
     args = parser.parse_args()

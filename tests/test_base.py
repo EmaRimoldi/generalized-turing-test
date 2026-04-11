@@ -19,9 +19,14 @@ class MetadataBackend(EchoBackend):
         return reply, {"finish_reason": "length", "truncated": True}
 
 
-def test_generation_config_defaults_to_2048_tokens():
+def test_generation_config_defaults_to_unlimited():
     cfg = GenerationConfig()
-    assert cfg.max_new_tokens == 2048
+    assert cfg.max_new_tokens is None
+
+
+def test_generation_config_to_openai_payload_omits_max_tokens_when_unlimited():
+    cfg = GenerationConfig()
+    assert cfg.to_openai_payload() == {}
 
 
 def test_generation_config_to_openai_payload_sampling():
@@ -48,6 +53,14 @@ def test_generation_config_to_hf_kwargs():
         "temperature": 0.4,
         "top_p": 0.7,
         "top_k": 10,
+    }
+
+
+def test_generation_config_to_hf_kwargs_omits_max_new_tokens_when_unlimited():
+    cfg = GenerationConfig()
+    assert cfg.to_hf_kwargs() == {
+        "do_sample": True,
+        "return_full_text": True,
     }
 
 
