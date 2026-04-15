@@ -77,6 +77,22 @@ def test_load_backend_can_force_direct_openai_for_gpt(monkeypatch):
     assert captured["generation"] is generation
 
 
+def test_load_backend_can_force_direct_openai_for_non_pro_gpt(monkeypatch):
+    captured = {}
+
+    class FakeAPIBackend:
+        def __init__(self, provider, model_id, display_name, generation):
+            captured.update(provider=provider, model_id=model_id, display_name=display_name, generation=generation)
+
+    monkeypatch.setattr(models, "APIChatBackend", FakeAPIBackend)
+    generation = GenerationConfig()
+    models.load_backend("gpt-5.4", generation, force_api_provider="openai")
+    assert captured["provider"] == "openai"
+    assert captured["model_id"] == "gpt-5.4"
+    assert captured["display_name"] == "openai/gpt-5.4"
+    assert captured["generation"] is generation
+
+
 def test_load_backend_can_force_fallback_api_provider(monkeypatch):
     captured = {}
 
