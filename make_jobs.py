@@ -54,6 +54,17 @@ def build_model_alias_map() -> dict[str, str]:
 
 MODEL_ALIAS_MAP = build_model_alias_map()
 
+VALID_CONDITIONS = {
+    "no_query_no_explanation",
+    "yes_query_no_explanation",
+    "no_query_yes_explanation",
+    "no_query_trusted_distinguisher",
+}
+
+
+if CONDITION not in VALID_CONDITIONS:
+    raise ValueError(f"Unsupported CONDITION {CONDITION!r}. Expected one of {sorted(VALID_CONDITIONS)}")
+
 def normalize_model_name(raw_name: str) -> str:
     name = raw_name.strip()
     normalized = MODEL_ALIAS_MAP.get(name)
@@ -73,9 +84,25 @@ with open(CSV_PATH, newline="", encoding="utf-8") as f:
         run_name = row["run_name"].strip()
         actor = normalize_model_name(row["actor"])
         distinguisher = normalize_model_name(row["distinguisher"])
+        target_model = ""
+        if CONDITION == "no_query_trusted_distinguisher":
+            raw_target_model = row.get("target_model", "").strip()
+            if not raw_target_model:
+                raise ValueError(
+                    f"Row for run_name={run_name!r} is missing target_model, "
+                    "which is required for no_query_trusted_distinguisher"
+                )
+            target_model = normalize_model_name(raw_target_model)
 
         job_name = safe_name(run_name)
         script_path = JOB_DIR / f"{job_name}.sh"
+
+        optional_lines: list[str] = []
+        if CONDITION == "yes_query_no_explanation":
+            optional_lines.append(f'  --specimen-turn-limit {SPECIMEN_TURN_LIMIT} \\\n')
+        if CONDITION == "no_query_trusted_distinguisher":
+            optional_lines.append(f'  --target-model "{target_model}" \\\n')
+        optional_args = "".join(optional_lines)
 
         script_text = f"""#!/bin/bash
 #SBATCH --job-name={job_name}
@@ -96,8 +123,7 @@ cd /orcd/data/tpoggio/001/om2/suahong/turing-eval/llm-eval
   --condition {CONDITION} \\
   --num-trials {NUM_TRIALS} \\
   --turn-limit {TURN_LIMIT} \\
-  --specimen-turn-limit {SPECIMEN_TURN_LIMIT} \\
-  --run-name "{run_name}" \\
+{optional_args}  --run-name "{run_name}" \\
   --output-dir {RESULTS_DIR}
 """
 
