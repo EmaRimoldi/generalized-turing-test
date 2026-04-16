@@ -31,6 +31,14 @@ class ModelSpec:
 
 MODEL_REGISTRY: Dict[str, ModelSpec] = {
     # ---- Tier 0: Frontier closed ----
+    "claude-sonnet-4.6": ModelSpec(
+        nickname="claude-sonnet-4.6",
+        display_name="anthropic/claude-sonnet-4.6",
+        tier="frontier",
+        primary_backend="api",
+        primary_provider="openrouter",
+        primary_model_id="anthropic/claude-sonnet-4.6",
+    ),
     "claude-opus-4.6": ModelSpec(
         nickname="claude-opus-4.6",
         display_name="anthropic/claude-opus-4.6",  # VERIFIED
@@ -38,6 +46,15 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
         primary_backend="api",
         primary_provider="openrouter",
         primary_model_id="anthropic/claude-opus-4.6",
+    ),
+    "gpt-5.4": ModelSpec(
+        nickname="gpt-5.4",
+        display_name="openai/gpt-5.4",
+        tier="frontier",
+        primary_backend="api",
+        primary_provider="openrouter",
+        primary_model_id="openai/gpt-5.4",
+        alternate_api_routes={"openai": "gpt-5.4"},
     ),
     "gpt-5.4-pro": ModelSpec(
         nickname="gpt-5.4-pro",

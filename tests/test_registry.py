@@ -1,7 +1,9 @@
 from turing_eval.models import MODEL_REGISTRY, ModelSpec
 
 EXPECTED_NICKNAMES = {
+    "claude-sonnet-4.6",
     "claude-opus-4.6",
+    "gpt-5.4",
     "gpt-5.4-pro",
     "gemini-3-pro",
     "deepseek-v3.2",
@@ -48,4 +50,5 @@ def test_display_name_matches_primary_model_id_for_api():
 
 
 def test_gpt_models_expose_direct_openai_routes():
+    assert MODEL_REGISTRY["gpt-5.4"].alternate_api_routes["openai"] == "gpt-5.4"
     assert MODEL_REGISTRY["gpt-5.4-pro"].alternate_api_routes["openai"] == "gpt-5.4-pro"
