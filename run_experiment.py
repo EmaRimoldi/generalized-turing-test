@@ -12,6 +12,7 @@ from turing_eval.backends.api_backend import PROVIDERS
 from turing_eval.backends.base import GenerationConfig
 from turing_eval.conditions import (
     run_trial_no_query_no_explanation,
+    run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
     run_trial_yes_query_no_explanation,
 )
@@ -22,7 +23,15 @@ CONDITIONS = {
     "no_query_no_explanation": run_trial_no_query_no_explanation,
     "yes_query_no_explanation": run_trial_yes_query_no_explanation,
     "no_query_yes_explanation": run_trial_no_query_yes_explanation,
+    "no_query_trusted_distinguisher": run_trial_no_query_trusted_distinguisher,
 }
+
+
+def _validate_condition_args(args: argparse.Namespace) -> None:
+    if args.condition == "no_query_trusted_distinguisher" and args.target_model is None:
+        raise SystemExit("--target-model is required for condition no_query_trusted_distinguisher")
+    if args.condition != "no_query_trusted_distinguisher" and args.target_model is not None:
+        raise SystemExit("--target-model is only valid for condition no_query_trusted_distinguisher")
 
 
 def _is_valid_trial_result(result: dict[str, object]) -> bool:
@@ -51,6 +60,7 @@ def main() -> int:
     parser.add_argument("--actor", required=True, choices=sorted(MODEL_REGISTRY))
     parser.add_argument("--distinguisher", required=True, choices=sorted(MODEL_REGISTRY))
     parser.add_argument("--condition", required=True, choices=list(CONDITIONS))
+    parser.add_argument("--target-model", choices=sorted(MODEL_REGISTRY), default=None)
     parser.add_argument("--num-trials", type=int, default=5)
     parser.add_argument("--turn-limit", type=int, default=40)
     parser.add_argument("--specimen-turn-limit", type=int, default=20)
@@ -70,6 +80,7 @@ def main() -> int:
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--max-attempts", type=int, default=None)
     args = parser.parse_args()
+    _validate_condition_args(args)
     max_attempts = args.max_attempts if args.max_attempts is not None else (3 * args.num_trials)
 
     generation = GenerationConfig(max_new_tokens=args.max_new_tokens, temperature=args.temperature)
@@ -113,6 +124,8 @@ def main() -> int:
             )
             kwargs["specimen"] = specimen
             kwargs["specimen_turn_limit"] = args.specimen_turn_limit
+        if args.condition == "no_query_trusted_distinguisher":
+            kwargs["target_model"] = args.target_model
         try:
             result = runner(**kwargs)
         except Exception as exc:  # noqa: BLE001
@@ -139,6 +152,7 @@ def main() -> int:
                 actor.display_name,
                 distinguisher.display_name,
                 args.condition,
+                target_model=args.target_model,
             )
             result["transcript_path"] = str(transcript_path)
             results.append(result)
@@ -150,11 +164,19 @@ def main() -> int:
                 actor.display_name,
                 distinguisher.display_name,
                 args.condition,
+                target_model=args.target_model,
             )
         attempt_id += 1
 
     csv_path = out_dir / "results.csv"
-    write_csv(results, csv_path, actor.display_name, distinguisher.display_name, args.condition)
+    write_csv(
+        results,
+        csv_path,
+        actor.display_name,
+        distinguisher.display_name,
+        args.condition,
+        target_model=args.target_model,
+    )
     if len(results) < args.num_trials:
         print(
             f"\nWarning: reached max attempts ({max_attempts}) after collecting "

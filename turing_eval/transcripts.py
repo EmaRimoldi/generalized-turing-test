@@ -25,6 +25,7 @@ SUSAN_CSV_FIELDS = [
 
 EXTRA_CSV_FIELDS = [
     "condition",
+    "target_model",
     "error",
     "reasoning",
     "specimen_turns",
@@ -38,12 +39,14 @@ def save_transcript_json(
     actor_model: str,
     distinguisher_model: str,
     condition: str,
+    target_model: str | None = None,
 ) -> None:
     payload = {
         "trial_id": trial_result["trial_id"],
         "condition": condition,
         "actor_model": actor_model,
         "distinguisher_model": distinguisher_model,
+        "target_model": target_model,
         "environment": capture_environment(),
         **{key: value for key, value in trial_result.items() if key != "trial_id"},
     }
@@ -58,6 +61,7 @@ def write_csv(
     actor_model: str,
     distinguisher_model: str,
     condition: str,
+    target_model: str | None = None,
 ) -> None:
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = SUSAN_CSV_FIELDS + EXTRA_CSV_FIELDS
@@ -75,6 +79,7 @@ def write_csv(
                     "answer": row.get("answer"),
                     "transcript_path": row.get("transcript_path"),
                     "condition": condition,
+                    "target_model": row.get("target_model", target_model),
                     "error": row.get("error"),
                     "reasoning": row.get("reasoning"),
                     "specimen_turns": row.get("specimen_turns"),

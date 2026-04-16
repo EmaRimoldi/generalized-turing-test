@@ -42,6 +42,7 @@ def test_save_transcript_json_embeds_environment(monkeypatch, tmp_path):
         "actor/model",
         "dist/model",
         "no_query_no_explanation",
+        target_model=None,
     )
     payload = json.loads(path.read_text())
     assert payload["trial_id"] == 4
@@ -58,6 +59,7 @@ def test_write_csv_uses_superset_schema(tmp_path):
                 "success": True,
                 "turns": 3,
                 "answer": 0,
+                "target_model": "target/model",
                 "transcript_path": "trial_001.json",
                 "error": "distinguisher_answered_in_opening",
                 "reasoning": "because",
@@ -69,6 +71,7 @@ def test_write_csv_uses_superset_schema(tmp_path):
         "actor/model",
         "dist/model",
         "no_query_yes_explanation",
+        target_model=None,
     )
     contents = output.read_text().strip().splitlines()
     assert contents[0].startswith("trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path")
@@ -77,6 +80,8 @@ def test_write_csv_uses_superset_schema(tmp_path):
     assert "because" in contents[1]
     assert "error" in contents[0]
     assert "specimen_stopped_cleanly" in contents[0]
+    assert "target_model" in contents[0]
+    assert "target/model" in contents[1]
 
 
 def test_write_csv_leaves_specimen_stopped_cleanly_blank_without_specimen_phase(tmp_path):
@@ -95,6 +100,7 @@ def test_write_csv_leaves_specimen_stopped_cleanly_blank_without_specimen_phase(
         "actor/model",
         "dist/model",
         "no_query_no_explanation",
+        target_model=None,
     )
     with output.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))

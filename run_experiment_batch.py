@@ -16,6 +16,7 @@ CONDITIONS = {
     "no_query_no_explanation",
     "yes_query_no_explanation",
     "no_query_yes_explanation",
+    "no_query_trusted_distinguisher",
 }
 
 REQUIRED_COLUMNS = {
@@ -34,6 +35,7 @@ class BatchExperiment:
     actor: str
     distinguisher: str
     condition: str
+    target_model: str | None
     num_trials: int
     turn_limit: int
     specimen_turn_limit: int | None
@@ -81,18 +83,27 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
         raise ValueError(f"CSV row {row_number}: unknown distinguisher model {distinguisher!r}")
 
     specimen_required = condition == "yes_query_no_explanation"
+    target_model_required = condition == "no_query_trusted_distinguisher"
     specimen_turn_limit = _parse_int_field(
         row,
         "specimen_turn_limit",
         row_number,
         required=specimen_required,
     )
+    target_model = _clean(row.get("target_model"))
+    if target_model_required and target_model is None:
+        raise ValueError(f"CSV row {row_number}: missing required value for 'target_model'")
+    if target_model is not None and target_model not in MODEL_REGISTRY:
+        raise ValueError(f"CSV row {row_number}: unknown target model {target_model!r}")
+    if not target_model_required:
+        target_model = None
 
     return BatchExperiment(
         run_name=_require_field(row, "run_name", row_number),
         actor=actor,
         distinguisher=distinguisher,
         condition=condition,
+        target_model=target_model,
         num_trials=_parse_int_field(row, "num_trials", row_number, required=True),
         turn_limit=_parse_int_field(row, "turn_limit", row_number, required=True),
         specimen_turn_limit=specimen_turn_limit,
@@ -134,6 +145,8 @@ def _build_command(args: argparse.Namespace, experiment: BatchExperiment) -> lis
     ]
     if experiment.specimen_turn_limit is not None:
         command.extend(["--specimen-turn-limit", str(experiment.specimen_turn_limit)])
+    if experiment.target_model is not None:
+        command.extend(["--target-model", experiment.target_model])
     if args.verbose:
         command.append("--verbose")
     if args.actor_backend is not None:

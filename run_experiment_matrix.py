@@ -15,6 +15,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--models", nargs="+", required=True)
     parser.add_argument("--condition", required=True)
+    parser.add_argument("--target-model", default=None)
     parser.add_argument("--num-trials", type=int, default=5)
     parser.add_argument("--turn-limit", type=int, default=None)
     parser.add_argument("--specimen-turn-limit", type=int, default=None)
@@ -61,6 +62,8 @@ def main() -> int:
             command.extend(["--turn-limit", str(args.turn_limit)])
         if args.specimen_turn_limit is not None:
             command.extend(["--specimen-turn-limit", str(args.specimen_turn_limit)])
+        if args.target_model is not None:
+            command.extend(["--target-model", args.target_model])
         if args.verbose:
             command.append("--verbose")
         if args.actor_backend is not None:

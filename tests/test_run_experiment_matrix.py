@@ -24,6 +24,8 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
             "dist-b",
             "--condition",
             "yes_query_no_explanation",
+            "--target-model",
+            "gemini-3-pro",
             "--num-trials",
             "2",
             "--turn-limit",
@@ -56,6 +58,7 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
     first = commands[0]
     assert "--turn-limit" in first and "17" in first
     assert "--specimen-turn-limit" in first and "9" in first
+    assert "--target-model" in first and "gemini-3-pro" in first
     assert "--verbose" in first
     assert "--actor-backend" in first and "hf" in first
     assert "--distinguisher-backend" in first and "api" in first

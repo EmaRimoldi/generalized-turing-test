@@ -53,6 +53,10 @@ The actor first talks to a specimen of the target model, then a fresh distinguis
 
 This is the same direct setup as `no_query_no_explanation`, but the distinguisher is also asked to include a short `<reasoning>` block with its final answer.
 
+### `no_query_trusted_distinguisher`
+
+This is the same single-stage flow as `no_query_no_explanation`, but the prompts refer explicitly to a separate target model name rather than asking whether the actor is "the same model as yourself." This target identity is supplied independently with `--target-model`.
+
 ## Prompt and trial semantics
 
 Maintained prompts live in [turing_eval/prompts.py](turing_eval/prompts.py).
@@ -171,6 +175,7 @@ Validate OpenRouter slugs:
 - `--actor`
 - `--distinguisher`
 - `--condition`
+- `--target-model`
 - `--num-trials`
 - `--turn-limit`
 - `--specimen-turn-limit`
@@ -227,6 +232,7 @@ Columns:
 - `answer`
 - `transcript_path`
 - `condition`
+- `target_model`
 - `error`
 - `reasoning`
 - `specimen_turns`
@@ -247,6 +253,7 @@ Each transcript contains common metadata such as:
 - `condition`
 - `actor_model`
 - `distinguisher_model`
+- optional `target_model`
 - `success`
 - `turns`
 - `answer`
@@ -264,6 +271,7 @@ Conversation fields depend on the condition:
 - `no_query_no_explanation`: `actor_messages`, `distinguisher_messages`
 - `no_query_yes_explanation`: `actor_messages`, `distinguisher_messages`, `reasoning`
 - `yes_query_no_explanation`: `stage1_actor_messages`, `stage2_actor_messages`, `distinguisher_messages`, `specimen_turns`, `specimen_stopped_cleanly`
+- `no_query_trusted_distinguisher`: `actor_messages`, `distinguisher_messages`, `target_model`
 
 ### Failure artifacts
 
@@ -303,6 +311,7 @@ Relevant columns:
 - `turn_limit`
 - `specimen_turn_limit`
 - `condition`
+- `target_model`
 
 Extra columns are ignored.
 
@@ -311,6 +320,7 @@ Column-to-flag mapping:
 - `actor` -> `--actor`
 - `distinguisher` -> `--distinguisher`
 - `condition` -> `--condition`
+- `target_model` -> `--target-model`
 - `num_trials` -> `--num-trials`
 - `turn_limit` -> `--turn-limit`
 - `specimen_turn_limit` -> `--specimen-turn-limit`
@@ -319,9 +329,12 @@ Column-to-flag mapping:
 Validation rules:
 
 - `specimen_turn_limit` is required only for `yes_query_no_explanation`
+- `target_model` is required only for `no_query_trusted_distinguisher`
 - for other conditions, `specimen_turn_limit` may be blank or omitted
+- for other conditions, `target_model` may be blank or omitted
 - `actor` and `distinguisher` must be valid model nicknames from [turing_eval/models.py](turing_eval/models.py)
-- `condition` must be one of `no_query_no_explanation`, `yes_query_no_explanation`, or `no_query_yes_explanation`
+- `target_model`, when provided, must be a valid model nickname from [turing_eval/models.py](turing_eval/models.py)
+- `condition` must be one of `no_query_no_explanation`, `yes_query_no_explanation`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
 
 ### Batch-level flags
 
@@ -340,9 +353,10 @@ These remain CLI flags on `run_experiment_batch.py` and apply to every row in th
 ### Example CSV
 
 ```csv
-run_name,actor,distinguisher,num_trials,turn_limit,specimen_turn_limit,condition,notes
-smoke_a,llama-3.3-8b,ministral-8b-2512,2,20,,no_query_no_explanation,extra columns are ignored
-smoke_b,ministral-8b-2512,qwen3-32b,3,15,8,yes_query_no_explanation,this row needs specimen_turn_limit
+run_name,actor,distinguisher,target_model,num_trials,turn_limit,specimen_turn_limit,condition,notes
+smoke_a,llama-3.3-8b,ministral-8b-2512,,2,20,,no_query_no_explanation,extra columns are ignored
+smoke_b,ministral-8b-2512,qwen3-32b,,3,15,8,yes_query_no_explanation,this row needs specimen_turn_limit
+smoke_c,llama-3.3-8b,ministral-8b-2512,gemini-3-pro,2,20,,no_query_trusted_distinguisher,this row needs target_model
 ```
 
 ### Example invocation

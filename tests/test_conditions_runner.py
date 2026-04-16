@@ -3,6 +3,7 @@ from __future__ import annotations
 from turing_eval.conditions import (
     is_stop_signal,
     run_trial_no_query_no_explanation,
+    run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
     run_trial_yes_query_no_explanation,
 )
@@ -117,6 +118,41 @@ def test_run_trial_no_query_yes_explanation_extracts_reasoning():
     assert result["answer"] == 0
     assert result["turns"] == 1
     assert result["reasoning"] == "too generic"
+
+
+def test_run_trial_no_query_trusted_distinguisher_success():
+    actor = ScriptedBackend("actor/model", ["actor opening"])
+    distinguisher = ScriptedBackend("trusted/model", ["d opening", "<answer>1</answer>"])
+    result = run_trial_no_query_trusted_distinguisher(
+        12,
+        actor,
+        distinguisher,
+        target_model="separate/target-model",
+        turn_limit=3,
+    )
+    assert result["success"] is True
+    assert result["answer"] == 1
+    assert result["turns"] == 1
+    assert result["first_message"] == "d opening"
+    assert "separate/target-model" in result["actor_prompt"]
+    assert result["target_model"] == "separate/target-model"
+
+
+def test_run_trial_no_query_trusted_distinguisher_rejects_answer_in_opening():
+    actor = ScriptedBackend("actor/model", ["actor opening"])
+    distinguisher = ScriptedBackend("trusted/model", ["<answer>0</answer>"])
+    result = run_trial_no_query_trusted_distinguisher(
+        13,
+        actor,
+        distinguisher,
+        target_model="separate/target-model",
+        turn_limit=3,
+    )
+    assert result["success"] is False
+    assert result["answer"] is None
+    assert result["turns"] == 0
+    assert result["error"] == "distinguisher_answered_in_opening"
+    assert "separate/target-model" in result["actor_prompt"]
 
 
 def test_run_trial_yes_query_no_explanation_rejects_answer_in_opening():

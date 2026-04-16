@@ -203,3 +203,84 @@ def test_run_experiment_passes_api_provider_overrides(monkeypatch, tmp_path):
         ("gpt-5.4-pro", None, "openai"),
         ("gpt-5.4-pro", None, "openai"),
     ]
+
+
+def test_run_experiment_requires_target_model_for_trusted_condition(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "no_query_trusted_distinguisher",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(out_dir),
+        ],
+    )
+
+    try:
+        run_experiment.main()
+    except SystemExit as exc:
+        assert "--target-model is required" in str(exc)
+    else:
+        raise AssertionError("Expected SystemExit for missing --target-model")
+
+
+def test_run_experiment_passes_target_model_to_runner_and_transcript(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    backend = FakeBackend("model")
+    captured_runner_kwargs = []
+
+    def fake_runner(**kwargs):
+        captured_runner_kwargs.append(kwargs)
+        return {
+            "trial_id": kwargs["trial_id"],
+            "success": True,
+            "turns": 1,
+            "answer": 1,
+            "target_model": kwargs["target_model"],
+            "first_message": "hello",
+            "raw_final_message": "<answer>1</answer>",
+        }
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "no_query_trusted_distinguisher", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", lambda *args, **kwargs: backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "no_query_trusted_distinguisher",
+            "--target-model",
+            "gemini-3-pro",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "trusted-target-check",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    assert captured_runner_kwargs[0]["target_model"] == "gemini-3-pro"
+    csv_path = out_dir / "trusted-target-check" / "results.csv"
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows[0]["target_model"] == "gemini-3-pro"
+    payload = json.loads((out_dir / "trusted-target-check" / "trial_000.json").read_text())
+    assert payload["target_model"] == "gemini-3-pro"
