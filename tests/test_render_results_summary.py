@@ -20,6 +20,7 @@ def _write_results_csv(path: Path, rows: list[dict[str, object]]) -> None:
                 "answer",
                 "transcript_path",
                 "condition",
+                "target_model",
                 "reasoning",
                 "specimen_turns",
             ],
@@ -41,6 +42,7 @@ def test_summarize_rows_aggregates_trials(tmp_path: Path):
                 "answer": 1,
                 "transcript_path": "a.json",
                 "condition": "no_query_no_explanation",
+                "target_model": None,
                 "reasoning": None,
                 "specimen_turns": None,
             },
@@ -53,6 +55,7 @@ def test_summarize_rows_aggregates_trials(tmp_path: Path):
                 "answer": 0,
                 "transcript_path": "b.json",
                 "condition": "no_query_no_explanation",
+                "target_model": None,
                 "reasoning": None,
                 "specimen_turns": None,
             },
@@ -70,6 +73,7 @@ def test_summarize_rows_aggregates_trials(tmp_path: Path):
                 "answer": 1,
                 "transcript_path": "c.json",
                 "condition": "yes_query_no_explanation",
+                "target_model": None,
                 "reasoning": None,
                 "specimen_turns": 3,
             }
@@ -92,6 +96,7 @@ def test_summarize_rows_aggregates_trials(tmp_path: Path):
     assert first["answer_1_rate"] == 0.5
     assert first["mean_turns"] == 5
     assert first["mean_specimen_turns"] is None
+    assert first["target_model"] is None
 
     second = next(
         row
@@ -103,6 +108,51 @@ def test_summarize_rows_aggregates_trials(tmp_path: Path):
     assert second["answer_1_rate"] == 1.0
     assert second["mean_turns"] == 5
     assert second["mean_specimen_turns"] == 3
+    assert second["target_model"] is None
+
+
+def test_summarize_rows_separates_trusted_distinguisher_target_models(tmp_path: Path):
+    _write_results_csv(
+        tmp_path / "trusted" / "results.csv",
+        [
+            {
+                "trial_id": 0,
+                "actor_model": "model-a",
+                "distinguisher_model": "model-b",
+                "success": True,
+                "turns": 4,
+                "answer": 1,
+                "transcript_path": "a.json",
+                "condition": "no_query_trusted_distinguisher",
+                "target_model": "gemini-3-pro",
+                "reasoning": None,
+                "specimen_turns": None,
+            },
+            {
+                "trial_id": 1,
+                "actor_model": "model-a",
+                "distinguisher_model": "model-b",
+                "success": True,
+                "turns": 6,
+                "answer": 0,
+                "transcript_path": "b.json",
+                "condition": "no_query_trusted_distinguisher",
+                "target_model": "claude-opus-4.6",
+                "reasoning": None,
+                "specimen_turns": None,
+            },
+        ],
+    )
+
+    summary = summarize_rows(load_rows(discover_result_csvs([tmp_path])))
+
+    assert len(summary) == 2
+    gemini = next(row for row in summary if row["target_model"] == "gemini-3-pro")
+    claude = next(row for row in summary if row["target_model"] == "claude-opus-4.6")
+    assert gemini["n_trials"] == 1
+    assert gemini["answer_1_rate"] == 1.0
+    assert claude["n_trials"] == 1
+    assert claude["answer_0_rate"] == 1.0
 
 
 def test_discover_result_csvs_accepts_multiple_roots(tmp_path: Path):
@@ -120,6 +170,7 @@ def test_discover_result_csvs_accepts_multiple_roots(tmp_path: Path):
                 "answer": 1,
                 "transcript_path": "a.json",
                 "condition": "no_query_no_explanation",
+                "target_model": None,
                 "reasoning": None,
                 "specimen_turns": None,
             }
@@ -137,6 +188,7 @@ def test_discover_result_csvs_accepts_multiple_roots(tmp_path: Path):
                 "answer": 0,
                 "transcript_path": "b.json",
                 "condition": "yes_query_no_explanation",
+                "target_model": None,
                 "reasoning": None,
                 "specimen_turns": None,
             }

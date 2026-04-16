@@ -41,12 +41,19 @@ def _to_int(value: object) -> int | None:
 
 
 def summarize_rows(rows: Iterable[Dict[str, str]]) -> List[Dict[str, object]]:
-    grouped: Dict[tuple[str, str, str], List[Dict[str, str]]] = defaultdict(list)
+    grouped: Dict[tuple[str, str, str, str], List[Dict[str, str]]] = defaultdict(list)
     for row in rows:
-        grouped[(row["condition"], row["actor_model"], row["distinguisher_model"])].append(row)
+        grouped[
+            (
+                row["condition"],
+                row.get("target_model", "") or "",
+                row["actor_model"],
+                row["distinguisher_model"],
+            )
+        ].append(row)
 
     summary_rows: List[Dict[str, object]] = []
-    for (condition, actor_model, distinguisher_model), items in sorted(grouped.items()):
+    for (condition, target_model, actor_model, distinguisher_model), items in sorted(grouped.items()):
         answers = [_to_int(item["answer"]) for item in items if _to_int(item["answer"]) is not None]
         turns = [_to_int(item["turns"]) for item in items if _to_int(item["turns"]) is not None]
         specimen_turns = [
@@ -60,6 +67,7 @@ def summarize_rows(rows: Iterable[Dict[str, str]]) -> List[Dict[str, object]]:
         summary_rows.append(
             {
                 "condition": condition,
+                "target_model": target_model or None,
                 "actor_model": actor_model,
                 "distinguisher_model": distinguisher_model,
                 "n_trials": len(items),
@@ -80,6 +88,7 @@ def write_summary_csv(summary_rows: List[Dict[str, object]], output_csv: Path) -
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "condition",
+        "target_model",
         "actor_model",
         "distinguisher_model",
         "n_trials",
@@ -102,6 +111,7 @@ def render_summary_table(summary_rows: List[Dict[str, object]], output_png: Path
     output_png.parent.mkdir(parents=True, exist_ok=True)
     headers = [
         "condition",
+        "target_model",
         "actor_model",
         "distinguisher_model",
         "n_trials",
@@ -114,6 +124,7 @@ def render_summary_table(summary_rows: List[Dict[str, object]], output_png: Path
         table_rows.append(
             [
                 row["condition"],
+                "" if row["target_model"] is None else row["target_model"],
                 row["actor_model"],
                 row["distinguisher_model"],
                 row["n_trials"],
@@ -138,12 +149,12 @@ def render_summary_table(summary_rows: List[Dict[str, object]], output_png: Path
 
 def render_condition_heatmaps(summary_rows: List[Dict[str, object]], output_dir: Path) -> List[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    by_condition: Dict[str, List[Dict[str, object]]] = defaultdict(list)
+    by_condition: Dict[tuple[str, str | None], List[Dict[str, object]]] = defaultdict(list)
     for row in summary_rows:
-        by_condition[str(row["condition"])].append(row)
+        by_condition[(str(row["condition"]), row.get("target_model"))].append(row)
 
     outputs = []
-    for condition, rows in sorted(by_condition.items()):
+    for (condition, target_model), rows in sorted(by_condition.items(), key=lambda item: (item[0][0], item[0][1] or "")):
         actors = sorted({str(row["actor_model"]) for row in rows})
         distinguishers = sorted({str(row["distinguisher_model"]) for row in rows})
         matrix = [[math.nan for _ in distinguishers] for _ in actors]
@@ -162,7 +173,10 @@ def render_condition_heatmaps(summary_rows: List[Dict[str, object]], output_dir:
         im = ax.imshow(matrix, cmap="viridis", vmin=0.0, vmax=1.0)
         ax.set_xticks(range(len(distinguishers)), distinguishers, rotation=45, ha="right")
         ax.set_yticks(range(len(actors)), actors)
-        ax.set_title(f"{condition}: answer_1_rate")
+        title = f"{condition}: answer_1_rate"
+        if target_model:
+            title = f"{condition} [{target_model}]: answer_1_rate"
+        ax.set_title(title)
 
         for i in range(len(actors)):
             for j in range(len(distinguishers)):
@@ -171,7 +185,9 @@ def render_condition_heatmaps(summary_rows: List[Dict[str, object]], output_dir:
 
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="P(answer=1)")
         fig.tight_layout()
-        out_path = output_dir / f"{condition}.png"
+        filename = condition if not target_model else f"{condition}__{target_model}"
+        safe_filename = filename.replace("/", "_")
+        out_path = output_dir / f"{safe_filename}.png"
         fig.savefig(out_path, dpi=200, bbox_inches="tight")
         plt.close(fig)
         outputs.append(out_path)

@@ -22,6 +22,7 @@ def summarize_results_file(results_csv: Path) -> dict:
 
     actor = ""
     distinguisher = ""
+    target_model = ""
     specimen = ""
     valid_trials = 0
     clean_specimen_stops = 0
@@ -37,6 +38,8 @@ def summarize_results_file(results_csv: Path) -> dict:
                 actor = row.get("actor_model", "").strip()
             if not distinguisher:
                 distinguisher = row.get("distinguisher_model", "").strip()
+            if not target_model:
+                target_model = row.get("target_model", "").strip()
             if not specimen:
                 if "specimen_model" in fieldnames:
                     specimen = row.get("specimen_model", "").strip()
@@ -59,6 +62,7 @@ def summarize_results_file(results_csv: Path) -> dict:
         "run_name": run_name,
         "actor": actor,
         "distinguisher": distinguisher,
+        "target_model": target_model,
         "specimen": specimen,
         "valid_trials": valid_trials,
         "clean_specimen_stops": clean_specimen_stops,
@@ -106,6 +110,7 @@ def main() -> None:
             "run_name",
             "actor",
             "distinguisher",
+            "target_model",
             "specimen",
             "valid_trials",
             "clean_specimen_stops",
