@@ -1,0 +1,11 @@
+trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,error,reasoning,specimen_turns,specimen_stopped_cleanly
+0,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,3,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_000.json,yes_query_no_explanation,,,2,True
+1,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,2,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_001.json,yes_query_no_explanation,,,2,True
+2,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,3,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_002.json,yes_query_no_explanation,,,2,True
+3,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,3,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_003.json,yes_query_no_explanation,,,2,True
+4,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,2,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_004.json,yes_query_no_explanation,,,2,True
+5,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,3,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_005.json,yes_query_no_explanation,,,2,True
+6,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,3,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_006.json,yes_query_no_explanation,,,4,True
+7,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,3,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_007.json,yes_query_no_explanation,,,2,True
+8,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,5,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_008.json,yes_query_no_explanation,,,2,True
+9,google/gemini-3.1-pro-preview,anthropic/claude-opus-4.6,True,3,1,RESULTS/B-016_gemini3pro_vs_claudeopus46/trial_009.json,yes_query_no_explanation,,,2,True

@@ -18,7 +18,7 @@ Per **protocol** π (here: CSV `condition` plus harness filters), and ordered pa
 
 ## Input: `results.csv`
 
-Trials are read from `results_root/*/results.csv` (see `discover_results_csvs`). Expected columns include:
+The repo may include **`RESULTS/*/results.csv`** (per-trial `*.json` under `RESULTS/` is gitignored as large). Trials are read from `results_root/*/results.csv` (see `discover_results_csvs`). Expected columns include:
 
 - `actor_model`, `distinguisher_model`, `condition`
 - `answer` ∈ {`0`,`1`}

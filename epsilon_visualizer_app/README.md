@@ -2,6 +2,27 @@
 
 React + Vite app for **Turing ordering** at a user-chosen threshold ε. Theory and CSV ingest are documented in **`../epsilon_visualizer/README.md`** and **`../Turing_Ordering_Visualizer_Formalization_English.md`**.
 
+## Offline on your laptop (recommended)
+
+No cluster, no `npm` required if **`dist/`** is already in the repo:
+
+```bash
+git clone <your-repo-url>
+cd llm-eval
+python3 scripts/serve_epsilon_visualizer.py
+```
+
+Open **http://127.0.0.1:8765/** in your browser (Chrome/Firefox/Safari). Use **Python 3.6+** (any recent `python3` on macOS/Linux is fine).
+
+To **refresh the JSON** from checked-in **`RESULTS/*/results.csv`** after a `git pull`:
+
+```bash
+python3 scripts/build_epsilon_visualizer_data.py
+cp epsilon_visualizer_app/public/epsilon_visualizer_data.json epsilon_visualizer_app/dist/epsilon_visualizer_data.json
+```
+
+Then reload the page (or restart the server). The build script needs a **Python 3.7+** environment if your ingest code uses modern typing (use a venv on your machine if the cluster had only 3.6).
+
 ## View without `npm` (cluster-friendly)
 
 From **`llm-eval` repo root** (only Python stdlib):

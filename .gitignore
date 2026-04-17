@@ -30,3 +30,6 @@ transcripts
 transcripts/
 *.jsonl
 *.csv.bak
+
+# RESULTS/: keep results.csv in git for offline visualizer ingest; omit large per-trial JSON
+RESULTS/**/*.json

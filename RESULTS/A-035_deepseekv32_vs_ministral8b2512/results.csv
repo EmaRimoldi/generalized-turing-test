@@ -1,0 +1,11 @@
+trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,error,reasoning,specimen_turns,specimen_stopped_cleanly
+0,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,5,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_000.json,no_query_no_explanation,,,,
+1,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,4,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_001.json,no_query_no_explanation,,,,
+2,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,5,0,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_002.json,no_query_no_explanation,,,,
+3,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,5,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_003.json,no_query_no_explanation,,,,
+4,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,4,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_004.json,no_query_no_explanation,,,,
+5,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,5,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_005.json,no_query_no_explanation,,,,
+6,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,1,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_006.json,no_query_no_explanation,,,,
+7,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,3,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_007.json,no_query_no_explanation,,,,
+8,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,2,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_008.json,no_query_no_explanation,,,,
+9,deepseek/deepseek-v3.2,mistralai/ministral-8b-2512,True,2,1,RESULTS/A-035_deepseekv32_vs_ministral8b2512/trial_009.json,no_query_no_explanation,,,,
