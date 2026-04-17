@@ -20,6 +20,9 @@ htmlcov/
 apptainer/*.sif
 .venv-container/
 
+# Node (Vite / epsilon visualizer UI)
+node_modules/
+
 # Experiment outputs
 results
 results/
