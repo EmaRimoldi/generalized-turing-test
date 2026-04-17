@@ -129,6 +129,40 @@ def test_batch_runner_accepts_no_query_trusted_distinguisher_condition(tmp_path)
     assert experiments[0].target_model == "gemini-3-pro"
 
 
+def test_batch_runner_accepts_no_prompt_self_pair_condition(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,num_trials,turn_limit,condition",
+                "exp-a,gpt-5.4-pro,gpt-5.4-pro,2,17,no_prompt_self_pair",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    experiments = run_experiment_batch.load_experiments(csv_path)
+
+    assert len(experiments) == 1
+    assert experiments[0].condition == "no_prompt_self_pair"
+
+
+def test_batch_runner_requires_matching_models_for_no_prompt_self_pair(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,num_trials,turn_limit,condition",
+                "exp-a,gpt-5.4-pro,claude-opus-4.6,2,17,no_prompt_self_pair",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="requires actor and distinguisher to match"):
+        run_experiment_batch.load_experiments(csv_path)
+
+
 def test_batch_runner_requires_target_model_for_no_query_trusted_distinguisher(tmp_path):
     csv_path = tmp_path / "batch.csv"
     csv_path.write_text(

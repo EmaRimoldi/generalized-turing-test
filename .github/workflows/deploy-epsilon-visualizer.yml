@@ -1,0 +1,75 @@
+name: Deploy Epsilon Visualizer
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "epsilon_visualizer_app/**"
+      - "epsilon_visualizer/**"
+      - "scripts/build_epsilon_visualizer_data.py"
+      - "scripts/import_epsilon_tables.py"
+      - "tables/**"
+      - "RESULTS_TABLES/**"
+      - "epsilon_visualizer_data/**"
+      - ".github/workflows/deploy-epsilon-visualizer.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: epsilon_visualizer_app/package-lock.json
+
+      - name: Import Excel tables
+        run: |
+          python3 scripts/import_epsilon_tables.py \
+            --tables-dir tables \
+            --results-root RESULTS_TABLES \
+            --aggregate-out epsilon_visualizer_data/table_runs.csv
+
+      - name: Build visualizer data
+        run: |
+          python3 scripts/build_epsilon_visualizer_data.py \
+            --results-root RESULTS_TABLES \
+            --epsilon-default 0.05
+
+      - name: Build frontend
+        working-directory: epsilon_visualizer_app
+        run: |
+          npm ci
+          npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: epsilon_visualizer_app/dist
+
+      - uses: actions/deploy-pages@v4
+        id: deployment

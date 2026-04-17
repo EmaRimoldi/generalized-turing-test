@@ -14,6 +14,7 @@ from turing_eval.models import MODEL_REGISTRY
 
 CONDITIONS = {
     "no_query_no_explanation",
+    "no_prompt_self_pair",
     "yes_query_no_explanation",
     "no_query_yes_explanation",
     "no_query_trusted_distinguisher",
@@ -81,6 +82,10 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
     distinguisher = _require_field(row, "distinguisher", row_number)
     if distinguisher not in MODEL_REGISTRY:
         raise ValueError(f"CSV row {row_number}: unknown distinguisher model {distinguisher!r}")
+    if condition == "no_prompt_self_pair" and actor != distinguisher:
+        raise ValueError(
+            f"CSV row {row_number}: condition 'no_prompt_self_pair' requires actor and distinguisher to match"
+        )
 
     specimen_required = condition == "yes_query_no_explanation"
     target_model_required = condition == "no_query_trusted_distinguisher"

@@ -233,6 +233,34 @@ def test_run_experiment_requires_target_model_for_trusted_condition(monkeypatch,
         raise AssertionError("Expected SystemExit for missing --target-model")
 
 
+def test_run_experiment_requires_matching_models_for_no_prompt_self_pair(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "no_prompt_self_pair",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(out_dir),
+        ],
+    )
+
+    try:
+        run_experiment.main()
+    except SystemExit as exc:
+        assert "requires --actor and --distinguisher to match" in str(exc)
+    else:
+        raise AssertionError("Expected SystemExit for mismatched no_prompt_self_pair models")
+
+
 def test_run_experiment_passes_target_model_to_runner_and_transcript(monkeypatch, tmp_path):
     out_dir = tmp_path / "results"
     backend = FakeBackend("model")

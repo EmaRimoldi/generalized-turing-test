@@ -3,6 +3,7 @@ from __future__ import annotations
 from turing_eval.conditions import (
     is_stop_signal,
     run_trial_no_query_no_explanation,
+    run_trial_no_prompt_self_pair,
     run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
     run_trial_yes_query_no_explanation,
@@ -35,6 +36,36 @@ def test_run_trial_no_query_no_explanation_success():
     assert result["first_message"] == "d opening"
     assert result["raw_final_message"] == "<answer>1</answer>"
     assert result["actor_messages"][0]["role"] == "user"
+
+
+def test_run_trial_no_prompt_self_pair_opens_without_actor_prompt():
+    actor = ScriptedBackend("shared/model", ["actor opening", "actor followup"])
+    distinguisher = ScriptedBackend("shared/model", ["d opening", "question", "<answer>1</answer>"])
+    result = run_trial_no_prompt_self_pair(8, actor, distinguisher, turn_limit=5)
+    assert result["trial_id"] == 8
+    assert result["success"] is True
+    assert result["answer"] == 1
+    assert result["turns"] == 2
+    assert result["first_message"] == "d opening"
+    assert result["actor_prompt"] is None
+    assert result["actor_messages"][0]["role"] == "user"
+    assert result["actor_messages"][0]["content"] == "d opening"
+    assert result["actor_messages"][1]["role"] == "assistant"
+    assert result["actor_messages"][1]["content"] == "actor opening"
+    assert result["distinguisher_messages"][2]["role"] == "user"
+    assert result["distinguisher_messages"][2]["content"] == "actor opening"
+
+
+def test_run_trial_no_prompt_self_pair_rejects_answer_in_opening():
+    actor = ScriptedBackend("shared/model", ["unused"])
+    distinguisher = ScriptedBackend("shared/model", ["<answer>1</answer>"])
+    result = run_trial_no_prompt_self_pair(10, actor, distinguisher, turn_limit=3)
+    assert result["success"] is False
+    assert result["answer"] is None
+    assert result["turns"] == 0
+    assert result["error"] == "distinguisher_answered_in_opening"
+    assert result["actor_prompt"] is None
+    assert result["actor_messages"] == []
 
 
 def test_run_trial_yes_query_no_explanation_records_two_stages():

@@ -12,6 +12,7 @@ from turing_eval.backends.api_backend import PROVIDERS
 from turing_eval.backends.base import GenerationConfig
 from turing_eval.conditions import (
     run_trial_no_query_no_explanation,
+    run_trial_no_prompt_self_pair,
     run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
     run_trial_yes_query_no_explanation,
@@ -21,6 +22,7 @@ from turing_eval.transcripts import save_transcript_json, write_csv
 
 CONDITIONS = {
     "no_query_no_explanation": run_trial_no_query_no_explanation,
+    "no_prompt_self_pair": run_trial_no_prompt_self_pair,
     "yes_query_no_explanation": run_trial_yes_query_no_explanation,
     "no_query_yes_explanation": run_trial_no_query_yes_explanation,
     "no_query_trusted_distinguisher": run_trial_no_query_trusted_distinguisher,
@@ -32,6 +34,8 @@ def _validate_condition_args(args: argparse.Namespace) -> None:
         raise SystemExit("--target-model is required for condition no_query_trusted_distinguisher")
     if args.condition != "no_query_trusted_distinguisher" and args.target_model is not None:
         raise SystemExit("--target-model is only valid for condition no_query_trusted_distinguisher")
+    if args.condition == "no_prompt_self_pair" and args.actor != args.distinguisher:
+        raise SystemExit("--condition no_prompt_self_pair requires --actor and --distinguisher to match")
 
 
 def _is_valid_trial_result(result: dict[str, object]) -> bool:

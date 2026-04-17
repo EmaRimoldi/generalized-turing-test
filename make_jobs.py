@@ -56,6 +56,7 @@ MODEL_ALIAS_MAP = build_model_alias_map()
 
 VALID_CONDITIONS = {
     "no_query_no_explanation",
+    "no_prompt_self_pair",
     "yes_query_no_explanation",
     "no_query_yes_explanation",
     "no_query_trusted_distinguisher",
@@ -84,6 +85,11 @@ with open(CSV_PATH, newline="", encoding="utf-8") as f:
         run_name = row["run_name"].strip()
         actor = normalize_model_name(row["actor"])
         distinguisher = normalize_model_name(row["distinguisher"])
+        if CONDITION == "no_prompt_self_pair" and actor != distinguisher:
+            raise ValueError(
+                f"Row for run_name={run_name!r} must use the same actor and distinguisher "
+                "for no_prompt_self_pair"
+            )
         target_model = ""
         if CONDITION == "no_query_trusted_distinguisher":
             raw_target_model = row.get("target_model", "").strip()

@@ -45,6 +45,10 @@ The maintained conditions live in [turing_eval/conditions.py](turing_eval/condit
 
 The distinguisher opens immediately. The actor receives an imitation prompt containing that first message and responds without any prior specimen interaction.
 
+### `no_prompt_self_pair`
+
+This is a single-stage self-pair condition. The distinguisher still opens immediately, but the actor receives no initial prompt wrapper. Instead, the distinguisher's first message is passed directly to the actor as the first user turn. This condition only accepts runs where `actor == distinguisher`.
+
 ### `yes_query_no_explanation`
 
 The actor first talks to a specimen of the target model, then a fresh distinguisher begins the real interrogation.
@@ -64,6 +68,7 @@ Maintained prompts live in [turing_eval/prompts.py](turing_eval/prompts.py).
 Current behavior that matters experimentally:
 
 - initial actor and distinguisher prompts are sent as `user` messages, not `system`
+- in condition `no_prompt_self_pair`, the actor receives no initial prompt and the distinguisher's opening is sent directly as the actor's first user turn
 - the specimen in condition `yes_query_no_explanation` receives no initial prompt
 - the distinguisher prompts explicitly say `Do NOT output an answer in your first message.`
 - if the distinguisher still emits `<answer>` in its opening message, the trial is recorded with `error="distinguisher_answered_in_opening"`
@@ -269,6 +274,7 @@ Each transcript contains common metadata such as:
 Conversation fields depend on the condition:
 
 - `no_query_no_explanation`: `actor_messages`, `distinguisher_messages`
+- `no_prompt_self_pair`: `actor_messages`, `distinguisher_messages`
 - `no_query_yes_explanation`: `actor_messages`, `distinguisher_messages`, `reasoning`
 - `yes_query_no_explanation`: `stage1_actor_messages`, `stage2_actor_messages`, `distinguisher_messages`, `specimen_turns`, `specimen_stopped_cleanly`
 - `no_query_trusted_distinguisher`: `actor_messages`, `distinguisher_messages`, `target_model`
@@ -330,11 +336,12 @@ Validation rules:
 
 - `specimen_turn_limit` is required only for `yes_query_no_explanation`
 - `target_model` is required only for `no_query_trusted_distinguisher`
+- `actor` and `distinguisher` must match for `no_prompt_self_pair`
 - for other conditions, `specimen_turn_limit` may be blank or omitted
 - for other conditions, `target_model` may be blank or omitted
 - `actor` and `distinguisher` must be valid model nicknames from [turing_eval/models.py](turing_eval/models.py)
 - `target_model`, when provided, must be a valid model nickname from [turing_eval/models.py](turing_eval/models.py)
-- `condition` must be one of `no_query_no_explanation`, `yes_query_no_explanation`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
+- `condition` must be one of `no_query_no_explanation`, `no_prompt_self_pair`, `yes_query_no_explanation`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
 
 ### Batch-level flags
 

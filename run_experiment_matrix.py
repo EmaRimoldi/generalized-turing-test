@@ -31,10 +31,13 @@ def main() -> int:
     args = parser.parse_args()
 
     pairs = []
-    for actor, distinguisher in itertools.product(args.models, repeat=2):
-        if actor == distinguisher and not args.include_self_match:
-            continue
-        pairs.append((actor, distinguisher))
+    if args.condition == "no_prompt_self_pair":
+        pairs = [(model, model) for model in args.models]
+    else:
+        for actor, distinguisher in itertools.product(args.models, repeat=2):
+            if actor == distinguisher and not args.include_self_match:
+                continue
+            pairs.append((actor, distinguisher))
 
     total_trials = len(pairs) * args.num_trials
     print(f"Running {len(pairs)} pairings x {args.num_trials} trials = {total_trials} total trials")

@@ -66,3 +66,38 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
     assert "--distinguisher-api-provider" in first and "openrouter" in first
     assert "--max-new-tokens" in first and "123" in first
     assert "--temperature" in first and "0.4" in first
+
+
+def test_matrix_runner_limits_no_prompt_self_pair_to_self_matches(monkeypatch, tmp_path):
+    commands: list[list[str]] = []
+
+    def fake_run(command):
+        commands.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(run_experiment_matrix.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment_matrix.py",
+            "--models",
+            "actor-a",
+            "dist-b",
+            "--condition",
+            "no_prompt_self_pair",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(tmp_path),
+        ],
+    )
+
+    rc = run_experiment_matrix.main()
+
+    assert rc == 0
+    assert len(commands) == 2
+    assert commands[0][commands[0].index("--actor") + 1] == "actor-a"
+    assert commands[0][commands[0].index("--distinguisher") + 1] == "actor-a"
+    assert commands[1][commands[1].index("--actor") + 1] == "dist-b"
+    assert commands[1][commands[1].index("--distinguisher") + 1] == "dist-b"
