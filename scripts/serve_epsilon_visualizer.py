@@ -10,8 +10,6 @@ Then open http://127.0.0.1:8765/ in your browser.
 The app loads epsilon_visualizer_data.json from the same directory as index.html
 (public/ is copied into dist/ at build time).
 """
-from __future__ import annotations
-
 import argparse
 import http.server
 import os
