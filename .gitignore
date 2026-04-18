@@ -23,6 +23,9 @@ apptainer/*.sif
 # Node (Vite / epsilon visualizer UI)
 node_modules/
 
+# Local run logs (large / ephemeral)
+logs/
+
 # Experiment outputs
 results
 results/

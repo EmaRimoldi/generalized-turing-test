@@ -1,0 +1,11 @@
+run_name,actor,distinguisher,condition,num_trials,turn_limit,specimen_turn_limit
+A-004_claudeopus46_vs_deepseekv32,claude-opus-4.6,deepseek-v3.2,no_query_no_explanation,10,40,
+A-005_claudeopus46_vs_mistrallarge2512,claude-opus-4.6,mistral-large-2512,no_query_no_explanation,10,40,
+A-015_gpt54pro_vs_qwen332b,gpt-5.4-pro,qwen3-32b,no_query_no_explanation,10,40,
+A-024_gemini3pro_vs_qwen332b,gemini-3-pro,qwen3-32b,no_query_no_explanation,10,40,
+A-035_deepseekv32_vs_ministral8b2512,deepseek-v3.2,ministral-8b-2512,no_query_no_explanation,10,40,
+A-046_qwen332b_vs_claudeopus46,qwen3-32b,claude-opus-4.6,no_query_no_explanation,10,40,
+A-049_qwen332b_vs_deepseekv32,qwen3-32b,deepseek-v3.2,no_query_no_explanation,10,40,
+A-050_qwen332b_vs_mistrallarge2512,qwen3-32b,mistral-large-2512,no_query_no_explanation,10,40,
+A-064_ministral8b2512_vs_claudeopus46,ministral-8b-2512,claude-opus-4.6,no_query_no_explanation,10,40,
+A-071_ministral8b2512_vs_ministral8b2512,ministral-8b-2512,ministral-8b-2512,no_query_no_explanation,10,40,
