@@ -12,6 +12,7 @@ from turing_eval.backends.api_backend import PROVIDERS
 from turing_eval.backends.base import GenerationConfig
 from turing_eval.conditions import (
     run_trial_no_query_no_explanation,
+    run_trial_no_query_no_explanation_explicit_model,
     run_trial_no_prompt_self_pair,
     run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
@@ -22,6 +23,7 @@ from turing_eval.transcripts import save_transcript_json, write_csv
 
 CONDITIONS = {
     "no_query_no_explanation": run_trial_no_query_no_explanation,
+    "no_query_no_explanation_explicit_model": run_trial_no_query_no_explanation_explicit_model,
     "no_prompt_self_pair": run_trial_no_prompt_self_pair,
     "yes_query_no_explanation": run_trial_yes_query_no_explanation,
     "no_query_yes_explanation": run_trial_no_query_yes_explanation,

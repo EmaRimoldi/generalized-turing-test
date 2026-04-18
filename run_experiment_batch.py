@@ -14,6 +14,7 @@ from turing_eval.models import MODEL_REGISTRY
 
 CONDITIONS = {
     "no_query_no_explanation",
+    "no_query_no_explanation_explicit_model",
     "no_prompt_self_pair",
     "yes_query_no_explanation",
     "no_query_yes_explanation",

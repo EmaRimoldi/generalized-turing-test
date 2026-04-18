@@ -3,11 +3,13 @@ from __future__ import annotations
 from turing_eval.conditions import (
     is_stop_signal,
     run_trial_no_query_no_explanation,
+    run_trial_no_query_no_explanation_explicit_model,
     run_trial_no_prompt_self_pair,
     run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
     run_trial_yes_query_no_explanation,
 )
+from turing_eval.prompts import build_distinguisher_prompt_explicit_model_no_reasoning
 
 
 class ScriptedBackend:
@@ -23,6 +25,24 @@ class ScriptedBackend:
 
     def generate_with_metadata(self, messages):
         return self.generate(messages), {}
+
+
+def test_build_distinguisher_prompt_explicit_model_names_slug():
+    slug = "anthropic/claude-opus-4.6"
+    text = build_distinguisher_prompt_explicit_model_no_reasoning(slug)
+    assert text.count(slug) >= 3
+    assert "NOT" in text
+
+
+def test_run_trial_no_query_no_explanation_explicit_model_success():
+    actor = ScriptedBackend("actor/model", ["actor opening", "actor followup"])
+    distinguisher = ScriptedBackend("dist/model", ["d opening", "question", "<answer>1</answer>"])
+    result = run_trial_no_query_no_explanation_explicit_model(7, actor, distinguisher, turn_limit=5)
+    assert result["trial_id"] == 7
+    assert result["success"] is True
+    assert result["answer"] == 1
+    assert result["turns"] == 2
+    assert "dist/model" in result["distinguisher_messages"][0]["content"]
 
 
 def test_run_trial_no_query_no_explanation_success():

@@ -45,6 +45,10 @@ The maintained conditions live in [turing_eval/conditions.py](turing_eval/condit
 
 The distinguisher opens immediately. The actor receives an imitation prompt containing that first message and responds without any prior specimen interaction.
 
+### `no_query_no_explanation_explicit_model`
+
+Same protocol as `no_query_no_explanation` (single-stage, no specimen, same actor prompt and turn-taking). The distinguisher’s **initial** instruction differs: it names the concrete OpenRouter slug (from `distinguisher.display_name`) explicitly when stating same-type vs not, so nearby model families (e.g. Claude Sonnet vs Opus) are not conflated under vague “same model as yourself” wording.
+
 ### `no_prompt_self_pair`
 
 This is a single-stage self-pair condition. The distinguisher still opens immediately, but the actor receives no initial prompt wrapper. Instead, the distinguisher's first message is passed directly to the actor as the first user turn. This condition only accepts runs where `actor == distinguisher`.
@@ -341,7 +345,7 @@ Validation rules:
 - for other conditions, `target_model` may be blank or omitted
 - `actor` and `distinguisher` must be valid model nicknames from [turing_eval/models.py](turing_eval/models.py)
 - `target_model`, when provided, must be a valid model nickname from [turing_eval/models.py](turing_eval/models.py)
-- `condition` must be one of `no_query_no_explanation`, `no_prompt_self_pair`, `yes_query_no_explanation`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
+- `condition` must be one of `no_query_no_explanation`, `no_query_no_explanation_explicit_model`, `no_prompt_self_pair`, `yes_query_no_explanation`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
 
 ### Batch-level flags
 

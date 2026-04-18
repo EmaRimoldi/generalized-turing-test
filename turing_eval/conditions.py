@@ -11,6 +11,7 @@ from .prompts import (
     build_actor_prompt_no_query_trusted_distinguisher,
     build_actor_prompt_yes_query,
     build_distinguisher_prompt,
+    build_distinguisher_prompt_explicit_model_no_reasoning,
     build_distinguisher_prompt_no_query_trusted_distinguisher,
 )
 
@@ -88,6 +89,68 @@ def run_trial_no_query_no_explanation(
         distinguisher,
         "distinguisher",
         initial_prompt=build_distinguisher_prompt(with_reasoning=False),
+    )
+    first_message = d_session.generate_opening()
+    if verbose:
+        print("[D]", first_message)
+
+    actor_prompt = build_actor_prompt_no_query(distinguisher.display_name, first_message)
+    if extract_answer(first_message) is not None:
+        return _invalid_opening_result(
+            trial_id=trial_id,
+            first_message=first_message,
+            error="distinguisher_answered_in_opening",
+            actor_prompt=actor_prompt,
+            distinguisher_messages=copy.deepcopy(d_session.messages),
+            actor_messages=[],
+        )
+
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    actor_reply = a_session.generate_opening()
+    if verbose:
+        print("[A]", actor_reply)
+
+    turns = 1
+    d_reply = d_session.send(actor_reply)
+    if verbose:
+        print("[D]", d_reply)
+
+    answer = extract_answer(d_reply)
+    while answer is None and turns < turn_limit:
+        actor_reply = a_session.send(d_reply)
+        if verbose:
+            print("[A]", actor_reply)
+        turns += 1
+        d_reply = d_session.send(actor_reply)
+        if verbose:
+            print("[D]", d_reply)
+        answer = extract_answer(d_reply)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "answer": answer,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "actor_messages": copy.deepcopy(a_session.messages),
+        "distinguisher_messages": copy.deepcopy(d_session.messages),
+    }
+
+
+def run_trial_no_query_no_explanation_explicit_model(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    turn_limit: int,
+    verbose: bool = False,
+) -> Dict[str, object]:
+    """Like ``no_query_no_explanation`` (A), but distinguisher prompt names ``{distinguisher_model}`` explicitly."""
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt_explicit_model_no_reasoning(distinguisher.display_name),
     )
     first_message = d_session.generate_opening()
     if verbose:
