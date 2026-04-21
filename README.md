@@ -4,8 +4,6 @@ This repository runs controlled actor/distinguisher experiments for language mod
 
 The core question is simple: can one model imitate another model's conversational behavior well enough to fool a fresh instance of that target model?
 
-After you have run directories with `results.csv`, you can explore an **interactive ε-thresholded ordering graph** in the browser; see [Turing ordering visualizer (web UI)](#turing-ordering-visualizer-web-ui).
-
 ## Maintained workflow
 
 The maintained entrypoints are:
@@ -14,8 +12,6 @@ The maintained entrypoints are:
 - [run_experiment_matrix.py](run_experiment_matrix.py): sweep many actor/distinguisher pairings
 - [scripts/render_results_summary.py](scripts/render_results_summary.py): aggregate `results.csv` files into summary tables and figures
 - [scripts/verify_model_slugs.py](scripts/verify_model_slugs.py): validate OpenRouter model slugs
-- [scripts/build_epsilon_visualizer_data.py](scripts/build_epsilon_visualizer_data.py): build the JSON bundle consumed by the **Turing ordering visualizer** web app from per-run `results.csv` files
-- [scripts/serve_epsilon_visualizer.py](scripts/serve_epsilon_visualizer.py): serve the pre-built visualizer (static `dist/`) over HTTP without Node
 
 The older [run_openrouter_single_stage_experiment.py](run_openrouter_single_stage_experiment.py) script is kept only as historical reference.
 
@@ -132,78 +128,6 @@ Validate OpenRouter slugs:
 ```bash
 ./scripts/run-in-container.sh python -m scripts.verify_model_slugs
 ```
-
-## Turing ordering visualizer (web UI)
-
-This repository can also turn aggregated trial CSVs into an **interactive graph** of empirical “who can imitate whom” relationships at a tunable error tolerance **ε** (epsilon). The UI is aimed at readers who want intuition from the same strict evidence rules used in analysis, not only raw tables.
-
-**What it shows (high level).** For each experimental **condition** (protocol in `turing_eval/conditions.py`), each ordered pair of models \((A,B)\) is classified from branch-wise distinguisher rates. A **supported** directed edge \(A \rightarrow B\) means: at the chosen ε, the estimated distinguisher advantage is small enough that the pair is **not ruled out** under the plug-in rule (see [Turing_Ordering_Visualizer_Formalization_English.md](Turing_Ordering_Visualizer_Formalization_English.md)). The app draws these edges, highlights **transitivity violations** \(TV_\varepsilon\) (triangles where \(A \rightarrow B\) and \(B \rightarrow C\) are supported but \(A \rightarrow C\) is not), and lets you compare a **raw** model-level graph with an **SCC condensation** view that collapses mutually reachable groups.
-
-**Prerequisites**
-
-- **Frontend bundle:** `epsilon_visualizer_app/dist/` must contain `index.html` and its assets (usually committed). If it is missing, build once on a machine with Node.js:
-
-  ```bash
-  cd epsilon_visualizer_app
-  npm install
-  npm run build
-  ```
-
-- **Trial aggregates:** the data builder scans run directories under a results root (default `RESULTS/`) and reads each run’s `results.csv` (see [Output structure](#output-structure)). Large per-trial `trial_*.json` files are not required for the visualizer.
-
-**1. Build the JSON artifact**
-
-From the repo root (Python 3.7+ recommended for the ingest code):
-
-```bash
-python3 scripts/build_epsilon_visualizer_data.py
-```
-
-This writes `epsilon_visualizer_app/public/epsilon_visualizer_data.json`. Optional flags include `--results-root`, `--epsilon-default`, and `--min-valid-per-branch` (run `python3 scripts/build_epsilon_visualizer_data.py --help`).
-
-**2. Put JSON where the static app loads it**
-
-If you are **not** re-running `npm run build`, copy the new file into `dist/` so the Python static server sees it:
-
-```bash
-cp epsilon_visualizer_app/public/epsilon_visualizer_data.json epsilon_visualizer_app/dist/epsilon_visualizer_data.json
-```
-
-(`npm run build` copies `public/` into `dist/` and includes the JSON.)
-
-**3. Serve and open in a browser**
-
-```bash
-python3 scripts/serve_epsilon_visualizer.py
-```
-
-Open **http://127.0.0.1:8765/** (Chrome, Firefox, or Safari). Use an HTTP URL: opening `index.html` via `file://` will fail because the app loads the JSON with `fetch`.
-
-**Optional: Vite dev server (live reload)**
-
-```bash
-cd epsilon_visualizer_app
-npm install
-npm run dev
-```
-
-Ensure `public/epsilon_visualizer_data.json` exists (step 1). Vite prints a local URL (often `http://localhost:5173`).
-
-**Using the controls**
-
-- **Condition** — choose the protocol \(\pi\); only models and pairs present for that condition appear.
-- **ε (epsilon)** — global threshold on the estimated advantage \(\hat d = \hat P(\text{correct}) - \tfrac12\). **Larger ε is more permissive** (more pairs become **supported**), because the rule is \(\hat d \le \varepsilon\).
-- **Graph** — **Raw** shows the directed graph on individual models (cycles possible; layout is heuristic). **SCC condensation** merges strongly connected components using **supported** edges only, to summarize coarse order structure.
-- **Edges** — **supported** vs **tentative** pairs use distinct styling on the graph (solid vs dashed).
-- **TV_ε** — count of transitivity-violating triples at the current ε.
-- **Selection** — click nodes, edges, or table rows to inspect pair-level diagnostics (branch rates, formalism references).
-
-**Missing data.** The pipeline is **strict**: insufficient trials, absent branches, or a missing self-pair for target \(B\) leave cells **missing** rather than silently treating them as “no edge”. That behavior is documented in [epsilon_visualizer/README.md](epsilon_visualizer/README.md).
-
-**Deeper documentation**
-
-- Formalization and Python ingest / analytics: [epsilon_visualizer/README.md](epsilon_visualizer/README.md)
-- Web app-only notes (synthetic stress tests, Excel matrix import, CI): [epsilon_visualizer_app/README.md](epsilon_visualizer_app/README.md)
 
 ## Running experiments
 
