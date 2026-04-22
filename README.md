@@ -15,6 +15,18 @@ The maintained entrypoints are:
 
 The older [run_openrouter_single_stage_experiment.py](run_openrouter_single_stage_experiment.py) script is kept only as historical reference.
 
+## Turing ordering visualizer (epsilon graph)
+
+Condition **A** aggregates for the web UI are stored as grouped JSON: **[epsilon_visualizer_app/public/condition_a_model_pair_results.json](epsilon_visualizer_app/public/condition_a_model_pair_results.json)**. After editing that file, rebuild the artifact the UI loads, sync `dist/`, and serve:
+
+```bash
+python3 scripts/build_epsilon_visualizer_data.py
+cp epsilon_visualizer_app/public/epsilon_visualizer_data.json epsilon_visualizer_app/dist/epsilon_visualizer_data.json
+python3 scripts/serve_epsilon_visualizer.py
+```
+
+Open **http://127.0.0.1:8765/** . Details: **[epsilon_visualizer_app/README.md](epsilon_visualizer_app/README.md)**.
+
 ## Roles
 
 - `actor`: tries to imitate the target model

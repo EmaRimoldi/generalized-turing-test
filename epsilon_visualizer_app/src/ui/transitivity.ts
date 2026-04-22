@@ -23,6 +23,7 @@ export function findTransitivityViolations(
       if (!set.has(b)) continue;
       for (const c of [...(adj[b] ?? [])].sort()) {
         if (!set.has(c)) continue;
+        if (new Set([a, b, c]).size < 3) continue;
         if (!(adj[a]?.has(c) ?? false)) triples.push([a, b, c]);
       }
     }
@@ -56,34 +57,6 @@ export function condensationHeights(
   const r: Record<string, number> = {};
   for (const id of metaNodeIds) r[id] = h(id);
   return r;
-}
-
-/** Transitive reduction of a DAG (finite). */
-export function transitiveReduction(
-  nodes: string[],
-  edges: Array<[string, string]>
-): Array<[string, string]> {
-  const adj: Record<string, Set<string>> = {};
-  for (const n of nodes) adj[n] = new Set();
-  for (const [u, v] of edges) adj[u].add(v);
-
-  function reachable(start: string, ban: [string, string]): Set<string> {
-    const seen = new Set<string>();
-    const stack = [start];
-    while (stack.length) {
-      const u = stack.pop()!;
-      for (const v of adj[u] ?? []) {
-        if (u === ban[0] && v === ban[1]) continue;
-        if (!seen.has(v)) {
-          seen.add(v);
-          stack.push(v);
-        }
-      }
-    }
-    return seen;
-  }
-
-  return edges.filter(([u, v]) => !reachable(u, [u, v]).has(v));
 }
 
 /** Nudge node y so larger height sits higher on screen (smaller y). */

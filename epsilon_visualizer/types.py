@@ -7,7 +7,7 @@ ConditionName = str
 
 Branch = Literal["genuine_target", "imitation"]
 PairStatus = Literal["supported", "tentative", "unsupported", "missing"]
-EvidenceMode = Literal["strict", "surrogate"]
+EvidenceMode = Literal["strict"]
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,8 @@ class TrialRecord:
     turn_count: Optional[int]
     specimen_turn_count: Optional[int]
     raw_path: Optional[str]
+    #: ``grouped_json`` | ``matrix_csv`` | ``imputed_uniform`` when built from aggregate grouped ingest.
+    data_provenance: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -62,4 +64,5 @@ class PairEvidence:
 
     exclusions: dict[str, int]
     raw_paths: list[str]
-
+    imitation_data_provenance: Optional[str] = None
+    genuine_data_provenance: Optional[str] = None

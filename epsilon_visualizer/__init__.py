@@ -1,2 +1,1 @@
-"""Epsilon visualizer core logic (strict + surrogate evidence graphs)."""
-
+"""Epsilon visualizer core logic for strict evidence graphs."""

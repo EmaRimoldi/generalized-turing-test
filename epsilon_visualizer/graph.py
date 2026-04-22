@@ -104,32 +104,3 @@ def build_condensation_graph(
     )
 
 
-def transitive_reduction(nodes: list[str], edges: list[tuple[str, str]]) -> list[tuple[str, str]]:
-    """Transitive reduction for a DAG.
-
-    Assumes the input graph is acyclic.
-    """
-    adj: dict[str, set[str]] = {n: set() for n in nodes}
-    for u, v in edges:
-        adj[u].add(v)
-
-    def reachable(start: str, forbidden_edge: tuple[str, str]) -> set[str]:
-        seen: set[str] = set()
-        stack = [start]
-        while stack:
-            u = stack.pop()
-            for v in adj.get(u, set()):
-                if (u, v) == forbidden_edge:
-                    continue
-                if v not in seen:
-                    seen.add(v)
-                    stack.append(v)
-        return seen
-
-    reduced: list[tuple[str, str]] = []
-    for u, v in edges:
-        # if v is reachable from u without using edge (u,v), then (u,v) is redundant
-        if v not in reachable(u, (u, v)):
-            reduced.append((u, v))
-    return reduced
-

@@ -30,6 +30,8 @@ def find_transitivity_violations(
             for c in sorted(adj.get(b, ())):
                 if c not in node_set:
                     continue
+                if len({a, b, c}) < 3:
+                    continue
                 if c not in adj.get(a, ()):
                     triples.append((a, b, c))
     triples.sort()

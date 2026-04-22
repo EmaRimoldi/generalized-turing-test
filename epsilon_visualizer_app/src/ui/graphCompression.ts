@@ -1,5 +1,5 @@
 import type { PairRow, PairStatus } from "./types";
-import { classifyAtEpsilon } from "./logic";
+import { effectiveOrderingStatus } from "./logic";
 
 export interface Cluster {
   id: string;
@@ -68,7 +68,7 @@ export function buildCondensation(args: {
   const { models, pairs, condition, epsilon, minValid } = args;
   const relevant = pairs.filter((p) => p.condition === condition);
   const status = (p: PairRow): PairStatus =>
-    classifyAtEpsilon(p, epsilon, minValid);
+    effectiveOrderingStatus(p, epsilon, minValid);
 
   // supported adjacency on models
   const supportedAdj: Record<string, Set<string>> = {};

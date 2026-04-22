@@ -8,10 +8,6 @@ on:
       - "epsilon_visualizer_app/**"
       - "epsilon_visualizer/**"
       - "scripts/build_epsilon_visualizer_data.py"
-      - "scripts/import_epsilon_tables.py"
-      - "tables/**"
-      - "RESULTS_TABLES/**"
-      - "epsilon_visualizer_data/**"
       - ".github/workflows/deploy-epsilon-visualizer.yml"
 
   workflow_dispatch:
@@ -46,18 +42,11 @@ jobs:
           cache: npm
           cache-dependency-path: epsilon_visualizer_app/package-lock.json
 
-      - name: Import Excel tables
-        run: |
-          python3 scripts/import_epsilon_tables.py \
-            --tables-dir tables \
-            --results-root RESULTS_TABLES \
-            --aggregate-out epsilon_visualizer_data/table_runs.csv
-
-      - name: Build visualizer data
+      - name: Build visualizer data from grouped Condition A JSON
         run: |
           python3 scripts/build_epsilon_visualizer_data.py \
-            --results-root RESULTS_TABLES \
-            --epsilon-default 0.05
+            --grouped-json epsilon_visualizer_app/public/condition_a_model_pair_results.json \
+            --out epsilon_visualizer_app/public/epsilon_visualizer_data.json
 
       - name: Build frontend
         working-directory: epsilon_visualizer_app

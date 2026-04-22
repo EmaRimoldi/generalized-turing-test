@@ -32,9 +32,8 @@ export function layoutDag(
   g.setDefaultEdgeLabel(() => ({}));
 
   for (const n of nodes) {
-    const w = Math.max(140, 10 * n.label.length);
-    const h = 44 + 16 * Math.min(4, n.members.length);
-    g.setNode(n.id, { width: w, height: h });
+    const circleBox = Math.min(172, Math.max(118, 82 + n.label.length * 4, 110 + n.members.length * 6));
+    g.setNode(n.id, { width: circleBox + 42, height: circleBox + 34 });
   }
   for (const e of edges) {
     g.setEdge(e.from, e.to);
@@ -74,4 +73,3 @@ export function recomputeViewBox(laid: LayoutResult): LayoutResult {
     height: maxY - minY + 80,
   };
 }
-

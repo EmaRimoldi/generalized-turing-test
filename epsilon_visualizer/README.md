@@ -10,9 +10,9 @@ Per **protocol** π (here: CSV `condition` plus harness filters), and ordered pa
 |----------|------|
 | **Observed (after filters)** | Trial counts and branch-wise frequencies: `pSameRealB` (self-pair \(B,B\), fraction answer 1) and `pDiffImpostor` (pair \(A,B\), fraction answer 0), matching \(q_\pi^B(B)\) and \(r_\pi^B(A,B)\) in the formalization. |
 | **Derived** | \(\hat P(\text{correct}) = \tfrac12 q + \tfrac12 r\), \(\hat d = \hat P - \tfrac12\), \(\hat\varepsilon^\* = \max(0,\hat d)\). |
-| **Edge rule (conservative)** | **Supported** \(A \to B\) at ε when the **Wilson upper** bound on \(\hat P(\text{correct})\) is \(\le \tfrac12 + \varepsilon\) (and both branches meet `min_valid_per_branch`). See `thresholding.py`. |
+| **Edge rule** | **Supported** \(A \to B\) at ε when \(\hat d = \hat P(\text{correct}) - \tfrac12 \le \varepsilon\) (and both branches meet `min_valid_per_branch`). See `thresholding.py`. |
 
-**Strict vs surrogate:** Strict mode joins genuine and imitation branches per the markdown. Surrogate mode thresholds an imitation-only proxy and is labeled as such in the UI.
+The visualizer is strict-only: it joins genuine and imitation branches per the markdown. If those branches cannot be computed, the affected cells stay **missing** instead of falling back to a proxy.
 
 **Missing data:** Absent runs, insufficient trials, or missing self-pair for \(B\) in strict mode produce **missing** cells — they are **not** treated as “no edge”.
 
@@ -32,14 +32,14 @@ Row validity and exclusions follow `IngestConfig` (`exclude_answered_in_opening`
 From the `llm-eval` repo root (with venv activated if you use one):
 
 ```bash
-python scripts/build_epsilon_visualizer_data.py
+python3 scripts/build_epsilon_visualizer_data.py
 ```
 
-This writes **`epsilon_visualizer_app/public/epsilon_visualizer_data.json`**, copied into **`epsilon_visualizer_app/dist/`** when you run `npm run build`, and loaded by the UI via a URL relative to the page.
+By default this reads **`epsilon_visualizer_app/public/condition_a_model_pair_results.json`** (grouped Condition A JSON) and writes **`epsilon_visualizer_app/public/epsilon_visualizer_data.json`**. Copy that file into **`epsilon_visualizer_app/dist/`** after a rebuild, or run `npm run build` in `epsilon_visualizer_app/`, which bundles assets from `public/`.
 
 **View the built app without Node:** from repo root, `python3 scripts/serve_epsilon_visualizer.py`, then open http://127.0.0.1:8765/
 
-Pair rows include `dHat`, `epsilonStarHat`, Wilson bounds, and `formalismRef` pointing to the markdown document.
+Pair rows include `dHat`, `epsilonStarHat`, branch diagnostics, and `formalismRef` pointing to the markdown document.
 
 ## Python analytics API
 
@@ -47,7 +47,7 @@ Importable helpers:
 
 - **`ingest`**: load trials, compute `PairEvidence`, serialize artifact rows.
 - **`transitivity`**: transitivity violations \(TV_\varepsilon\), SCC condensation heights, strict pairs.
-- **`stats` / `thresholding`**: Wilson intervals and pair classification.
+- **`thresholding`**: plug-in \(d \le \varepsilon\) pair classification.
 
 Example:
 
@@ -57,17 +57,17 @@ python -m pytest tests/test_transitivity.py
 
 ## How ε is interpreted
 
-User-chosen **ε ≥ 0**: larger ε makes the **supported** relation **more permissive** (easier for \(A \succeq_{\varepsilon,\pi} B\)), because the rule is **distinguisher advantage small enough**: conservative check \(\text{UB}(\hat P(\text{correct})) \le \tfrac12 + \varepsilon\), consistent with \(d \le \varepsilon\) in the formalization.
+User-chosen **ε ≥ 0**: larger ε makes the **supported** relation **more permissive** (easier for \(A \succeq_{\varepsilon,\pi} B\)), because the rule is **distinguisher advantage small enough**: \(\hat d = \hat P(\text{correct}) - \tfrac12 \le \varepsilon\).
 
 ## Web UI: raw graph vs SCC buckets
 
 - **Raw model graph:** Nodes are models; **supported** edges are **directed** as in \(G_{\varepsilon,\pi}\). Cycles may appear; layout uses **dagre** (layered), which is heuristic when the graph is not a DAG.
-- **SCC condensation:** Strongly connected components are collapsed using **supported** edges only; **tentative** edges are drawn but do not merge clusters. Vertical placement uses **DAG height** on the condensation graph (after optional **transitive reduction** on that DAG only).
+- **SCC condensation:** Strongly connected components are collapsed using **supported** edges only. Vertical placement uses **DAG height** on the condensation graph.
 
 ## Transitivity diagnostic
 
-The UI reports **\(TV_\varepsilon\)**: triples \((A,B,C)\) such that \(A \to B\) and \(B \to C\) are **supported** but \(A \to C\) is **not** supported (on the model-level adjacency).
+The UI reports **\(TV_\varepsilon\)**: distinct-model triples \((A,B,C)\) such that \(A \to B\) and \(B \to C\) are **supported** but \(A \to C\) is **not** supported (on the model-level adjacency).
 
-## Where theory meets your tables
+## Grouped JSON vs per-trial CSV
 
-The markdown describes an **ideal** two-branch experiment. The implementation uses **empirical** branch rates from your CSVs; strict mode requires a **self-pair** run for target \(B\) to estimate the “genuine \(B\)” branch. If that is missing, the strict cell stays **missing** rather than guessing.
+The markdown describes an **ideal** two-branch experiment. The implementation uses **empirical** branch rates from your inputs. For **grouped JSON**, each cell supplies aggregate counts per directed pair; strict mode still requires valid self-pair and imitation counts where applicable. For **per-trial `results.csv`**, strict mode requires a **self-pair** run for target \(B\) to estimate the genuine branch; if that is missing, the strict cell stays **missing** rather than guessing.
