@@ -60,6 +60,35 @@ export function layoutDag(
 }
 
 /** Recompute width/height after manually changing node positions. */
+/**
+ * Within each horizontal "layer" (similar y, from dagre TB or applyHeightToY), reorder
+ * left→right: higher `score` first (e.g. stricter distinguishers). Preserves the layer’s
+ * min/max x so the global width stays similar.
+ */
+export function orderLayerNodesByScore(
+  nodes: Array<{ id: string; x: number; y: number; w: number; h: number }>,
+  score: (id: string) => number,
+  yBucketPx = 24
+): void {
+  const layers = new Map<number, typeof nodes>();
+  for (const n of nodes) {
+    const L = Math.round(n.y / yBucketPx);
+    if (!layers.has(L)) layers.set(L, []);
+    layers.get(L)!.push(n);
+  }
+  for (const layer of layers.values()) {
+    if (layer.length < 2) continue;
+    layer.sort((a, b) => score(b.id) - score(a.id) || a.id.localeCompare(b.id));
+    const left = Math.min(...layer.map((n) => n.x));
+    const right = Math.max(...layer.map((n) => n.x));
+    const span = right - left;
+    const m = layer.length;
+    for (let i = 0; i < m; i += 1) {
+      layer[i].x = m <= 1 ? left : left + (span * i) / (m - 1);
+    }
+  }
+}
+
 export function recomputeViewBox(laid: LayoutResult): LayoutResult {
   const xs = laid.nodes.map((n) => n.x + n.w / 2);
   const ys = laid.nodes.map((n) => n.y + n.h / 2);

@@ -3,8 +3,8 @@ import "katex/dist/katex.min.css";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { PairRow, PairStatus, VisualizerArtifact } from "./types";
 import { buildCondensation } from "./graphCompression";
-import { effectiveOrderingStatus, formatPct } from "./logic";
-import { layoutDag, recomputeViewBox, type DagEdge, type DagNode } from "./layout";
+import { defenderImitationStrictness, effectiveOrderingStatus, formatPct } from "./logic";
+import { layoutDag, orderLayerNodesByScore, recomputeViewBox, type DagEdge, type DagNode } from "./layout";
 import {
   applyHeightToY,
   buildSupportedAdjacency,
@@ -332,6 +332,7 @@ export function App() {
 
   const laidCondensation = useMemo(() => {
     if (!data || !condensation) return null;
+    const strictByModel = defenderImitationStrictness(strictPairs, condition, modelsForCondition);
     const clusterIds = condensation.clusters.map((c) => c.id);
     const heights = condensationHeights(clusterIds, condensation.supportedEdges);
     const nodes: DagNode[] = condensation.clusters.map((c) => ({
@@ -339,17 +340,27 @@ export function App() {
       label: clusterLabel(c.members),
       members: c.members,
     }));
+    const scoreByClusterId = new Map<string, number>();
+    for (const n of nodes) {
+      const s =
+        n.members.length > 0
+          ? Math.max(...n.members.map((m) => strictByModel.get(m) ?? 0))
+          : 0;
+      scoreByClusterId.set(n.id, s);
+    }
     const edges: DagEdge[] = [
       ...condensation.supportedEdges.map(([from, to]) => ({ from, to, kind: "supported" as const })),
       ...condensation.tentativeEdges.map(([from, to]) => ({ from, to, kind: "tentative" as const })),
     ];
     const base = layoutDag(nodes, edges);
     applyHeightToY(base.nodes, heights, 112);
+    orderLayerNodesByScore(base.nodes, (id) => scoreByClusterId.get(id) ?? 0, 28);
     return recomputeViewBox(base);
-  }, [data, condensation]);
+  }, [data, condensation, strictPairs, condition, modelsForCondition]);
 
   const laidRaw = useMemo(() => {
     if (!data) return null;
+    const strictByModel = defenderImitationStrictness(strictPairs, condition, modelsForCondition);
     const edges: DagEdge[] = [];
     for (const p of pairsForCondition) {
       const st = effectiveOrderingStatus(p, epsilon, minValid);
@@ -361,8 +372,10 @@ export function App() {
       label: modelName(m),
       members: [m],
     }));
-    return layoutDag(nodes, edges);
-  }, [data, modelsForCondition, pairsForCondition, epsilon, minValid]);
+    const base = layoutDag(nodes, edges);
+    orderLayerNodesByScore(base.nodes, (id) => strictByModel.get(id) ?? 0, 22);
+    return base;
+  }, [data, modelsForCondition, pairsForCondition, strictPairs, condition, epsilon, minValid]);
 
   const summaryCounts = useMemo(() => {
     const c = { supported: 0, tentative: 0, unsupported: 0, missing: 0 };
