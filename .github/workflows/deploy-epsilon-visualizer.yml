@@ -5,9 +5,9 @@ on:
     branches:
       - main
     paths:
-      - "epsilon_visualizer_app/**"
-      - "epsilon_visualizer/**"
-      - "scripts/build_epsilon_visualizer_data.py"
+      - "visualizer/web/**"
+      - "visualizer/python/**"
+      - "visualizer/scripts/build_epsilon_visualizer_data.py"
       - ".github/workflows/deploy-epsilon-visualizer.yml"
 
   workflow_dispatch:
@@ -40,16 +40,16 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-          cache-dependency-path: epsilon_visualizer_app/package-lock.json
+          cache-dependency-path: visualizer/web/package-lock.json
 
       - name: Build visualizer data from grouped Condition A JSON
         run: |
-          python3 scripts/build_epsilon_visualizer_data.py \
-            --grouped-json epsilon_visualizer_app/public/condition_a_model_pair_results.json \
-            --out epsilon_visualizer_app/public/epsilon_visualizer_data.json
+          python3 visualizer/scripts/build_epsilon_visualizer_data.py \
+            --grouped-json visualizer/web/public/condition_a_model_pair_results.json \
+            --out visualizer/web/public/epsilon_visualizer_data.json
 
       - name: Build frontend
-        working-directory: epsilon_visualizer_app
+        working-directory: visualizer/web
         run: |
           npm ci
           npm run build
@@ -58,7 +58,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: epsilon_visualizer_app/dist
+          path: visualizer/web/dist
 
       - uses: actions/deploy-pages@v4
         id: deployment

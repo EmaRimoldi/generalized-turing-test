@@ -96,16 +96,12 @@ Cycles / equivalence clusters should be formed from **supported** edges, not fro
 The visualizer is not just a picture of point estimates. It must expose sample size, instability, filtering, and uncertainty.
 
 ### 6) Fail closed rather than fake formality
-If the available data do not support a faithful estimate of the formal ordering quantity, the tool must say so clearly and either:
-- switch to an explicitly labeled surrogate mode, or
-- refuse to draw formal ordering edges.
+If the available data do not support a faithful estimate of the formal ordering quantity, the tool must say so clearly and refuse to draw formal ordering edges for those cells.
 
 ---
 
-## Required Modes
-
-## Mode 1 — Formal / strict mode
-Use this mode when the data are sufficient to estimate the formal distinguishability quantity for each ordered pair `(A, B)`.
+## Required Strict Mode
+Use strict mode when the data are sufficient to estimate the formal distinguishability quantity for each ordered pair `(A, B)`.
 
 Required inputs per trial (or enough information to reconstruct them):
 
@@ -158,28 +154,6 @@ Classify as **unsupported** when the point estimate itself violates the threshol
 
 ### Missing / uncomputable rule
 Classify as **missing** when data are absent or filtered below a minimum valid-trial threshold.
-
----
-
-## Mode 2 — Explicit surrogate mode
-If strict mode is impossible because branch structure or equivalent required information is missing, implement a fallback mode **only if it is explicitly labeled as a surrogate**.
-
-In surrogate mode:
-
-- do **not** present the graph as a literal implementation of `A ≥_ε B`,
-- do **not** reuse the formal symbol in the main title without qualification,
-- label the view clearly as something like:
-  - `Empirical surrogate view`, or
-  - `Imitation-only evidence view`.
-
-The surrogate mode is allowed to visualize thresholded pairwise fooling / distinguishability patterns, but the UI must make clear that this is a proxy rather than the formal ordering.
-
-### Default behavior
-Preferred order of behavior:
-
-1. try strict mode,
-2. if impossible, expose a warning and offer surrogate mode,
-3. if neither is sound, show a clear error state instead of fabricating claims.
 
 ---
 
@@ -252,7 +226,7 @@ interface PairEvidence {
   source: string; // A
   target: string; // B
   condition: string;
-  mode: 'strict' | 'surrogate';
+  mode: 'strict';
 
   nValid: number;
   nExcluded: number;
@@ -343,14 +317,8 @@ Possible layering strategies:
 
 The layout should be stable across nearby `ε` values as much as possible.
 
-## Step 5 — Optional transitive reduction
-Provide either:
-- a toggle to show full supported DAG vs transitive reduction, or
-- default to reduced DAG if readability is much better.
-
-Do this **only after** SCC condensation and **only** when the graph is acyclic (which it should be after condensation).
-
-Use caution: do not hide evidence in a way that makes incompleteness harder to see.
+## Step 5 — Preserve full quotient DAG
+Show the full supported DAG after SCC condensation. Do not hide redundant supported edges; keeping them visible makes the evidence and incompleteness easier to inspect.
 
 ---
 
@@ -382,7 +350,6 @@ This is important because the main graph intentionally suppresses clutter.
 ## Detail panel
 Clicking an edge or pair should show:
 - condition
-- current mode (strict vs surrogate)
 - point estimate
 - uncertainty interval / bound
 - valid / excluded trial counts
@@ -400,8 +367,7 @@ Clicking a cluster should show:
 Required controls:
 - condition selector (`A`, `B`, `C`, etc.)
 - epsilon slider
-- mode indicator (`strict` / `surrogate`)
-- optional toggle for transitive reduction
+- strict evidence indicator
 - optional toggle for filtering policy
 
 Optional but desirable:
@@ -579,7 +545,7 @@ The implementation is complete when all of the following are true:
 5. Missing / uncomputable pairs are clearly distinguishable from unsupported ones.
 6. The app never forces a total ranking when the graph is partial.
 7. Clicking an edge or pair reveals the underlying evidence and filtering.
-8. The app clearly indicates whether it is in strict mode or surrogate mode.
+8. The app clearly indicates that it is strict-only.
 9. The code includes tests for threshold classification and SCC compression.
 10. The implementation runs locally and survives basic manual interaction without obvious errors.
 
@@ -643,7 +609,7 @@ Unless the repository already defines better project-wide defaults, use the foll
 - default display: **supported graph + tentative overlay + pair matrix**,
 - default threshold rule: **conservative upper bound**,
 - default clustering: **supported edges only**,
-- default behavior on insufficient formal data: **warning + explicit surrogate option**, not silent fallback.
+- default behavior on insufficient formal data: **missing/error state**, not silent fallback.
 
 ---
 
@@ -657,7 +623,7 @@ The code / UI should preserve visibility of the following unresolved questions:
 2. whether `ε` should later depend on turn budget or other resources,
 3. how to interpret results across different conditions,
 4. whether some pathologies are model failures or harness artifacts,
-5. whether third-party judge variants will later require a second visualizer mode.
+5. whether third-party judge variants will later require a separate visualizer.
 
 A short note or help tooltip is enough; the important part is not to erase the uncertainty.
 
@@ -672,7 +638,7 @@ The coding agent should produce:
 3. tests for threshold logic and graph compression,
 4. a brief README section or inline documentation explaining:
    - the meaning of the graph,
-   - strict vs surrogate mode,
+   - strict-only evidence,
    - the uncertainty rule used,
    - how to run the visualizer locally.
 
@@ -688,7 +654,7 @@ Implement in this order:
 4. implement the main graph view,
 5. add epsilon slider and condition selector,
 6. add pair matrix and detail panel,
-7. add warnings / missingness / surrogate-mode handling,
+7. add warnings / missingness handling,
 8. run end-to-end manual debugging and clean up UX.
 
 Do not start from styling. Start from evidence semantics and correctness.

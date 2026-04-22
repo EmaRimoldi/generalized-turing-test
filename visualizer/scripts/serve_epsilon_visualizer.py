@@ -3,7 +3,7 @@
 
 Usage (from llm-eval repo root):
 
-    python3 scripts/serve_epsilon_visualizer.py
+    python3 visualizer/scripts/serve_epsilon_visualizer.py
 
 Then open http://127.0.0.1:8765/ in your browser.
 
@@ -23,13 +23,13 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
 
-    repo_root = Path(__file__).resolve().parent.parent
-    dist = repo_root / "epsilon_visualizer_app" / "dist"
+    repo_root = Path(__file__).resolve().parents[2]
+    dist = repo_root / "visualizer" / "web" / "dist"
     if not (dist / "index.html").is_file():
         print(
-            "Missing epsilon_visualizer_app/dist/index.html.\n"
+            "Missing visualizer/web/dist/index.html.\n"
             "Build once (on a machine with Node):\n"
-            "  cd epsilon_visualizer_app && npm install && npm run build\n"
+            "  cd visualizer/web && npm install && npm run build\n"
             "Then copy the dist/ folder here or re-run this script from the repo."
         )
         return 1

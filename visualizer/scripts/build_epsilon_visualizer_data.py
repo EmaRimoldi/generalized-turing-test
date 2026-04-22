@@ -5,9 +5,12 @@ import argparse
 from pathlib import Path
 import sys
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+VIS_PYTHON = REPO_ROOT / "visualizer" / "python"
+if str(VIS_PYTHON) not in sys.path:
+    sys.path.insert(0, str(VIS_PYTHON))
+
+WEB_PUBLIC = REPO_ROOT / "visualizer" / "web" / "public"
 
 from epsilon_visualizer.ingest import build_visualizer_artifact, write_visualizer_artifact_json
 
@@ -31,7 +34,7 @@ def main() -> int:
         dest="grouped_json",
         default=None,
         help="Grouped model-pair JSON (model_pair_results_grouped schema). Default path when unset: "
-        "epsilon_visualizer_app/public/condition_a_model_pair_results.json. Full grid: JSON cells, optional "
+        "visualizer/web/public/condition_a_model_pair_results.json. Full grid: JSON cells, optional "
         "--grouped-matrix-fallback, then uniform 5/5 imputation unless --grouped-no-impute.",
     )
     parser.add_argument(
@@ -45,7 +48,7 @@ def main() -> int:
         action="store_true",
         help="With --grouped-json: do not add uniform 5/5 trials for pairs absent from JSON and matrix (may leave missing_run).",
     )
-    parser.add_argument("--out", default="epsilon_visualizer_app/public/epsilon_visualizer_data.json")
+    parser.add_argument("--out", default=str(WEB_PUBLIC / "epsilon_visualizer_data.json"))
     parser.add_argument("--epsilon-default", type=float, default=0.05)
     parser.add_argument("--min-valid-per-branch", type=int, default=3)
     parser.add_argument("--z", type=float, default=1.645)
@@ -53,7 +56,7 @@ def main() -> int:
     parser.add_argument("--include-error-trials", action="store_true")
     args = parser.parse_args()
 
-    default_grouped_json = REPO_ROOT / "epsilon_visualizer_app" / "public" / "condition_a_model_pair_results.json"
+    default_grouped_json = WEB_PUBLIC / "condition_a_model_pair_results.json"
     if not args.matrix_a and not args.grouped_json and not args.results_root:
         if default_grouped_json.is_file():
             args.grouped_json = str(default_grouped_json)

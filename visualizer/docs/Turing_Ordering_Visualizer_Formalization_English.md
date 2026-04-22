@@ -290,7 +290,7 @@ h(C) =
 \end{cases}
 $$
 
-Drawing components with greater height higher realizes exactly the idea "$A$ is above $B$ if $A$ is strictly greater than $B$" in the quotient view. To reduce visual clutter, one should then apply the *transitive reduction* to the quotient DAG; in a finite DAG it preserves reachability while removing redundant edges.
+Drawing components with greater height higher realizes exactly the idea "$A$ is above $B$ if $A$ is strictly greater than $B$" in the quotient view. The implemented visualizer keeps the full quotient DAG rather than reducing redundant edges, so that all supported evidence remains visible.
 
 # Complete recommended algorithm
 

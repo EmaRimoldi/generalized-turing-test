@@ -412,7 +412,7 @@ export function App() {
       <div className="load-state error-state">
         <h2>Data load failed</h2>
         <p>{error}</p>
-        <code>python3 scripts/serve_epsilon_visualizer.py</code>
+        <code>python3 visualizer/scripts/serve_epsilon_visualizer.py</code>
       </div>
     );
   }

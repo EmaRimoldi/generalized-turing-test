@@ -1,4 +1,4 @@
-/** Transitivity TV_epsilon and SCC-DAG heights (see Turing_Ordering_Visualizer_Formalization_English.md). */
+/** Transitivity TV_epsilon and SCC-DAG heights (see visualizer/docs/Turing_Ordering_Visualizer_Formalization_English.md). */
 
 export function buildSupportedAdjacency(
   models: string[],

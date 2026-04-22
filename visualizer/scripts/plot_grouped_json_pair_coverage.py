@@ -22,17 +22,18 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--grouped-json",
-        default="epsilon_visualizer_app/public/condition_a_model_pair_results.json",
+        default="visualizer/web/public/condition_a_model_pair_results.json",
         help="Path to grouped Condition A JSON (model_pair_results_grouped schema)",
     )
     parser.add_argument(
         "--out",
-        default="epsilon_visualizer_data/figures/condition_A_pair_coverage.png",
+        default="visualizer/output/figures/condition_A_pair_coverage.png",
         help="Output PNG path",
     )
     args = parser.parse_args()
     grouped = Path(args.grouped_json).resolve()
     out = Path(args.out).resolve()
+    out.parent.mkdir(parents=True, exist_ok=True)
 
     raw = json.loads(grouped.read_text(encoding="utf-8"))
     order = [str(x).strip() for x in raw["ordering"]["model_order"]]

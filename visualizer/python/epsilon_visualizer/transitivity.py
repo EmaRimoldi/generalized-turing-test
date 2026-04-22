@@ -1,4 +1,4 @@
-"""Transitivity diagnostics and SCC-DAG heights (Turing_Ordering_Visualizer_Formalization_English.md).
+"""Transitivity diagnostics and SCC-DAG heights (visualizer/docs/Turing_Ordering_Visualizer_Formalization_English.md).
 
 Edges are the empirical relation A succeeds B at a fixed threshold (here: supported pairs only).
 A violation is a triple (A, B, C) with A -> B and B -> C but not A -> C.

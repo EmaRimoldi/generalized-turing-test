@@ -17,15 +17,17 @@ The older [run_openrouter_single_stage_experiment.py](run_openrouter_single_stag
 
 ## Turing ordering visualizer (epsilon graph)
 
-Condition **A** aggregates for the web UI are stored as grouped JSON: **[epsilon_visualizer_app/public/condition_a_model_pair_results.json](epsilon_visualizer_app/public/condition_a_model_pair_results.json)**. After editing that file, rebuild the artifact the UI loads, sync `dist/`, and serve:
+The visualizer lives under **`visualizer/`** (Python package, web app, scripts, docs). Hub: **[visualizer/README.md](visualizer/README.md)**.
+
+Condition **A** aggregates for the web UI are grouped JSON: **[visualizer/web/public/condition_a_model_pair_results.json](visualizer/web/public/condition_a_model_pair_results.json)**. After editing that file, rebuild the artifact the UI loads, sync `dist/`, and serve:
 
 ```bash
-python3 scripts/build_epsilon_visualizer_data.py
-cp epsilon_visualizer_app/public/epsilon_visualizer_data.json epsilon_visualizer_app/dist/epsilon_visualizer_data.json
-python3 scripts/serve_epsilon_visualizer.py
+python3 visualizer/scripts/build_epsilon_visualizer_data.py
+cp visualizer/web/public/epsilon_visualizer_data.json visualizer/web/dist/epsilon_visualizer_data.json
+python3 visualizer/scripts/serve_epsilon_visualizer.py
 ```
 
-Open **http://127.0.0.1:8765/** . Details: **[epsilon_visualizer_app/README.md](epsilon_visualizer_app/README.md)**.
+Open **http://127.0.0.1:8765/** .
 
 ## Roles
 

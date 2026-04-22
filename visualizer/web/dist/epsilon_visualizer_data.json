@@ -14,7 +14,7 @@
     "excludeAnsweredInOpening": true,
     "excludeAnyError": true
   },
-  "formalismRef": "Turing_Ordering_Visualizer_Formalization_English.md",
+  "formalismRef": "visualizer/docs/Turing_Ordering_Visualizer_Formalization_English.md",
   "minValidPerBranch": 3,
   "mode": "strict",
   "models": [

@@ -715,7 +715,7 @@ def build_visualizer_artifact(
             _serialize_pair_row(ev)
             for ev in pair_evidence
         ],
-        "formalismRef": "Turing_Ordering_Visualizer_Formalization_English.md",
+        "formalismRef": "visualizer/docs/Turing_Ordering_Visualizer_Formalization_English.md",
         "dataSource": (
             "grouped_json"
             if grouped_json is not None
