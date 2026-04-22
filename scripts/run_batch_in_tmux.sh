@@ -2,8 +2,7 @@
 # Avvia run_experiment_batch.py in una sessione tmux staccata: sopravvive a chiusura SSH / laptop.
 #
 # Uso (dalla root del repo):
-#   ./scripts/run_batch_in_tmux.sh
-#   ./scripts/run_batch_in_tmux.sh batch_configs/matrix_B_resume_no_gptpro.csv
+#   ./scripts/run_batch_in_tmux.sh path/to/your_batch.csv
 #
 # Variabili opzionali:
 #   TMUX_SESSION_NAME=my-session  (default: llm-eval-batch)
@@ -18,7 +17,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
 SESSION="${TMUX_SESSION_NAME:-llm-eval-batch}"
-CSV_REL="${1:-batch_configs/matrix_B_resume_no_gptpro.csv}"
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 path/to/batch.csv" >&2
+  echo "  Example: $0 ./my_batches/condition_A.csv" >&2
+  exit 1
+fi
+CSV_REL="$1"
 LOG_DIR="${REPO_ROOT}/logs"
 mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/batch-${SESSION}.log"

@@ -1,2 +1,0 @@
-run_name,actor,distinguisher,condition,num_trials,turn_limit,specimen_turn_limit
-B-018_gemini3pro_vs_gemini3pro,gemini-3-pro,gemini-3-pro,yes_query_no_explanation,10,40,20

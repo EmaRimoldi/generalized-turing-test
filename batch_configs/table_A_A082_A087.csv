@@ -1,7 +1,0 @@
-run_name,actor,distinguisher,condition,num_trials,turn_limit,specimen_turn_limit
-A-082,gpt-5.4,gpt-5.4,no_query_no_explanation,10,40,
-A-083,gpt-5.4,claude-sonnet-4.6,no_query_no_explanation,10,40,
-A-084,gpt-5.4,gemini-3-pro,no_query_no_explanation,10,40,
-A-085,gpt-5.4,claude-opus-4.6,no_query_no_explanation,10,40,
-A-086,claude-sonnet-4.6,gpt-5.4,no_query_no_explanation,10,40,
-A-087,claude-sonnet-4.6,claude-sonnet-4.6,no_query_no_explanation,10,40,

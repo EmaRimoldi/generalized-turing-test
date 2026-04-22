@@ -6,7 +6,7 @@ import argparse
 import csv
 from pathlib import Path
 
-# Matrice B tier-0 senza gpt-5.4-pro (batch_configs/matrix_B_yes_query_no_explanation_tier0.csv)
+# Matrice B tier-0 senza gpt-5.4-pro (run names hardcoded sotto DEFAULT_RUNS)
 DEFAULT_RUNS = [
     "B-010_claudeopus46_vs_claudeopus46",
     "B-012_claudeopus46_vs_gemini3pro",

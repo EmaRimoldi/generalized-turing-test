@@ -1,3 +1,0 @@
-run_name,actor,distinguisher,condition,num_trials,turn_limit,specimen_turn_limit
-explicit_opus-4.6_vs_sonnet-4.6,claude-opus-4.6,claude-sonnet-4.6,no_query_no_explanation_explicit_model,10,40,
-explicit_sonnet-4.6_vs_opus-4.6,claude-sonnet-4.6,claude-opus-4.6,no_query_no_explanation_explicit_model,10,40,
