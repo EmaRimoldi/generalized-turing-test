@@ -1,8 +1,8 @@
 """Persistence of per-trial JSON transcripts and aggregate CSV rows.
 
-CSV schema is designed to be a superset of Susan's
-run_openrouter_single_stage_experiment.py output: the first 7 columns are identical
-and in the same order, so her analysis scripts read both files unchanged.
+CSV schema is designed to be a superset of the original single-stage OpenRouter
+output: the first 7 columns are identical
+and in the same order, so analysis scripts for that format read both files unchanged.
 """
 from __future__ import annotations
 

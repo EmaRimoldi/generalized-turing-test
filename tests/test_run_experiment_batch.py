@@ -179,6 +179,58 @@ def test_batch_runner_requires_target_model_for_no_query_trusted_distinguisher(t
         run_experiment_batch.load_experiments(csv_path)
 
 
+def test_batch_runner_passes_actor_hint_model_for_actor_model_hint_condition(tmp_path, monkeypatch):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,num_trials,turn_limit,specimen_turn_limit,condition,actor_hint_model",
+                "exp-h,gemini-3-pro,gemini-3-pro,1,5,,no_query_no_explanation_actor_model_hint,claude-opus-4.6",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    commands: list[list[str]] = []
+
+    def fake_run(command):
+        commands.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(run_experiment_batch.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment_batch.py",
+            "--csv",
+            str(csv_path),
+            "--output-dir",
+            str(tmp_path / "results"),
+        ],
+    )
+
+    assert run_experiment_batch.main() == 0
+    assert commands[0].count("--actor-hint-model") == 1
+    idx = commands[0].index("--actor-hint-model")
+    assert commands[0][idx + 1] == "claude-opus-4.6"
+
+
+def test_batch_runner_rejects_actor_hint_model_for_wrong_condition(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,num_trials,turn_limit,specimen_turn_limit,condition,actor_hint_model",
+                "exp-bad,gemini-3-pro,claude-opus-4.6,1,5,,no_query_no_explanation,claude-opus-4.6",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="actor_hint_model is only valid"):
+        run_experiment_batch.load_experiments(csv_path)
+
+
 def test_batch_runner_rejects_missing_required_csv_columns(tmp_path):
     csv_path = tmp_path / "batch.csv"
     csv_path.write_text(

@@ -5,6 +5,7 @@ EXPECTED_NICKNAMES = {
     "claude-opus-4.6",
     "gpt-5.4",
     "gpt-5.4-pro",
+    "grok-4.20",
     "gemini-3-pro",
     "deepseek-v3.2",
     "mistral-large-2512",

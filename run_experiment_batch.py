@@ -15,8 +15,11 @@ from turing_eval.models import MODEL_REGISTRY
 CONDITIONS = {
     "no_query_no_explanation",
     "no_query_no_explanation_explicit_model",
+    "no_query_no_explanation_50_50_prior",
+    "no_query_no_explanation_actor_model_hint",
     "no_prompt_self_pair",
     "yes_query_no_explanation",
+    "yes_query_no_explanation_grand",
     "no_query_yes_explanation",
     "no_query_trusted_distinguisher",
 }
@@ -41,6 +44,7 @@ class BatchExperiment:
     num_trials: int
     turn_limit: int
     specimen_turn_limit: int | None
+    actor_hint_model: str | None
 
 
 def _clean(value: str | None) -> str | None:
@@ -88,7 +92,17 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
             f"CSV row {row_number}: condition 'no_prompt_self_pair' requires actor and distinguisher to match"
         )
 
-    specimen_required = condition == "yes_query_no_explanation"
+    actor_hint_model = _clean(row.get("actor_hint_model"))
+    if actor_hint_model is not None:
+        if actor_hint_model not in MODEL_REGISTRY:
+            raise ValueError(f"CSV row {row_number}: unknown actor_hint_model {actor_hint_model!r}")
+        if condition != "no_query_no_explanation_actor_model_hint":
+            raise ValueError(
+                f"CSV row {row_number}: actor_hint_model is only valid for "
+                "no_query_no_explanation_actor_model_hint"
+            )
+
+    specimen_required = condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}
     target_model_required = condition == "no_query_trusted_distinguisher"
     specimen_turn_limit = _parse_int_field(
         row,
@@ -113,6 +127,7 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
         num_trials=_parse_int_field(row, "num_trials", row_number, required=True),
         turn_limit=_parse_int_field(row, "turn_limit", row_number, required=True),
         specimen_turn_limit=specimen_turn_limit,
+        actor_hint_model=actor_hint_model,
     )
 
 
@@ -169,6 +184,8 @@ def _build_command(args: argparse.Namespace, experiment: BatchExperiment) -> lis
         command.extend(["--temperature", str(args.temperature)])
     if args.max_attempts is not None:
         command.extend(["--max-attempts", str(args.max_attempts)])
+    if experiment.actor_hint_model is not None:
+        command.extend(["--actor-hint-model", experiment.actor_hint_model])
     return command
 
 

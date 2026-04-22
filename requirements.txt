@@ -1,5 +1,6 @@
 # Core runtime - API-only path.
 # All HTTP uses stdlib urllib intentionally (matches Susan's convention); no requests/httpx/openai SDK.
+certifi>=2024.0.0
 # Tooling and reporting only:
 matplotlib==3.9.2
 pytest==8.3.3

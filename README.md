@@ -13,8 +13,6 @@ The maintained entrypoints are:
 - [scripts/render_results_summary.py](scripts/render_results_summary.py): aggregate `results.csv` files into summary tables and figures
 - [scripts/verify_model_slugs.py](scripts/verify_model_slugs.py): validate OpenRouter model slugs
 
-The older [run_openrouter_single_stage_experiment.py](run_openrouter_single_stage_experiment.py) script is kept only as historical reference.
-
 ## Turing ordering visualizer (epsilon graph)
 
 The visualizer lives under **`visualizer/`** (Python package, web app, scripts, docs). Hub: **[visualizer/README.md](visualizer/README.md)**.

@@ -3,11 +3,25 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
+import time
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Dict, List, Optional
 from urllib import error, request
 
 from .base import ChatBackend, GenerationConfig
+
+
+@lru_cache(maxsize=1)
+def _ssl_context_for_https() -> ssl.SSLContext:
+    """Prefer certifi's CA bundle so HTTPS works on macOS/Framework Pythons without system certs."""
+    try:
+        import certifi
+
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
 
 
 @dataclass
@@ -16,6 +30,23 @@ class ProviderConfig:
     base_url: str
     api_key_env: str
     extra_headers: Dict[str, str] = field(default_factory=dict)
+
+
+# HTTP status codes where a short backoff retry is reasonable (provider overload / rate limits).
+_TRANSIENT_HTTP_STATUS: frozenset[int] = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
+
+
+def _http_retryable(exc: error.HTTPError) -> bool:
+    return exc.code in _TRANSIENT_HTTP_STATUS
+
+
+def _network_retryable(exc: BaseException) -> bool:
+    if isinstance(exc, (TimeoutError, ConnectionResetError, BrokenPipeError, error.URLError)):
+        return True
+    if isinstance(exc, OSError):
+        # e.g. 8 DNS, 54 reset, 104 connection reset, 110 timeout, 111 refused, 113 unreachable
+        return exc.errno in {8, 54, 104, 110, 111, 113, 32, 35}
+    return False
 
 
 PROVIDERS: Dict[str, ProviderConfig] = {
@@ -70,7 +101,7 @@ class APIChatBackend(ChatBackend):
         model_id: str,
         display_name: str,
         generation: GenerationConfig,
-        timeout_seconds: float = 180.0,
+        timeout_seconds: float | None = None,
     ) -> None:
         if provider not in PROVIDERS:
             raise ValueError(f"Unknown provider {provider!r}. Known: {sorted(PROVIDERS)}")
@@ -80,7 +111,11 @@ class APIChatBackend(ChatBackend):
         self.model_id = model_id
         self.display_name = display_name
         self.generation = generation
-        self.timeout_seconds = timeout_seconds
+        if timeout_seconds is not None:
+            self.timeout_seconds = float(timeout_seconds)
+        else:
+            env_t = os.environ.get("TURING_EVAL_API_TIMEOUT_SECONDS", "").strip()
+            self.timeout_seconds = float(env_t) if env_t else 480.0
 
         api_key = os.environ.get(self.provider_config.api_key_env)
         if not api_key or api_key.endswith("PLACEHOLDER"):
@@ -124,28 +159,55 @@ class APIChatBackend(ChatBackend):
         body = json.dumps(payload).encode("utf-8")
         url = f"{self.provider_config.base_url.rstrip('/')}/chat/completions"
         req = request.Request(url=url, data=body, headers=self._headers(), method="POST")
-        try:
-            with request.urlopen(req, timeout=self.timeout_seconds) as response:
-                raw = response.read().decode("utf-8")
-        except error.HTTPError as exc:
-            details = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(
-                f"{self.provider_config.name} HTTP {exc.code} {exc.reason} for {self.model_id}: {details}"
-            ) from exc
-        except error.URLError as exc:
-            raise RuntimeError(
-                f"{self.provider_config.name} network error for {self.model_id}: {exc.reason}"
-            ) from exc
-        try:
-            return json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise RuntimeError(
-                f"{self.provider_config.name} returned non-JSON for {self.model_id}: {raw[:500]}"
-            ) from exc
+        max_retries = int(os.environ.get("TURING_EVAL_API_HTTP_RETRIES", "6"))
+        max_retries = max(1, min(max_retries, 20))
+        last_error: BaseException | None = None
+        for attempt in range(max_retries):
+            try:
+                with request.urlopen(
+                    req, timeout=self.timeout_seconds, context=_ssl_context_for_https()
+                ) as response:
+                    raw = response.read().decode("utf-8")
+                try:
+                    return json.loads(raw)
+                except json.JSONDecodeError as exc:
+                    raise RuntimeError(
+                        f"{self.provider_config.name} returned non-JSON for {self.model_id}: {raw[:500]}"
+                    ) from exc
+            except error.HTTPError as exc:
+                details = ""
+                try:
+                    details = exc.read().decode("utf-8", errors="replace")
+                except Exception:
+                    details = ""
+                if _http_retryable(exc) and attempt + 1 < max_retries:
+                    last_error = exc
+                else:
+                    raise RuntimeError(
+                        f"{self.provider_config.name} HTTP {exc.code} {exc.reason} for {self.model_id}: {details}"
+                    ) from exc
+            except error.URLError as exc:
+                last_error = exc
+            except (TimeoutError, ConnectionResetError, BrokenPipeError) as exc:
+                last_error = exc
+            except OSError as exc:
+                if _network_retryable(exc):
+                    last_error = exc
+                else:
+                    raise RuntimeError(
+                        f"{self.provider_config.name} network error for {self.model_id}: {exc}"
+                    ) from exc
+            if attempt + 1 < max_retries:
+                delay = min(45.0, 1.6**attempt)
+                time.sleep(delay)
+        assert last_error is not None
+        raise RuntimeError(
+            f"{self.provider_config.name} request failed after {max_retries} attempts for {self.model_id}: {last_error!r}"
+        ) from last_error
 
     @staticmethod
     def _extract_text_from_message(message: Dict[str, object]) -> Optional[str]:
-        """Port of Susan's extraction logic from run_openrouter_single_stage_experiment.py."""
+        """Extract assistant text from an OpenRouter-style message (string or content blocks)."""
         content = message.get("content")
         if isinstance(content, str):
             stripped = content.strip()

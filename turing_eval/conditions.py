@@ -11,8 +11,11 @@ from .prompts import (
     build_actor_prompt_no_query_trusted_distinguisher,
     build_actor_prompt_yes_query,
     build_distinguisher_prompt,
+    build_distinguisher_prompt_no_reasoning_50_50_prior,
     build_distinguisher_prompt_explicit_model_no_reasoning,
+    build_distinguisher_prompt_actor_model_hint_no_reasoning,
     build_distinguisher_prompt_no_query_trusted_distinguisher,
+    build_distinguisher_prompt_grand_experiment_no_reasoning,
 )
 
 _ANSWER_RE = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
@@ -201,6 +204,138 @@ def run_trial_no_query_no_explanation_explicit_model(
     }
 
 
+def run_trial_no_query_no_explanation_50_50_prior(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    turn_limit: int,
+    verbose: bool = False,
+) -> Dict[str, object]:
+    """Like ``no_query_no_explanation`` (A), but distinguisher prompt states an explicit 50/50 prior."""
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt_no_reasoning_50_50_prior(),
+    )
+    first_message = d_session.generate_opening()
+    if verbose:
+        print("[D]", first_message)
+
+    actor_prompt = build_actor_prompt_no_query(distinguisher.display_name, first_message)
+    if extract_answer(first_message) is not None:
+        return _invalid_opening_result(
+            trial_id=trial_id,
+            first_message=first_message,
+            error="distinguisher_answered_in_opening",
+            actor_prompt=actor_prompt,
+            distinguisher_messages=copy.deepcopy(d_session.messages),
+            actor_messages=[],
+        )
+
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    actor_reply = a_session.generate_opening()
+    if verbose:
+        print("[A]", actor_reply)
+
+    turns = 1
+    d_reply = d_session.send(actor_reply)
+    if verbose:
+        print("[D]", d_reply)
+
+    answer = extract_answer(d_reply)
+    while answer is None and turns < turn_limit:
+        actor_reply = a_session.send(d_reply)
+        if verbose:
+            print("[A]", actor_reply)
+        turns += 1
+        d_reply = d_session.send(actor_reply)
+        if verbose:
+            print("[D]", d_reply)
+        answer = extract_answer(d_reply)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "answer": answer,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "actor_messages": copy.deepcopy(a_session.messages),
+        "distinguisher_messages": copy.deepcopy(d_session.messages),
+    }
+
+
+def run_trial_no_query_no_explanation_actor_model_hint(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    turn_limit: int,
+    verbose: bool = False,
+    actor_model_hint_display: Optional[str] = None,
+) -> Dict[str, object]:
+    """Like ``no_query_no_explanation`` (A), but tells the distinguisher the actor slug might be {actor_model}.
+
+    ``actor_model_hint_display`` overrides the slug substituted into the distinguisher prompt (e.g. self-pair
+    runs where the true actor matches the distinguisher but the prompt names a different model as the
+    alternative).
+    """
+    hint = actor_model_hint_display if actor_model_hint_display is not None else actor.display_name
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt_actor_model_hint_no_reasoning(hint),
+    )
+    first_message = d_session.generate_opening()
+    if verbose:
+        print("[D]", first_message)
+
+    actor_prompt = build_actor_prompt_no_query(distinguisher.display_name, first_message)
+    if extract_answer(first_message) is not None:
+        return _invalid_opening_result(
+            trial_id=trial_id,
+            first_message=first_message,
+            error="distinguisher_answered_in_opening",
+            actor_prompt=actor_prompt,
+            distinguisher_messages=copy.deepcopy(d_session.messages),
+            actor_messages=[],
+        )
+
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    actor_reply = a_session.generate_opening()
+    if verbose:
+        print("[A]", actor_reply)
+
+    turns = 1
+    d_reply = d_session.send(actor_reply)
+    if verbose:
+        print("[D]", d_reply)
+
+    answer = extract_answer(d_reply)
+    while answer is None and turns < turn_limit:
+        actor_reply = a_session.send(d_reply)
+        if verbose:
+            print("[A]", actor_reply)
+        turns += 1
+        d_reply = d_session.send(actor_reply)
+        if verbose:
+            print("[D]", d_reply)
+        answer = extract_answer(d_reply)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "answer": answer,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "actor_messages": copy.deepcopy(a_session.messages),
+        "distinguisher_messages": copy.deepcopy(d_session.messages),
+        "actor_model_hint_in_prompt": hint,
+    }
+
+
 def run_trial_no_prompt_self_pair(
     trial_id: int,
     actor: ChatBackend,
@@ -299,6 +434,98 @@ def run_trial_yes_query_no_explanation(
         distinguisher,
         "distinguisher",
         initial_prompt=build_distinguisher_prompt(with_reasoning=False),
+    )
+    first_message = d_session.generate_opening()
+    if verbose:
+        print("[D]", first_message)
+
+    if extract_answer(first_message) is not None:
+        return _invalid_opening_result(
+            trial_id=trial_id,
+            first_message=first_message,
+            error="distinguisher_answered_in_opening",
+            actor_prompt=actor_prompt,
+            specimen_turns=specimen_turns,
+            specimen_stopped_cleanly=specimen_stopped_cleanly,
+            stage1_actor_messages=stage1_actor_messages,
+            stage2_actor_messages=[],
+            distinguisher_messages=copy.deepcopy(d_session.messages),
+        )
+
+    actor_reply = a_session.send(first_message)
+    if verbose:
+        print("[A]", actor_reply)
+    turns = 1
+    d_reply = d_session.send(actor_reply)
+    if verbose:
+        print("[D]", d_reply)
+
+    answer = extract_answer(d_reply)
+    while answer is None and turns < turn_limit:
+        actor_reply = a_session.send(d_reply)
+        if verbose:
+            print("[A]", actor_reply)
+        turns += 1
+        d_reply = d_session.send(actor_reply)
+        if verbose:
+            print("[D]", d_reply)
+        answer = extract_answer(d_reply)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "specimen_turns": specimen_turns,
+        "specimen_stopped_cleanly": specimen_stopped_cleanly,
+        "answer": answer,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "stage1_actor_messages": stage1_actor_messages,
+        "stage2_actor_messages": copy.deepcopy(a_session.messages[len(stage1_actor_messages) :]),
+        "distinguisher_messages": copy.deepcopy(d_session.messages),
+    }
+
+
+def run_trial_yes_query_no_explanation_grand(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    specimen: ChatBackend,
+    specimen_turn_limit: int,
+    turn_limit: int,
+    verbose: bool = False,
+) -> Dict[str, object]:
+    """Like ``yes_query_no_explanation`` (C), but uses a more informative distinguisher prompt."""
+    assert specimen.display_name == distinguisher.display_name, (
+        "specimen must be the same model type as the distinguisher"
+    )
+
+    actor_prompt = build_actor_prompt_yes_query(distinguisher.display_name)
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    s_session = ChatSession(specimen, "specimen", initial_prompt=None)
+
+    actor_to_specimen = a_session.generate_opening()
+    if verbose:
+        print("[A->S]", actor_to_specimen)
+
+    specimen_turns = 0
+    while not is_stop_signal(actor_to_specimen) and specimen_turns < specimen_turn_limit:
+        specimen_reply = s_session.send(actor_to_specimen)
+        if verbose:
+            print("[S->A]", specimen_reply)
+        specimen_turns += 1
+        actor_to_specimen = a_session.send(specimen_reply)
+        if verbose:
+            print("[A->S]", actor_to_specimen)
+
+    specimen_stopped_cleanly = is_stop_signal(actor_to_specimen)
+    stage1_actor_messages = copy.deepcopy(a_session.messages)
+
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt_grand_experiment_no_reasoning(distinguisher.display_name),
     )
     first_message = d_session.generate_opening()
     if verbose:

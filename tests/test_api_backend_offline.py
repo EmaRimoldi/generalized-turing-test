@@ -1,6 +1,13 @@
 """Unit tests that do not touch the network."""
 
-from turing_eval.backends.api_backend import APIChatBackend, PROVIDERS
+import ssl
+
+from turing_eval.backends.api_backend import APIChatBackend, PROVIDERS, _ssl_context_for_https
+
+
+def test_ssl_context_for_https_is_valid():
+    ctx = _ssl_context_for_https()
+    assert isinstance(ctx, ssl.SSLContext)
 
 
 def test_providers_registered():

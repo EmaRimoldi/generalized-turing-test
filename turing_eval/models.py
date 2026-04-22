@@ -65,6 +65,15 @@ MODEL_REGISTRY: Dict[str, ModelSpec] = {
         primary_model_id="openai/gpt-5.4-pro",
         alternate_api_routes={"openai": "gpt-5.4-pro"},
     ),
+    # OpenRouter slug; CLI/CSV nickname matches short matrix label ``grok-4.20`` (ingest also maps x-ai/* slugs).
+    "grok-4.20": ModelSpec(
+        nickname="grok-4.20",
+        display_name="x-ai/grok-4.20",
+        tier="frontier",
+        primary_backend="api",
+        primary_provider="openrouter",
+        primary_model_id="x-ai/grok-4.20",
+    ),
     "gemini-3-pro": ModelSpec(
         nickname="gemini-3-pro",
         display_name="google/gemini-3.1-pro-preview",  # VERIFIED

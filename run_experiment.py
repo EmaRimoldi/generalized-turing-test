@@ -13,10 +13,13 @@ from turing_eval.backends.base import GenerationConfig
 from turing_eval.conditions import (
     run_trial_no_query_no_explanation,
     run_trial_no_query_no_explanation_explicit_model,
+    run_trial_no_query_no_explanation_50_50_prior,
+    run_trial_no_query_no_explanation_actor_model_hint,
     run_trial_no_prompt_self_pair,
     run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
     run_trial_yes_query_no_explanation,
+    run_trial_yes_query_no_explanation_grand,
 )
 from turing_eval.models import MODEL_REGISTRY, load_backend
 from turing_eval.transcripts import save_transcript_json, write_csv
@@ -24,8 +27,11 @@ from turing_eval.transcripts import save_transcript_json, write_csv
 CONDITIONS = {
     "no_query_no_explanation": run_trial_no_query_no_explanation,
     "no_query_no_explanation_explicit_model": run_trial_no_query_no_explanation_explicit_model,
+    "no_query_no_explanation_50_50_prior": run_trial_no_query_no_explanation_50_50_prior,
+    "no_query_no_explanation_actor_model_hint": run_trial_no_query_no_explanation_actor_model_hint,
     "no_prompt_self_pair": run_trial_no_prompt_self_pair,
     "yes_query_no_explanation": run_trial_yes_query_no_explanation,
+    "yes_query_no_explanation_grand": run_trial_yes_query_no_explanation_grand,
     "no_query_yes_explanation": run_trial_no_query_yes_explanation,
     "no_query_trusted_distinguisher": run_trial_no_query_trusted_distinguisher,
 }
@@ -38,6 +44,10 @@ def _validate_condition_args(args: argparse.Namespace) -> None:
         raise SystemExit("--target-model is only valid for condition no_query_trusted_distinguisher")
     if args.condition == "no_prompt_self_pair" and args.actor != args.distinguisher:
         raise SystemExit("--condition no_prompt_self_pair requires --actor and --distinguisher to match")
+    if args.actor_hint_model is not None and args.condition != "no_query_no_explanation_actor_model_hint":
+        raise SystemExit(
+            "--actor-hint-model is only valid for condition no_query_no_explanation_actor_model_hint"
+        )
 
 
 def _is_valid_trial_result(result: dict[str, object]) -> bool:
@@ -85,6 +95,15 @@ def main() -> int:
     )
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--max-attempts", type=int, default=None)
+    parser.add_argument(
+        "--actor-hint-model",
+        default=None,
+        choices=sorted(MODEL_REGISTRY),
+        help=(
+            "For no_query_no_explanation_actor_model_hint only: OpenRouter slug substituted as {actor_model} "
+            "in the distinguisher prompt (overrides the real actor's slug)."
+        ),
+    )
     args = parser.parse_args()
     _validate_condition_args(args)
     max_attempts = args.max_attempts if args.max_attempts is not None else (3 * args.num_trials)
@@ -121,7 +140,7 @@ def main() -> int:
             "turn_limit": args.turn_limit,
             "verbose": args.verbose,
         }
-        if args.condition == "yes_query_no_explanation":
+        if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
             specimen = load_backend(
                 args.distinguisher,
                 generation,
@@ -132,6 +151,8 @@ def main() -> int:
             kwargs["specimen_turn_limit"] = args.specimen_turn_limit
         if args.condition == "no_query_trusted_distinguisher":
             kwargs["target_model"] = args.target_model
+        if args.condition == "no_query_no_explanation_actor_model_hint" and args.actor_hint_model is not None:
+            kwargs["actor_model_hint_display"] = MODEL_REGISTRY[args.actor_hint_model].display_name
         try:
             result = runner(**kwargs)
         except Exception as exc:  # noqa: BLE001
@@ -147,7 +168,7 @@ def main() -> int:
         result["attempt_id"] = attempt_id
         result["actor_route"] = _describe_backend_route(actor)
         result["distinguisher_route"] = _describe_backend_route(distinguisher)
-        if args.condition == "yes_query_no_explanation":
+        if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
             result["specimen_route"] = _describe_backend_route(specimen)
 
         if _is_valid_trial_result(result):
