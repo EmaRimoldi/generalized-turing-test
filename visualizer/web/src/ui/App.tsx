@@ -134,6 +134,10 @@ function Formula({ tex, display = false }: { tex: string; display?: boolean }) {
   );
 }
 
+/**
+ * Separate overlapping node circles by moving **x only** so horizontal stratification
+ * and dagre/height y-positions are preserved.
+ */
 function resolveCircleCollisions(nodes: GraphNode[]): GraphRender {
   const solved = nodes.map((n, idx) => ({ ...n, idx }));
   const margin = 34;
@@ -145,26 +149,36 @@ function resolveCircleCollisions(nodes: GraphNode[]): GraphRender {
       for (let j = i + 1; j < solved.length; j += 1) {
         const a = solved[i];
         const b = solved[j];
+        const dy = b.y - a.y;
         let dx = b.x - a.x;
-        let dy = b.y - a.y;
         let dist = Math.hypot(dx, dy);
         const minDist = a.r + b.r + margin;
         if (dist >= minDist) continue;
 
-        if (dist < 0.01) {
-          const angle = ((i + j + 1) * Math.PI) / 7;
-          dx = Math.cos(angle);
-          dy = Math.sin(angle);
-          dist = 1;
+        if (dist < 1e-3) {
+          // Coincident centers: split along x; y stays fixed.
+          const half = minDist * 0.5;
+          a.x -= half;
+          b.x += half;
+          moved = true;
+          continue;
         }
 
-        const push = (minDist - dist) / 2;
-        const ux = dx / dist;
-        const uy = dy / dist;
-        a.x -= ux * push;
-        a.y -= uy * push * 0.62;
-        b.x += ux * push;
-        b.y += uy * push * 0.62;
+        // For fixed y, need |dx| >= sqrt(minDist^2 - dy^2) for Euclidean distance >= minDist.
+        const needMag = Math.sqrt(Math.max(0, minDist * minDist - dy * dy));
+        if (needMag <= 0) continue; // |dy| >= minDist: no 2D overlap; numerical noise only
+
+        const adx = Math.abs(dx);
+        if (adx >= needMag - 1e-3) continue;
+
+        const shortfall = (needMag - adx) * 0.5;
+        if (a.x <= b.x) {
+          a.x -= shortfall;
+          b.x += shortfall;
+        } else {
+          a.x += shortfall;
+          b.x -= shortfall;
+        }
         moved = true;
       }
     }
