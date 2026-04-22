@@ -1,0 +1,3 @@
+run_name,actor,distinguisher,num_trials,turn_limit,condition,specimen_turn_limit
+grand_opus_vs_gemini,claude-opus-4.6,gemini-3-pro,10,40,yes_query_no_explanation_grand,20
+grand_gemini_vs_opus,gemini-3-pro,claude-opus-4.6,10,40,yes_query_no_explanation_grand,20

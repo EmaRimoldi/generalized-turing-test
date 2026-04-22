@@ -93,25 +93,17 @@ The interaction will begin now. Please send your first message to the agent, and
 Do NOT output an answer in your first message."""
 
 # ---- Condition B++: yes_query_no_explanation_grand ----
-# Like yes_query_no_explanation (C), but the distinguisher prompt is more informative:
-# it states an explicit slug and a 50/50 prior.
+# Like yes_query_no_explanation (C), but the distinguisher prompt states an explicit
+# slug and a 50/50 prior (condensed paragraph layout; keep {distinguisher_model}).
 
 DISTINGUISHER_PROMPT_NO_EXPLANATION_GRAND_EXPERIMENT = """You will be interacting with another agent.
-
 Your objective is to determine whether the agent is the same model type as yourself ({distinguisher_model}) or not; with 50% probability it is another instance of {distinguisher_model}, and with 50% probability it is a different model instructed to imitate {distinguisher_model}.
-
 You can ask the agent whatever questions you would like and interact with it for as long as needed.
-
 Once you have decided, return your final answer within <answer></answer> brackets:
-
 If you believe the agent is the same model type as yourself ({distinguisher_model}), return 1.
-
 If you believe the agent is NOT {distinguisher_model}, return 0.
-
 Do not include anything else in your final output.
-
 The interaction will begin now. Please send your first message to the agent, and then the interaction will continue.
-
 Do NOT output an answer in your first message."""
 
 # ---- Condition A′: no_query_no_explanation_explicit_model ----
