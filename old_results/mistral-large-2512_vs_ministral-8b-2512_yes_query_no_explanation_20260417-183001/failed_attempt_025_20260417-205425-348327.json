@@ -1,0 +1,42 @@
+{
+  "trial_id": 9,
+  "condition": "yes_query_no_explanation",
+  "actor_model": "mistralai/mistral-large-2512",
+  "distinguisher_model": "mistralai/ministral-8b-2512",
+  "target_model": null,
+  "environment": {
+    "python_version": "3.12.7 | packaged by Anaconda, Inc. | (main, Oct  4 2024, 08:22:19) [Clang 14.0.6 ]",
+    "python_implementation": "CPython",
+    "platform": "macOS-14.6.1-arm64-arm-64bit",
+    "git_commit": "7b075d752e3da578a835cc3cacb23e33f693a791",
+    "git_branch": "main",
+    "git_dirty": true,
+    "apptainer_container_path": null,
+    "apptainer_container_sha256": null,
+    "docker_image": null,
+    "hostname": "dhcp-10-31-157-28.dyn.MIT.EDU"
+  },
+  "success": false,
+  "turns": null,
+  "answer": null,
+  "error": "openrouter network error for mistralai/mistral-large-2512: [Errno 8] nodename nor servname provided, or not known",
+  "attempt_id": 25,
+  "actor_route": {
+    "backend": "api",
+    "display_name": "mistralai/mistral-large-2512",
+    "model_id": "mistralai/mistral-large-2512",
+    "provider": "openrouter"
+  },
+  "distinguisher_route": {
+    "backend": "api",
+    "display_name": "mistralai/ministral-8b-2512",
+    "model_id": "mistralai/ministral-8b-2512",
+    "provider": "openrouter"
+  },
+  "specimen_route": {
+    "backend": "api",
+    "display_name": "mistralai/ministral-8b-2512",
+    "model_id": "mistralai/ministral-8b-2512",
+    "provider": "openrouter"
+  }
+}

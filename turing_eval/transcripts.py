@@ -86,3 +86,56 @@ def write_csv(
                     "specimen_stopped_cleanly": row.get("specimen_stopped_cleanly"),
                 }
             )
+
+
+def load_trial_results(
+    run_dir: Path,
+    *,
+    actor_model: str,
+    distinguisher_model: str,
+    condition: str,
+    target_model: str | None = None,
+) -> list[Dict[str, object]]:
+    """Load previously completed trial JSON transcripts from a run directory."""
+    results: list[Dict[str, object]] = []
+    seen_trial_ids: set[int] = set()
+
+    for transcript_path in sorted(run_dir.glob("trial_*.json")):
+        try:
+            payload = json.loads(transcript_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"Warning: skipping unreadable transcript {transcript_path}: {exc}")
+            continue
+
+        if payload.get("condition") != condition:
+            print(f"Warning: skipping transcript with mismatched condition: {transcript_path}")
+            continue
+        if payload.get("actor_model") != actor_model:
+            print(f"Warning: skipping transcript with mismatched actor model: {transcript_path}")
+            continue
+        if payload.get("distinguisher_model") != distinguisher_model:
+            print(f"Warning: skipping transcript with mismatched distinguisher model: {transcript_path}")
+            continue
+        if payload.get("target_model") != target_model:
+            print(f"Warning: skipping transcript with mismatched target model: {transcript_path}")
+            continue
+
+        trial_id = payload.get("trial_id")
+        if not isinstance(trial_id, int):
+            print(f"Warning: skipping transcript with invalid trial_id: {transcript_path}")
+            continue
+        if trial_id in seen_trial_ids:
+            print(f"Warning: skipping duplicate trial_id {trial_id} in {transcript_path}")
+            continue
+
+        result = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"condition", "actor_model", "distinguisher_model", "environment"}
+        }
+        result["transcript_path"] = str(transcript_path)
+        results.append(result)
+        seen_trial_ids.add(trial_id)
+
+    results.sort(key=lambda row: int(row["trial_id"]))
+    return results

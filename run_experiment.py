@@ -24,7 +24,7 @@ from turing_eval.conditions import (
     run_trial_yes_query_no_explanation_grand,
 )
 from turing_eval.models import MODEL_REGISTRY, load_backend
-from turing_eval.transcripts import save_transcript_json, write_csv
+from turing_eval.transcripts import load_trial_results, save_transcript_json, write_csv
 
 CONDITIONS = {
     "no_query_no_explanation": run_trial_no_query_no_explanation,
@@ -139,10 +139,26 @@ def main() -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     runner = CONDITIONS[args.condition]
-    results = []
+    results = load_trial_results(
+        out_dir,
+        actor_model=actor.display_name,
+        distinguisher_model=distinguisher.display_name,
+        condition=args.condition,
+        target_model=args.target_model,
+    )
+    if len(results) > args.num_trials:
+        print(
+            f"Found {len(results)} existing valid trials in {out_dir}; "
+            f"keeping the first {args.num_trials} to match --num-trials."
+        )
+        results = results[: args.num_trials]
+    elif results:
+        print(f"Found {len(results)} existing valid trials in {out_dir}; resuming remaining trials.")
+
+    next_trial_id = (max((int(result["trial_id"]) for result in results), default=-1) + 1)
     attempt_id = 0
     while len(results) < args.num_trials and attempt_id < max_attempts:
-        trial_id = len(results)
+        trial_id = next_trial_id
         print(f"\n=== Trial {trial_id + 1}/{args.num_trials} (attempt {attempt_id + 1}/{max_attempts}) ===")
         kwargs: dict[str, object] = {
             "trial_id": trial_id,
@@ -210,6 +226,7 @@ def main() -> int:
             )
             result["transcript_path"] = str(transcript_path)
             results.append(result)
+            next_trial_id += 1
         else:
             failed_path = _failed_attempt_path(out_dir, attempt_id)
             save_transcript_json(

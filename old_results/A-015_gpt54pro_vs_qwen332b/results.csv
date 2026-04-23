@@ -1,0 +1,11 @@
+trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,error,reasoning,specimen_turns,specimen_stopped_cleanly
+0,openai/gpt-5.4-pro,qwen/qwen3-32b,True,1,1,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_000.json,no_query_no_explanation,,,,
+1,openai/gpt-5.4-pro,qwen/qwen3-32b,False,0,,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_001.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+2,openai/gpt-5.4-pro,qwen/qwen3-32b,True,1,1,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_002.json,no_query_no_explanation,,,,
+3,openai/gpt-5.4-pro,qwen/qwen3-32b,True,1,1,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_003.json,no_query_no_explanation,,,,
+4,openai/gpt-5.4-pro,qwen/qwen3-32b,True,1,1,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_004.json,no_query_no_explanation,,,,
+5,openai/gpt-5.4-pro,qwen/qwen3-32b,True,2,1,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_005.json,no_query_no_explanation,,,,
+6,openai/gpt-5.4-pro,qwen/qwen3-32b,True,1,1,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_006.json,no_query_no_explanation,,,,
+7,openai/gpt-5.4-pro,qwen/qwen3-32b,True,2,1,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_007.json,no_query_no_explanation,,,,
+8,openai/gpt-5.4-pro,qwen/qwen3-32b,False,0,,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_008.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+9,openai/gpt-5.4-pro,qwen/qwen3-32b,True,1,0,RESULTS/A-015_gpt54pro_vs_qwen332b/trial_009.json,no_query_no_explanation,,,,

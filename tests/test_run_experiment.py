@@ -6,12 +6,40 @@ import sys
 from pathlib import Path
 
 import run_experiment
+from turing_eval.transcripts import save_transcript_json
 
 
 class FakeBackend:
     def __init__(self, display_name: str) -> None:
         self.display_name = display_name
         self.model_id = display_name
+
+
+def _write_existing_trial(
+    run_dir: Path,
+    *,
+    trial_id: int,
+    actor_model: str,
+    distinguisher_model: str,
+    condition: str,
+    target_model: str | None = None,
+    answer: int = 1,
+) -> None:
+    save_transcript_json(
+        {
+            "trial_id": trial_id,
+            "success": True,
+            "turns": 2,
+            "answer": answer,
+            "attempt_id": trial_id,
+            "raw_final_message": f"<answer>{answer}</answer>",
+        },
+        run_dir / f"trial_{trial_id:03d}.json",
+        actor_model,
+        distinguisher_model,
+        condition,
+        target_model=target_model,
+    )
 
 
 def test_run_experiment_retries_infra_failures_and_keeps_only_valid_trials(monkeypatch, tmp_path):
@@ -148,6 +176,83 @@ def test_run_experiment_warns_when_max_attempts_prevents_collecting_target(monke
     assert rows == []
     failed_attempts = sorted((out_dir / "max-attempts-check").glob("failed_attempt_*.json"))
     assert len(failed_attempts) == 2
+
+
+def test_run_experiment_resumes_from_existing_trial_transcripts(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    run_dir = out_dir / "resume-check"
+    actor_backend = FakeBackend("actor/model")
+    distinguisher_backend = FakeBackend("dist/model")
+    _write_existing_trial(
+        run_dir,
+        trial_id=0,
+        actor_model=actor_backend.display_name,
+        distinguisher_model=distinguisher_backend.display_name,
+        condition="no_query_no_explanation",
+        answer=0,
+    )
+    _write_existing_trial(
+        run_dir,
+        trial_id=1,
+        actor_model=actor_backend.display_name,
+        distinguisher_model=distinguisher_backend.display_name,
+        condition="no_query_no_explanation",
+        answer=1,
+    )
+
+    seen_trial_ids = []
+
+    def fake_runner(**kwargs):
+        seen_trial_ids.append(kwargs["trial_id"])
+        return {
+            "trial_id": kwargs["trial_id"],
+            "success": True,
+            "turns": 1,
+            "answer": 1,
+            "first_message": "hello",
+            "raw_final_message": "<answer>1</answer>",
+        }
+
+    def fake_load_backend(model_name, generation, force_backend=None, force_api_provider=None):
+        if model_name == "gpt-5.4-pro":
+            return actor_backend
+        return distinguisher_backend
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "no_query_no_explanation", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", fake_load_backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "no_query_no_explanation",
+            "--num-trials",
+            "4",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "resume-check",
+            "--max-attempts",
+            "5",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    assert seen_trial_ids == [2, 3]
+    csv_path = run_dir / "results.csv"
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [row["trial_id"] for row in rows] == ["0", "1", "2", "3"]
+    assert [row["answer"] for row in rows] == ["0", "1", "1", "1"]
+    assert (run_dir / "trial_002.json").exists()
+    assert (run_dir / "trial_003.json").exists()
 
 
 def test_run_experiment_passes_api_provider_overrides(monkeypatch, tmp_path):

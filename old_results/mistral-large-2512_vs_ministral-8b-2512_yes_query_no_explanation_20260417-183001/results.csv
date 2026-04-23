@@ -1,0 +1,10 @@
+trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,target_model,error,reasoning,specimen_turns,specimen_stopped_cleanly
+0,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,3,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_000.json,yes_query_no_explanation,,,,1,True
+1,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,3,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_001.json,yes_query_no_explanation,,,,20,False
+2,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,2,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_002.json,yes_query_no_explanation,,,,20,False
+3,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,1,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_003.json,yes_query_no_explanation,,,,20,False
+4,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,1,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_004.json,yes_query_no_explanation,,,,20,False
+5,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,4,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_005.json,yes_query_no_explanation,,,,20,False
+6,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,2,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_006.json,yes_query_no_explanation,,,,1,True
+7,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,3,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_007.json,yes_query_no_explanation,,,,20,False
+8,mistralai/mistral-large-2512,mistralai/ministral-8b-2512,True,3,1,results/mistral-large-2512_vs_ministral-8b-2512_yes_query_no_explanation_20260417-183001/trial_008.json,yes_query_no_explanation,,,,2,True

@@ -1,0 +1,11 @@
+trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,error,reasoning,specimen_turns,specimen_stopped_cleanly
+0,google/gemini-3.1-pro-preview,qwen/qwen3-32b,True,1,1,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_000.json,no_query_no_explanation,,,,
+1,google/gemini-3.1-pro-preview,qwen/qwen3-32b,True,2,1,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_001.json,no_query_no_explanation,,,,
+2,google/gemini-3.1-pro-preview,qwen/qwen3-32b,True,2,1,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_002.json,no_query_no_explanation,,,,
+3,google/gemini-3.1-pro-preview,qwen/qwen3-32b,True,1,0,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_003.json,no_query_no_explanation,,,,
+4,google/gemini-3.1-pro-preview,qwen/qwen3-32b,True,1,1,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_004.json,no_query_no_explanation,,,,
+5,google/gemini-3.1-pro-preview,qwen/qwen3-32b,True,1,1,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_005.json,no_query_no_explanation,,,,
+6,google/gemini-3.1-pro-preview,qwen/qwen3-32b,True,2,1,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_006.json,no_query_no_explanation,,,,
+7,google/gemini-3.1-pro-preview,qwen/qwen3-32b,False,0,,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_007.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+8,google/gemini-3.1-pro-preview,qwen/qwen3-32b,True,1,1,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_008.json,no_query_no_explanation,,,,
+9,google/gemini-3.1-pro-preview,qwen/qwen3-32b,False,0,,RESULTS/A-024_gemini3pro_vs_qwen332b/trial_009.json,no_query_no_explanation,distinguisher_answered_in_opening,,,

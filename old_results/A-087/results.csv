@@ -1,0 +1,11 @@
+trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,error,reasoning,specimen_turns,specimen_stopped_cleanly
+0,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,6,1,RESULTS/A-087/trial_000.json,no_query_no_explanation,,,,
+1,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,6,1,RESULTS/A-087/trial_001.json,no_query_no_explanation,,,,
+2,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,8,1,RESULTS/A-087/trial_002.json,no_query_no_explanation,,,,
+3,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,5,1,RESULTS/A-087/trial_003.json,no_query_no_explanation,,,,
+4,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,6,1,RESULTS/A-087/trial_004.json,no_query_no_explanation,,,,
+5,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,6,1,RESULTS/A-087/trial_005.json,no_query_no_explanation,,,,
+6,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,5,1,RESULTS/A-087/trial_006.json,no_query_no_explanation,,,,
+7,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,8,1,RESULTS/A-087/trial_007.json,no_query_no_explanation,,,,
+8,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,6,1,RESULTS/A-087/trial_008.json,no_query_no_explanation,,,,
+9,anthropic/claude-sonnet-4.6,anthropic/claude-sonnet-4.6,True,7,1,RESULTS/A-087/trial_009.json,no_query_no_explanation,,,,

@@ -1,0 +1,11 @@
+trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,error,reasoning,specimen_turns,specimen_stopped_cleanly
+0,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_000.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+1,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_001.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+2,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_002.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+3,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_003.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+4,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_004.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+5,openai/gpt-5.4,openai/gpt-5.4,True,4,1,RESULTS/A-082/trial_005.json,no_query_no_explanation,,,,
+6,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_006.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+7,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_007.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+8,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_008.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
+9,openai/gpt-5.4,openai/gpt-5.4,False,0,,RESULTS/A-082/trial_009.json,no_query_no_explanation,distinguisher_answered_in_opening,,,
