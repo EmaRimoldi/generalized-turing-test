@@ -11,6 +11,7 @@ from pathlib import Path
 from turing_eval.backends.api_backend import PROVIDERS
 from turing_eval.backends.base import GenerationConfig
 from turing_eval.conditions import (
+    run_trial_50_50_trusted_distinguisher,
     run_trial_no_query_no_explanation,
     run_trial_no_query_no_explanation_explicit_model,
     run_trial_no_query_no_explanation_50_50_prior,
@@ -18,6 +19,7 @@ from turing_eval.conditions import (
     run_trial_no_prompt_self_pair,
     run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
+    run_trial_yes_query_trusted_distinguisher,
     run_trial_yes_query_no_explanation,
     run_trial_yes_query_no_explanation_grand,
 )
@@ -32,16 +34,25 @@ CONDITIONS = {
     "no_prompt_self_pair": run_trial_no_prompt_self_pair,
     "yes_query_no_explanation": run_trial_yes_query_no_explanation,
     "yes_query_no_explanation_grand": run_trial_yes_query_no_explanation_grand,
+    "yes_query_trusted_distinguisher": run_trial_yes_query_trusted_distinguisher,
     "no_query_yes_explanation": run_trial_no_query_yes_explanation,
     "no_query_trusted_distinguisher": run_trial_no_query_trusted_distinguisher,
+    "50_50_trusted_distinguisher": run_trial_50_50_trusted_distinguisher,
 }
 
 
 def _validate_condition_args(args: argparse.Namespace) -> None:
-    if args.condition == "no_query_trusted_distinguisher" and args.target_model is None:
-        raise SystemExit("--target-model is required for condition no_query_trusted_distinguisher")
-    if args.condition != "no_query_trusted_distinguisher" and args.target_model is not None:
-        raise SystemExit("--target-model is only valid for condition no_query_trusted_distinguisher")
+    trusted_conditions = {
+        "no_query_trusted_distinguisher",
+        "50_50_trusted_distinguisher",
+        "yes_query_trusted_distinguisher",
+    }
+    if args.condition in trusted_conditions and args.target_model is None:
+        raise SystemExit(f"--target-model is required for condition {args.condition}")
+    if args.condition not in trusted_conditions and args.target_model is not None:
+        raise SystemExit(
+            "--target-model is only valid for condition no_query_trusted_distinguisher, 50_50_trusted_distinguisher, or yes_query_trusted_distinguisher"
+        )
     if args.condition == "no_prompt_self_pair" and args.actor != args.distinguisher:
         raise SystemExit("--condition no_prompt_self_pair requires --actor and --distinguisher to match")
     if args.actor_hint_model is not None and args.condition != "no_query_no_explanation_actor_model_hint":
@@ -140,16 +151,28 @@ def main() -> int:
             "turn_limit": args.turn_limit,
             "verbose": args.verbose,
         }
-        if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
-            specimen = load_backend(
-                args.distinguisher,
-                generation,
-                force_backend=args.distinguisher_backend,
-                force_api_provider=args.distinguisher_api_provider,
-            )
+        if args.condition in {
+            "yes_query_no_explanation",
+            "yes_query_no_explanation_grand",
+            "yes_query_trusted_distinguisher",
+        }:
+            specimen_kwargs = {}
+            specimen_model = args.distinguisher
+            if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
+                specimen_kwargs = {
+                    "force_backend": args.distinguisher_backend,
+                    "force_api_provider": args.distinguisher_api_provider,
+                }
+            else:
+                specimen_model = args.target_model
+            specimen = load_backend(specimen_model, generation, **specimen_kwargs)
             kwargs["specimen"] = specimen
             kwargs["specimen_turn_limit"] = args.specimen_turn_limit
-        if args.condition == "no_query_trusted_distinguisher":
+        if args.condition in {
+            "no_query_trusted_distinguisher",
+            "50_50_trusted_distinguisher",
+            "yes_query_trusted_distinguisher",
+        }:
             kwargs["target_model"] = args.target_model
         if args.condition == "no_query_no_explanation_actor_model_hint" and args.actor_hint_model is not None:
             kwargs["actor_model_hint_display"] = MODEL_REGISTRY[args.actor_hint_model].display_name
@@ -168,7 +191,11 @@ def main() -> int:
         result["attempt_id"] = attempt_id
         result["actor_route"] = _describe_backend_route(actor)
         result["distinguisher_route"] = _describe_backend_route(distinguisher)
-        if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
+        if args.condition in {
+            "yes_query_no_explanation",
+            "yes_query_no_explanation_grand",
+            "yes_query_trusted_distinguisher",
+        }:
             result["specimen_route"] = _describe_backend_route(specimen)
 
         if _is_valid_trial_result(result):

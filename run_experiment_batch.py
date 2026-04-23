@@ -20,8 +20,10 @@ CONDITIONS = {
     "no_prompt_self_pair",
     "yes_query_no_explanation",
     "yes_query_no_explanation_grand",
+    "yes_query_trusted_distinguisher",
     "no_query_yes_explanation",
     "no_query_trusted_distinguisher",
+    "50_50_trusted_distinguisher",
 }
 
 REQUIRED_COLUMNS = {
@@ -102,8 +104,16 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
                 "no_query_no_explanation_actor_model_hint"
             )
 
-    specimen_required = condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}
-    target_model_required = condition == "no_query_trusted_distinguisher"
+    specimen_required = condition in {
+        "yes_query_no_explanation",
+        "yes_query_no_explanation_grand",
+        "yes_query_trusted_distinguisher",
+    }
+    target_model_required = condition in {
+        "no_query_trusted_distinguisher",
+        "50_50_trusted_distinguisher",
+        "yes_query_trusted_distinguisher",
+    }
     specimen_turn_limit = _parse_int_field(
         row,
         "specimen_turn_limit",

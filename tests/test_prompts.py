@@ -1,9 +1,12 @@
 from turing_eval.prompts import (
+    build_distinguisher_prompt_50_50_trusted_distinguisher,
     build_actor_prompt_no_query,
     build_actor_prompt_no_query_trusted_distinguisher,
     build_actor_prompt_yes_query,
     build_distinguisher_prompt,
     build_distinguisher_prompt_no_query_trusted_distinguisher,
+    build_distinguisher_prompt_yes_query_trusted_distinguisher_stage1,
+    build_distinguisher_prompt_yes_query_trusted_distinguisher_stage2,
 )
 
 
@@ -55,3 +58,26 @@ def test_distinguisher_no_query_trusted_distinguisher_mentions_target_model():
     assert "openai/gpt-5.4-pro" in prompt
     assert "same model as yourself" not in prompt
     assert "Do NOT output an answer in your first message." in prompt
+
+
+def test_distinguisher_50_50_trusted_distinguisher_mentions_prior_and_target_model():
+    prompt = build_distinguisher_prompt_50_50_trusted_distinguisher("openai/gpt-5.4-pro")
+    assert "openai/gpt-5.4-pro" in prompt
+    assert "With 50% probability" in prompt
+    assert "different model instructed to imitate" in prompt
+    assert "Do NOT output an answer in your first message." in prompt
+
+
+def test_distinguisher_yes_query_trusted_distinguisher_stage1_mentions_specimen_and_stop():
+    prompt = build_distinguisher_prompt_yes_query_trusted_distinguisher_stage1("openai/gpt-5.4-pro")
+    assert "openai/gpt-5.4-pro" in prompt
+    assert "specimen" in prompt
+    assert "reasoning patterns" in prompt
+    assert 'return "STOP"' in prompt
+
+
+def test_distinguisher_yes_query_trusted_distinguisher_stage2_mentions_target_model_and_answer_tag():
+    prompt = build_distinguisher_prompt_yes_query_trusted_distinguisher_stage2("openai/gpt-5.4-pro")
+    assert "openai/gpt-5.4-pro" in prompt
+    assert "<answer></answer>" in prompt
+    assert "Please send your first message to the agent" in prompt

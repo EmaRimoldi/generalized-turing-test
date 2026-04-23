@@ -233,6 +233,62 @@ def test_run_experiment_requires_target_model_for_trusted_condition(monkeypatch,
         raise AssertionError("Expected SystemExit for missing --target-model")
 
 
+def test_run_experiment_requires_target_model_for_50_50_trusted_condition(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "50_50_trusted_distinguisher",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(out_dir),
+        ],
+    )
+
+    try:
+        run_experiment.main()
+    except SystemExit as exc:
+        assert "--target-model is required" in str(exc)
+    else:
+        raise AssertionError("Expected SystemExit for missing --target-model")
+
+
+def test_run_experiment_requires_target_model_for_yes_query_trusted_condition(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "yes_query_trusted_distinguisher",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(out_dir),
+        ],
+    )
+
+    try:
+        run_experiment.main()
+    except SystemExit as exc:
+        assert "--target-model is required" in str(exc)
+    else:
+        raise AssertionError("Expected SystemExit for missing --target-model")
+
+
 def test_run_experiment_requires_matching_models_for_no_prompt_self_pair(monkeypatch, tmp_path):
     out_dir = tmp_path / "results"
     monkeypatch.setattr(
@@ -312,3 +368,137 @@ def test_run_experiment_passes_target_model_to_runner_and_transcript(monkeypatch
     assert rows[0]["target_model"] == "gemini-3-pro"
     payload = json.loads((out_dir / "trusted-target-check" / "trial_000.json").read_text())
     assert payload["target_model"] == "gemini-3-pro"
+
+
+def test_run_experiment_passes_target_model_for_50_50_condition(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    backend = FakeBackend("model")
+    captured_runner_kwargs = []
+
+    def fake_runner(**kwargs):
+        captured_runner_kwargs.append(kwargs)
+        return {
+            "trial_id": kwargs["trial_id"],
+            "success": True,
+            "turns": 1,
+            "answer": 0,
+            "target_model": kwargs["target_model"],
+            "first_message": "hello",
+            "raw_final_message": "<answer>0</answer>",
+        }
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "50_50_trusted_distinguisher", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", lambda *args, **kwargs: backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "50_50_trusted_distinguisher",
+            "--target-model",
+            "gemini-3-pro",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "trusted-50-50-target-check",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    assert captured_runner_kwargs[0]["target_model"] == "gemini-3-pro"
+    csv_path = out_dir / "trusted-50-50-target-check" / "results.csv"
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows[0]["target_model"] == "gemini-3-pro"
+    payload = json.loads((out_dir / "trusted-50-50-target-check" / "trial_000.json").read_text())
+    assert payload["target_model"] == "gemini-3-pro"
+
+
+def test_run_experiment_passes_target_model_and_specimen_for_yes_query_trusted_condition(
+    monkeypatch, tmp_path
+):
+    out_dir = tmp_path / "results"
+    actor_backend = FakeBackend("actor/model")
+    distinguisher_backend = FakeBackend("dist/model")
+    specimen_backend = FakeBackend("target/model")
+    captured_runner_kwargs = []
+    load_calls = []
+
+    def fake_runner(**kwargs):
+        captured_runner_kwargs.append(kwargs)
+        return {
+            "trial_id": kwargs["trial_id"],
+            "success": True,
+            "turns": 1,
+            "answer": 1,
+            "target_model": kwargs["target_model"],
+            "specimen_turns": kwargs["specimen_turn_limit"],
+            "specimen_stopped_cleanly": True,
+            "first_message": "hello",
+            "raw_final_message": "<answer>1</answer>",
+        }
+
+    def fake_load_backend(model_name, generation, force_backend=None, force_api_provider=None):
+        load_calls.append((model_name, force_backend, force_api_provider))
+        if model_name == "gpt-5.4-pro":
+            return actor_backend
+        if model_name == "claude-opus-4.6":
+            return distinguisher_backend
+        if model_name == "gemini-3-pro":
+            return specimen_backend
+        raise AssertionError(f"Unexpected model load {model_name}")
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "yes_query_trusted_distinguisher", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", fake_load_backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "yes_query_trusted_distinguisher",
+            "--target-model",
+            "gemini-3-pro",
+            "--specimen-turn-limit",
+            "7",
+            "--num-trials",
+            "1",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "yes-query-trusted-check",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    assert captured_runner_kwargs[0]["target_model"] == "gemini-3-pro"
+    assert captured_runner_kwargs[0]["specimen_turn_limit"] == 7
+    assert captured_runner_kwargs[0]["specimen"] is specimen_backend
+    assert load_calls == [
+        ("gpt-5.4-pro", None, None),
+        ("claude-opus-4.6", None, None),
+        ("gemini-3-pro", None, None),
+    ]
+    csv_path = out_dir / "yes-query-trusted-check" / "results.csv"
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert rows[0]["target_model"] == "gemini-3-pro"
+    assert rows[0]["specimen_turns"] == "7"
+    payload = json.loads((out_dir / "yes-query-trusted-check" / "trial_000.json").read_text())
+    assert payload["target_model"] == "gemini-3-pro"
+    assert payload["specimen_route"]["display_name"] == "target/model"

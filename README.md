@@ -31,7 +31,7 @@ Open **http://127.0.0.1:8765/** .
 
 - `actor`: tries to imitate the target model
 - `distinguisher`: interrogates the actor and returns a final decision
-- `specimen`: a helper instance of the target model used only in the warm-up phase of condition `yes_query_no_explanation`
+- `specimen`: a helper instance of the target model used only in the warm-up phase of the two `yes_query*` conditions
 
 The final scientific signal is the distinguisher's parsed `<answer>`:
 
@@ -69,6 +69,10 @@ This is a single-stage self-pair condition. The distinguisher still opens immedi
 
 The actor first talks to a specimen of the target model, then a fresh distinguisher begins the real interrogation.
 
+### `yes_query_trusted_distinguisher`
+
+This is a trusted-target, two-stage condition. First, the distinguisher talks to a specimen of `--target-model` to learn its style. Then the same distinguisher session continues into the real interrogation stage, where a fresh actor is prompted to imitate `--target-model`. The Stage 1 warm-up uses `--specimen-turn-limit`; the Stage 2 interrogation uses `--turn-limit`.
+
 ### `no_query_yes_explanation`
 
 This is the same direct setup as `no_query_no_explanation`, but the distinguisher is also asked to include a short `<reasoning>` block with its final answer.
@@ -76,6 +80,10 @@ This is the same direct setup as `no_query_no_explanation`, but the distinguishe
 ### `no_query_trusted_distinguisher`
 
 This is the same single-stage flow as `no_query_no_explanation`, but the prompts refer explicitly to a separate target model name rather than asking whether the actor is "the same model as yourself." This target identity is supplied independently with `--target-model`.
+
+### `50_50_trusted_distinguisher`
+
+This is the same single-stage flow as `no_query_trusted_distinguisher`, but the distinguisher prompt states a 50/50 prior: with 50% probability the agent is an instance of `--target-model`, and with 50% probability it is another model instructed to imitate that target.
 
 ## Prompt and trial semantics
 
@@ -86,10 +94,13 @@ Current behavior that matters experimentally:
 - initial actor and distinguisher prompts are sent as `user` messages, not `system`
 - in condition `no_prompt_self_pair`, the actor receives no initial prompt and the distinguisher's opening is sent directly as the actor's first user turn
 - the specimen in condition `yes_query_no_explanation` receives no initial prompt
+- in condition `yes_query_trusted_distinguisher`, the same distinguisher session is reused across both stages so it retains what it learned from the specimen
 - the distinguisher prompts explicitly say `Do NOT output an answer in your first message.`
 - if the distinguisher still emits `<answer>` in its opening message, the trial is recorded with `error="distinguisher_answered_in_opening"`
 
 For condition `yes_query_no_explanation`, the Stage 1 warm-up conversation is saved once from the actor's point of view under `stage1_actor_messages`. It is not duplicated under a separate specimen-perspective array.
+
+For condition `yes_query_trusted_distinguisher`, the Stage 1 warm-up conversation is saved once from the distinguisher's point of view under `stage1_distinguisher_messages`. Stage 2 is saved separately under `stage2_distinguisher_messages`.
 
 ## Routing policy
 
@@ -177,6 +188,20 @@ Validate OpenRouter slugs:
   --condition yes_query_no_explanation \
   --num-trials 3 \
   --turn-limit 15 \
+  --specimen-turn-limit 8 \
+  --output-dir results
+```
+
+### Trusted distinguisher with specimen warm-up
+
+```bash
+./scripts/run-in-container.sh python run_experiment.py \
+  --actor llama-3.3-8b \
+  --distinguisher claude-opus-4.6 \
+  --condition yes_query_trusted_distinguisher \
+  --target-model gemini-3-pro \
+  --num-trials 2 \
+  --turn-limit 12 \
   --specimen-turn-limit 8 \
   --output-dir results
 ```
@@ -293,7 +318,9 @@ Conversation fields depend on the condition:
 - `no_prompt_self_pair`: `actor_messages`, `distinguisher_messages`
 - `no_query_yes_explanation`: `actor_messages`, `distinguisher_messages`, `reasoning`
 - `yes_query_no_explanation`: `stage1_actor_messages`, `stage2_actor_messages`, `distinguisher_messages`, `specimen_turns`, `specimen_stopped_cleanly`
+- `yes_query_trusted_distinguisher`: `actor_messages`, `stage1_distinguisher_messages`, `stage2_distinguisher_messages`, `target_model`, `specimen_turns`, `specimen_stopped_cleanly`
 - `no_query_trusted_distinguisher`: `actor_messages`, `distinguisher_messages`, `target_model`
+- `50_50_trusted_distinguisher`: `actor_messages`, `distinguisher_messages`, `target_model`
 
 ### Failure artifacts
 
@@ -350,14 +377,14 @@ Column-to-flag mapping:
 
 Validation rules:
 
-- `specimen_turn_limit` is required only for `yes_query_no_explanation`
-- `target_model` is required only for `no_query_trusted_distinguisher`
+- `specimen_turn_limit` is required only for `yes_query_no_explanation`, `yes_query_no_explanation_grand`, and `yes_query_trusted_distinguisher`
+- `target_model` is required only for `no_query_trusted_distinguisher`, `50_50_trusted_distinguisher`, and `yes_query_trusted_distinguisher`
 - `actor` and `distinguisher` must match for `no_prompt_self_pair`
 - for other conditions, `specimen_turn_limit` may be blank or omitted
 - for other conditions, `target_model` may be blank or omitted
 - `actor` and `distinguisher` must be valid model nicknames from [turing_eval/models.py](turing_eval/models.py)
 - `target_model`, when provided, must be a valid model nickname from [turing_eval/models.py](turing_eval/models.py)
-- `condition` must be one of `no_query_no_explanation`, `no_query_no_explanation_explicit_model`, `no_prompt_self_pair`, `yes_query_no_explanation`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
+- `condition` must be one of `no_query_no_explanation`, `no_query_no_explanation_explicit_model`, `no_query_no_explanation_50_50_prior`, `no_query_no_explanation_actor_model_hint`, `no_prompt_self_pair`, `yes_query_no_explanation`, `yes_query_no_explanation_grand`, `yes_query_trusted_distinguisher`, `no_query_yes_explanation`, `no_query_trusted_distinguisher`, or `50_50_trusted_distinguisher`
 
 ### Batch-level flags
 
@@ -380,6 +407,7 @@ run_name,actor,distinguisher,target_model,num_trials,turn_limit,specimen_turn_li
 smoke_a,llama-3.3-8b,ministral-8b-2512,,2,20,,no_query_no_explanation,extra columns are ignored
 smoke_b,ministral-8b-2512,qwen3-32b,,3,15,8,yes_query_no_explanation,this row needs specimen_turn_limit
 smoke_c,llama-3.3-8b,ministral-8b-2512,gemini-3-pro,2,20,,no_query_trusted_distinguisher,this row needs target_model
+smoke_d,llama-3.3-8b,claude-opus-4.6,gemini-3-pro,2,20,8,yes_query_trusted_distinguisher,this row needs both target_model and specimen_turn_limit
 ```
 
 ### Example invocation

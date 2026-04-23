@@ -9,6 +9,7 @@ from .backends.base import ChatBackend, ChatSession
 from .prompts import (
     build_actor_prompt_no_query,
     build_actor_prompt_no_query_trusted_distinguisher,
+    build_distinguisher_prompt_50_50_trusted_distinguisher,
     build_actor_prompt_yes_query,
     build_distinguisher_prompt,
     build_distinguisher_prompt_no_reasoning_50_50_prior,
@@ -16,6 +17,8 @@ from .prompts import (
     build_distinguisher_prompt_actor_model_hint_no_reasoning,
     build_distinguisher_prompt_no_query_trusted_distinguisher,
     build_distinguisher_prompt_grand_experiment_no_reasoning,
+    build_distinguisher_prompt_yes_query_trusted_distinguisher_stage1,
+    build_distinguisher_prompt_yes_query_trusted_distinguisher_stage2,
 )
 
 _ANSWER_RE = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
@@ -45,6 +48,7 @@ def _invalid_opening_result(
     trial_id: int,
     first_message: str,
     error: str,
+    target_model: Optional[str] = None,
     actor_prompt: Optional[str] = None,
     actor_messages: Optional[list[dict[str, object]]] = None,
     distinguisher_messages: Optional[list[dict[str, object]]] = None,
@@ -52,6 +56,8 @@ def _invalid_opening_result(
     specimen_stopped_cleanly: Optional[bool] = None,
     stage1_actor_messages: Optional[list[dict[str, object]]] = None,
     stage2_actor_messages: Optional[list[dict[str, object]]] = None,
+    stage1_distinguisher_messages: Optional[list[dict[str, object]]] = None,
+    stage2_distinguisher_messages: Optional[list[dict[str, object]]] = None,
     reasoning: Optional[str] = None,
 ) -> Dict[str, object]:
     result: Dict[str, object] = {
@@ -64,6 +70,8 @@ def _invalid_opening_result(
         "actor_prompt": actor_prompt,
         "raw_final_message": first_message,
     }
+    if target_model is not None:
+        result["target_model"] = target_model
     if actor_messages is not None:
         result["actor_messages"] = actor_messages
     if distinguisher_messages is not None:
@@ -76,6 +84,10 @@ def _invalid_opening_result(
         result["stage1_actor_messages"] = stage1_actor_messages
     if stage2_actor_messages is not None:
         result["stage2_actor_messages"] = stage2_actor_messages
+    if stage1_distinguisher_messages is not None:
+        result["stage1_distinguisher_messages"] = stage1_distinguisher_messages
+    if stage2_distinguisher_messages is not None:
+        result["stage2_distinguisher_messages"] = stage2_distinguisher_messages
     if reasoning is not None:
         result["reasoning"] = reasoning
     return result
@@ -703,4 +715,160 @@ def run_trial_no_query_trusted_distinguisher(
         "raw_final_message": d_reply,
         "actor_messages": copy.deepcopy(a_session.messages),
         "distinguisher_messages": copy.deepcopy(d_session.messages),
+    }
+
+
+def run_trial_50_50_trusted_distinguisher(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    target_model: str,
+    turn_limit: int,
+    verbose: bool = False,
+) -> Dict[str, object]:
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt_50_50_trusted_distinguisher(target_model),
+    )
+    first_message = d_session.generate_opening()
+    if verbose:
+        print("[D]", first_message)
+
+    actor_prompt = build_actor_prompt_no_query_trusted_distinguisher(target_model, first_message)
+    if extract_answer(first_message) is not None:
+        return _invalid_opening_result(
+            trial_id=trial_id,
+            first_message=first_message,
+            error="distinguisher_answered_in_opening",
+            actor_prompt=actor_prompt,
+            distinguisher_messages=copy.deepcopy(d_session.messages),
+            actor_messages=[],
+        )
+
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    actor_reply = a_session.generate_opening()
+    if verbose:
+        print("[A]", actor_reply)
+
+    turns = 1
+    d_reply = d_session.send(actor_reply)
+    if verbose:
+        print("[D]", d_reply)
+
+    answer = extract_answer(d_reply)
+    while answer is None and turns < turn_limit:
+        actor_reply = a_session.send(d_reply)
+        if verbose:
+            print("[A]", actor_reply)
+        turns += 1
+        d_reply = d_session.send(actor_reply)
+        if verbose:
+            print("[D]", d_reply)
+        answer = extract_answer(d_reply)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "answer": answer,
+        "target_model": target_model,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "actor_messages": copy.deepcopy(a_session.messages),
+        "distinguisher_messages": copy.deepcopy(d_session.messages),
+    }
+
+
+def run_trial_yes_query_trusted_distinguisher(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    specimen: ChatBackend,
+    target_model: str,
+    specimen_turn_limit: int,
+    turn_limit: int,
+    verbose: bool = False,
+) -> Dict[str, object]:
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt_yes_query_trusted_distinguisher_stage1(target_model),
+    )
+    s_session = ChatSession(specimen, "specimen", initial_prompt=None)
+
+    distinguisher_to_specimen = d_session.generate_opening()
+    if verbose:
+        print("[D->S]", distinguisher_to_specimen)
+
+    specimen_turns = 0
+    while not is_stop_signal(distinguisher_to_specimen) and specimen_turns < specimen_turn_limit:
+        specimen_reply = s_session.send(distinguisher_to_specimen)
+        if verbose:
+            print("[S->D]", specimen_reply)
+        specimen_turns += 1
+        distinguisher_to_specimen = d_session.send(specimen_reply)
+        if verbose:
+            print("[D->S]", distinguisher_to_specimen)
+
+    specimen_stopped_cleanly = is_stop_signal(distinguisher_to_specimen)
+    stage1_distinguisher_messages = copy.deepcopy(d_session.messages)
+
+    first_message = d_session.send(
+        build_distinguisher_prompt_yes_query_trusted_distinguisher_stage2(target_model)
+    )
+    if verbose:
+        print("[D]", first_message)
+
+    actor_prompt = build_actor_prompt_no_query_trusted_distinguisher(target_model, first_message)
+    if extract_answer(first_message) is not None:
+        return _invalid_opening_result(
+            trial_id=trial_id,
+            first_message=first_message,
+            error="distinguisher_answered_in_opening",
+            actor_prompt=actor_prompt,
+            target_model=target_model,
+            specimen_turns=specimen_turns,
+            specimen_stopped_cleanly=specimen_stopped_cleanly,
+            stage1_distinguisher_messages=stage1_distinguisher_messages,
+            stage2_distinguisher_messages=copy.deepcopy(d_session.messages[len(stage1_distinguisher_messages) :]),
+            actor_messages=[],
+        )
+
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    actor_reply = a_session.generate_opening()
+    if verbose:
+        print("[A]", actor_reply)
+
+    turns = 1
+    d_reply = d_session.send(actor_reply)
+    if verbose:
+        print("[D]", d_reply)
+
+    answer = extract_answer(d_reply)
+    while answer is None and turns < turn_limit:
+        actor_reply = a_session.send(d_reply)
+        if verbose:
+            print("[A]", actor_reply)
+        turns += 1
+        d_reply = d_session.send(actor_reply)
+        if verbose:
+            print("[D]", d_reply)
+        answer = extract_answer(d_reply)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "answer": answer,
+        "target_model": target_model,
+        "specimen_turns": specimen_turns,
+        "specimen_stopped_cleanly": specimen_stopped_cleanly,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "actor_messages": copy.deepcopy(a_session.messages),
+        "stage1_distinguisher_messages": stage1_distinguisher_messages,
+        "stage2_distinguisher_messages": copy.deepcopy(d_session.messages[len(stage1_distinguisher_messages) :]),
     }
