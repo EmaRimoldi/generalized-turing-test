@@ -1,0 +1,184 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue}
+
+\title{Actor-Centric Turing Ordering Visualizer\\Implementation Note}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section*{Purpose}
+This note documents the \emph{actor-centric} visualizer and ranking variant that was implemented in the \texttt{llm-eval} repository before the interface was switched back to the strict-\(\varepsilon\) representation. The point of the note is archival clarity: it states exactly which quantities were computed, how the graph was built, and how the ranking was derived from the same pairwise score.
+
+\section*{1. Primitive empirical quantities}
+For each ordered pair \((A,B)\),
+\begin{itemize}
+  \item \(A\) is the actor,
+  \item \(B\) is the distinguisher / target.
+\end{itemize}
+
+The implementation used two empirical frequencies:
+\[
+s_B := \Pr(\text{\(B\) answers ``same''} \mid B \text{ vs } B),
+\]
+\[
+r_{A\to B} := \Pr(\text{\(B\) answers ``same''} \mid A \text{ imitates } B).
+\]
+
+Operationally,
+\begin{itemize}
+  \item \(s_B\) is the self-recognition rate of the judge \(B\);
+  \item \(r_{A\to B}\) is the fooling rate of the actor \(A\) against \(B\).
+\end{itemize}
+
+The original strict visualizer also used
+\[
+P_{\mathrm{correct}}(A,B)
+=
+\frac12\,\Pr(y=1\mid B,B)
+\;+\;
+\frac12\,\Pr(y=0\mid A,B).
+\]
+Since \(\Pr(y=1\mid B,B)=s_B\) and \(\Pr(y=0\mid A,B)=1-r_{A\to B}\), this becomes
+\[
+P_{\mathrm{correct}}(A,B)=\frac12 s_B + \frac12(1-r_{A\to B}).
+\]
+
+\section*{2. Actor-centric pairwise margin}
+The actor-centric implementation was based on the margin
+\[
+m(A,B)
+:=
+\frac12\bigl(r_{A\to B}-s_B\bigr).
+\]
+
+Equivalently,
+\[
+m(A,B)
+=
+\frac12-P_{\mathrm{correct}}(A,B).
+\]
+
+Hence:
+\begin{itemize}
+  \item \(m(A,B) > 0\): actor \(A\) fools \(B\) better than \(B\) recognizes a genuine \(B\);
+  \item \(m(A,B) = 0\): actor performance matches the judge's self-recognition baseline;
+  \item \(m(A,B) < 0\): the judge still distinguishes better than this actor fools.
+\end{itemize}
+
+This was called \emph{actor-centric}, not because it removed the judge from the formula, but because the sign convention made larger values correspond to stronger actor-side fooling.
+
+\section*{3. Graph rule}
+The actor-centric graph replaced the strict-\(\varepsilon\) rule with a direct threshold on \(m\). For a user-chosen threshold \(\tau \ge 0\), the graph displayed the directed edge
+\[
+A \to_{\tau} B
+\quad\Longleftrightarrow\quad
+m(A,B)\ge \tau.
+\]
+
+Interpretation:
+\begin{itemize}
+  \item larger \(\tau\) makes the graph stricter;
+  \item an edge survives only when the actor-side fooling surplus is large enough;
+  \item the edge label shown in the UI was \(m(A,B)\).
+\end{itemize}
+
+This produced a graph whose semantics were pairwise and actor-focused:
+\[
+\text{``\(A\) fools \(B\) by at least \(\tau\)''}.
+\]
+
+\section*{4. Ranking}
+The ranking was intentionally derived from the same pairwise margin, so that the graph and the ranking used one coherent notion of actor-side performance.
+
+\subsection*{4.1 Main score}
+The primary score was
+\[
+A^{+}(A)
+:=
+\operatorname*{mean}_{B\neq A}\max\{0,m(A,B)\}.
+\]
+
+This is the positive-part average of the actor-centric margin across all targets. It can be read as:
+\begin{itemize}
+  \item how often the actor is above the baseline at all;
+  \item how strongly it exceeds that baseline when it does;
+  \item an area-under-threshold summary of the same edge rule used by the graph.
+\end{itemize}
+
+\subsection*{4.2 Auxiliary summaries}
+Two additional summaries were displayed:
+\[
+\bar m(A)
+:=
+\operatorname*{mean}_{B\neq A} m(A,B),
+\]
+\[
+\mathrm{out}_{\tau}(A)
+:=
+\#\{B\neq A : m(A,B)\ge \tau\}.
+\]
+
+So the ranking table exposed:
+\begin{itemize}
+  \item \(A^{+}(A)\): positive-part actor score;
+  \item \(\bar m(A)\): signed mean actor margin;
+  \item \(\mathrm{out}_{\tau}(A)\): current graph out-degree.
+\end{itemize}
+
+\section*{5. Circular ordering of nodes}
+The graph layout put all models on a circle. The nodes were ordered clockwise by the primary ranking score \(A^{+}\), from strongest fooler to weakest. Therefore:
+\begin{itemize}
+  \item the \emph{graph} showed who fools whom at threshold \(\tau\);
+  \item the \emph{circular order} showed the global actor ranking;
+  \item the \emph{edge labels} showed the exact pairwise margin \(m(A,B)\).
+\end{itemize}
+
+\section*{6. Data pipeline}
+The actor-centric implementation consumed the same pairwise evidence objects as the strict visualizer. For each pair row:
+\begin{enumerate}
+  \item recover \(s_B\) from the self branch;
+  \item recover \(r_{A\to B}\) from the imitation branch;
+  \item compute \(m(A,B)=\tfrac12(r_{A\to B}-s_B)\);
+  \item draw the edge if \(m(A,B)\ge\tau\);
+  \item aggregate \(m(A,B)\) over targets to produce \(A^{+}(A)\) and \(\bar m(A)\).
+\end{enumerate}
+
+\section*{7. Difference from the strict-\(\varepsilon\) visualizer}
+The strict visualizer is judge-centric:
+\[
+d(A,B)=P_{\mathrm{correct}}(A,B)-\frac12,
+\qquad
+A \to B \iff d(A,B)\le \varepsilon.
+\]
+
+The actor-centric visualizer in this note instead used
+\[
+m(A,B)=\frac12-P_{\mathrm{correct}}(A,B),
+\qquad
+A \to B \iff m(A,B)\ge \tau.
+\]
+
+The two are equivalent under the identity
+\[
+m(A,B)=-d(A,B),
+\]
+but they emphasize opposite sides of the same empirical relation:
+\begin{itemize}
+  \item \(d\) measures judge advantage above chance;
+  \item \(m\) measures actor surplus above the judge's self-recognition baseline.
+\end{itemize}
+
+\section*{8. Status}
+This actor-centric formulation is preserved here as an implementation record. The currently restored visualizer in the repository returns to the strict-\(\varepsilon\) graph and the earlier \(S/A/J\) ranking family, but this note remains useful because it explains the alternate actor-centric branch precisely and unambiguously.
+
+\end{document}

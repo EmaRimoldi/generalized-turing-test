@@ -17,6 +17,8 @@ export interface LayoutResult {
   edges: DagEdge[];
   width: number;
   height: number;
+  /** Center Y of each imitation-difficulty stratum (for guide lines), top = harder. */
+  guideLineYs?: number[];
 }
 
 export function layoutDag(
@@ -101,4 +103,58 @@ export function recomputeViewBox(laid: LayoutResult): LayoutResult {
     width: maxX - minX + 80,
     height: maxY - minY + 80,
   };
+}
+
+/**
+ * Row Y = "difficulty to imitate" (defender mean pDiff on off-diagonals): same tier ⇒ same y.
+ * X: evenly spread within the row (preserves left-to-right order from dagre for ties).
+ * Returns y-centers of strata (for optional horizontal guide lines).
+ */
+export function applyImitationDifficultyTiers(
+  nodes: Array<{ id: string; x: number; y: number; w: number; h: number }>,
+  tierById: Map<string, number>,
+  nTiers: number,
+  opts: { yTop: number; yStride: number; xMargin: number; xGap: number; minCanvasWidth: number }
+): number[] {
+  const { yTop, yStride, xMargin, xGap, minCanvasWidth } = opts;
+  if (nTiers <= 0) {
+    return [];
+  }
+  const layerCenters: number[] = Array.from(
+    { length: nTiers },
+    (_, t) => yTop + t * yStride
+  );
+
+  for (const n of nodes) {
+    const ti = Math.min(tierById.get(n.id) ?? 0, nTiers - 1);
+    n.y = layerCenters[ti] ?? yTop;
+  }
+
+  const byTier = new Map<number, Array<(typeof nodes)[number]>>();
+  for (const n of nodes) {
+    const ti = Math.min(tierById.get(n.id) ?? 0, nTiers - 1);
+    if (!byTier.has(ti)) byTier.set(ti, []);
+    byTier.get(ti)!.push(n);
+  }
+
+  for (const t of [...byTier.keys()].sort((a, b) => a - b)) {
+    const group = byTier.get(t);
+    if (!group || group.length === 0) continue;
+    group.sort((a, b) => a.x - b.x);
+    const m = group.length;
+    const totalNodesW = group.reduce((s, p) => s + p.w, 0);
+    const needed = totalNodesW + (m - 1) * xGap;
+    const width = Math.max(minCanvasWidth, needed + 2 * xMargin);
+    const inner = width - 2 * xMargin;
+    if (m === 1) {
+      group[0].x = xMargin + inner / 2;
+    } else {
+      for (let i = 0; i < m; i += 1) {
+        const frac = i / (m - 1);
+        group[i].x = xMargin + frac * inner;
+      }
+    }
+  }
+
+  return layerCenters;
 }

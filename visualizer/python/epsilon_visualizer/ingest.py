@@ -453,6 +453,20 @@ def compute_pair_evidence_strict(
                     continue
                 if a == b:
                     # Self-pairs are calibration diagnostics, not ordering edges.
+                    genuine = genuine_by_target.get(b)
+                    if genuine is None:
+                        self_valid = 0
+                        self_excluded = 0
+                        self_psame = None
+                        self_raw_paths: list[str] = []
+                        self_genuine_prov = None
+                    else:
+                        genuine_ev, genuine_exc, genuine_raw, _g_lo, _g_hi = genuine
+                        self_valid = genuine_ev.n_valid
+                        self_excluded = genuine_ev.n_excluded
+                        self_psame = genuine_ev.p_hat
+                        self_raw_paths = genuine_raw
+                        self_genuine_prov = _branch_trials_provenance(by_run[key])
                     tr = classify_pair(
                         epsilon=cfg.epsilon,
                         estimate=None,
@@ -466,21 +480,23 @@ def compute_pair_evidence_strict(
                             target=b,
                             condition=cond,
                             mode="strict",
-                            n_valid=0,
-                            n_excluded=0,
+                            n_valid=self_valid,
+                            n_excluded=self_excluded,
                             estimate=None,
                             lower_bound=None,
                             upper_bound=None,
                             threshold_at_point=tr.threshold_at_point,
                             threshold_at_upper=tr.threshold_at_upper,
                             status_at_epsilon=tr.status,
-                            p_same_real_b=None,
+                            p_same_real_b=self_psame,
                             p_diff_impostor=None,
                             p_correct=None,
-                            avg_turn_count=None,
+                            avg_turn_count=_avg([t.turn_count for t in by_run[key]]),
                             avg_specimen_turn_count=None,
                             exclusions={"self_pair_calibration_only": 1},
-                            raw_paths=[],
+                            raw_paths=self_raw_paths,
+                            imitation_data_provenance=None,
+                            genuine_data_provenance=self_genuine_prov,
                         )
                     )
                     continue

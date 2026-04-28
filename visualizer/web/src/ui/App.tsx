@@ -1,28 +1,31 @@
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { PairRow, PairStatus, VisualizerArtifact } from "./types";
-import { buildCondensation } from "./graphCompression";
-import { defenderImitationStrictness, effectiveOrderingStatus, formatPct } from "./logic";
-import { layoutDag, orderLayerNodesByScore, recomputeViewBox, type DagEdge, type DagNode } from "./layout";
+import { clusterLabel, labelFontSize, labelLines, modelName, nodeRadius } from "./graphLabels";
 import {
-  applyHeightToY,
-  buildSupportedAdjacency,
-  condensationHeights,
-  findTransitivityViolations,
-} from "./transitivity";
+  actorScoreBySource,
+  combinedScoreByModel,
+  effectiveOrderingStatus,
+  formatPct,
+  judgeScoreByTarget,
+} from "./logic";
+import type { DagEdge, DagNode, LayoutResult } from "./layout";
+import { buildSupportedAdjacency, findTransitivityViolations } from "./transitivity";
 import "./App.css";
 
 const GRAPH_SVG_STYLE = `
-  .edge-supported { fill: none; stroke: #28f0b8; stroke-width: 3; stroke-linecap: round; opacity: 0.86; }
-  .edge-tentative { fill: none; stroke: #f2d84a; stroke-width: 2.4; stroke-dasharray: 8 9; stroke-linecap: round; opacity: 0.78; }
-  .node-core { fill: #0d1210; stroke: #d9fff4; stroke-width: 1.8; }
-  .node-core.selected { stroke: #ff4f83; stroke-width: 3; }
-  .node-core.violation { stroke: #f2d84a; stroke-width: 2.6; }
-  .node-ring { fill: none; stroke: #28f0b8; stroke-width: 1; opacity: 0.36; }
-  .node-label { fill: #f3fff9; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 760; letter-spacing: 0; pointer-events: none; }
-  .node-sub { fill: #90b7aa; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 650; letter-spacing: 0; pointer-events: none; }
+  .edge-supported { fill: none; stroke: #1f5c55; stroke-width: 2.5; stroke-linecap: round; opacity: 0.94; }
+  .node-core { fill: #ffffff; stroke: #314d4a; stroke-width: 1.5; }
+  .node-core.selected { stroke: #b13a58; stroke-width: 2.6; }
+  .node-ring { fill: none; stroke: #d8e3e1; stroke-width: 1; opacity: 0.9; }
+  .node-label { fill: #213937; font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif; font-weight: 700; pointer-events: none; }
+  .node-rank { fill: #7a5e21; font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif; font-weight: 800; letter-spacing: 0.05em; pointer-events: none; }
+  .node-strat { fill: #2b514c; font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif; font-weight: 650; pointer-events: none; }
+  .node-strat-sub { fill: #657a76; font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif; font-weight: 600; pointer-events: none; }
 `;
+
+type RankingMode = "combined" | "actor" | "judge";
 
 function useArtifact(): {
   loading: boolean;
@@ -51,6 +54,11 @@ type Selected =
   | { kind: "pair"; pair: PairRow }
   | { kind: "cluster"; clusterId: string; members: string[] };
 
+type RankedViolation = {
+  triple: [string, string, string];
+  defect: number | null;
+};
+
 type GraphNode = DagNode & {
   x: number;
   y: number;
@@ -59,7 +67,10 @@ type GraphNode = DagNode & {
   r: number;
   shortLabel: string;
   fontSize: number;
-  inViolation: boolean;
+  primaryMetricValue: number;
+  primaryMetricLabel: string;
+  secondaryMetricText: string | null;
+  rankText: string | null;
 };
 
 type GraphRender = {
@@ -68,52 +79,22 @@ type GraphRender = {
   height: number;
 };
 
-function modelName(id: string): string {
-  return id.split("/").pop() ?? id;
-}
-
 function conditionLabel(id: string): string {
   if (id === "no_query_no_explanation") return "Condition A · no query, no explanation";
+  if (id === "yes_query_no_explanation") return "Condition B · query allowed, no explanation";
   return id;
 }
 
-function clusterLabel(members: string[]): string {
-  if (members.length === 1) return modelName(members[0]);
-  return `${members.length} models`;
+function rankingModeLabel(mode: RankingMode): string {
+  if (mode === "combined") return "Combined S";
+  if (mode === "actor") return "Actor A";
+  return "Judge J";
 }
 
-function labelLines(label: string): string[] {
-  const parts = label.split(/[-_\s]+/).filter(Boolean);
-  if (parts.length <= 1) return [label];
-  const lines: string[] = [];
-  let line = "";
-  for (const part of parts) {
-    const next = line ? `${line}-${part}` : part;
-    if (next.length > 13 && line) {
-      lines.push(line);
-      line = part;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  if (lines.length <= 3) return lines;
-  return [lines[0], lines[1], `${lines.slice(2).join("-").slice(0, 14)}...`];
-}
-
-function labelFontSize(label: string, memberCount: number): number {
-  if (memberCount > 1) return 12;
-  if (label.length <= 9) return 14;
-  if (label.length <= 15) return 12;
-  if (label.length <= 22) return 10;
-  return 8;
-}
-
-function nodeRadius(label: string, memberCount: number): number {
-  if (memberCount > 1) return Math.min(76, 54 + memberCount * 3);
-  if (label.length <= 10) return 48;
-  if (label.length <= 18) return 56;
-  return 64;
+function rankingModeShort(mode: RankingMode): string {
+  if (mode === "combined") return "S";
+  if (mode === "actor") return "A";
+  return "J";
 }
 
 function renderFormula(tex: string, displayMode = false): string {
@@ -134,10 +115,6 @@ function Formula({ tex, display = false }: { tex: string; display?: boolean }) {
   );
 }
 
-/**
- * Separate overlapping node circles by moving **x only** so horizontal stratification
- * and dagre/height y-positions are preserved.
- */
 function resolveCircleCollisions(nodes: GraphNode[]): GraphRender {
   const solved = nodes.map((n, idx) => ({ ...n, idx }));
   const margin = 34;
@@ -150,13 +127,12 @@ function resolveCircleCollisions(nodes: GraphNode[]): GraphRender {
         const a = solved[i];
         const b = solved[j];
         const dy = b.y - a.y;
-        let dx = b.x - a.x;
-        let dist = Math.hypot(dx, dy);
+        const dx = b.x - a.x;
+        const dist = Math.hypot(dx, dy);
         const minDist = a.r + b.r + margin;
         if (dist >= minDist) continue;
 
         if (dist < 1e-3) {
-          // Coincident centers: split along x; y stays fixed.
           const half = minDist * 0.5;
           a.x -= half;
           b.x += half;
@@ -164,9 +140,8 @@ function resolveCircleCollisions(nodes: GraphNode[]): GraphRender {
           continue;
         }
 
-        // For fixed y, need |dx| >= sqrt(minDist^2 - dy^2) for Euclidean distance >= minDist.
         const needMag = Math.sqrt(Math.max(0, minDist * minDist - dy * dy));
-        if (needMag <= 0) continue; // |dy| >= minDist: no 2D overlap; numerical noise only
+        if (needMag <= 0) continue;
 
         const adx = Math.abs(dx);
         if (adx >= needMag - 1e-3) continue;
@@ -195,7 +170,7 @@ function resolveCircleCollisions(nodes: GraphNode[]): GraphRender {
   }
 
   const width = Math.max(...solved.map((n) => n.x + n.r + 96), 1180);
-  const height = Math.max(...solved.map((n) => n.y + n.r + 96), 660);
+  const height = Math.max(...solved.map((n) => n.y + n.r + 130), 660);
   return { nodes: solved, width, height };
 }
 
@@ -206,15 +181,15 @@ function statusColor(st: PairStatus): string {
   return "#7a8883";
 }
 
-function edgePath(
+function edgeGeometry(
   edge: DagEdge,
   idx: number,
   nodes: GraphNode[],
   edges: DagEdge[]
-): string {
+): { path: string; labelX: number; labelY: number } {
   const from = nodes.find((n) => n.id === edge.from);
   const to = nodes.find((n) => n.id === edge.to);
-  if (!from || !to) return "";
+  if (!from || !to) return { path: "", labelX: 0, labelY: 0 };
 
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -231,59 +206,141 @@ function edgePath(
   const bend = reciprocal ? (edge.from < edge.to ? 48 : -48) : (idx % 2 === 0 ? 22 : -22);
   const cx = (sx + tx) / 2 + nx * bend;
   const cy = (sy + ty) / 2 + ny * bend;
-  return `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`;
+  const t = 0.5;
+  const labelX = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * tx;
+  const labelY = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ty;
+  return {
+    path: `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`,
+    labelX,
+    labelY,
+  };
 }
 
-function viewBoxSize(viewBox: string): { width: number; height: number } {
-  const parts = viewBox.split(/\s+/).map(Number);
-  return { width: parts[2] || 1600, height: parts[3] || 900 };
+function buildCircleLayout(models: string[]): LayoutResult {
+  const width = 1260;
+  const height = 980;
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = Math.max(280, 290 + models.length * 8);
+  const count = Math.max(models.length, 1);
+  return {
+    nodes: models.map((m, idx) => {
+      const theta = -Math.PI / 2 + (2 * Math.PI * idx) / count;
+      return {
+        id: m,
+        label: modelName(m),
+        members: [m],
+        x: cx + Math.cos(theta) * radius,
+        y: cy + Math.sin(theta) * radius,
+        w: 210,
+        h: 110,
+      };
+    }),
+    edges: [],
+    width,
+    height,
+  };
 }
 
-async function exportSvgAsPng(svg: SVGSVGElement): Promise<void> {
-  const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  const { width, height } = viewBoxSize(clone.getAttribute("viewBox") ?? "");
-  const scale = 3;
-  clone.setAttribute("width", String(width * scale));
-  clone.setAttribute("height", String(height * scale));
+function chooseScoreMap(
+  mode: RankingMode,
+  combined: Map<string, number>,
+  actor: Map<string, number>,
+  judge: Map<string, number>
+): Map<string, number> {
+  if (mode === "combined") return combined;
+  if (mode === "actor") return actor;
+  return judge;
+}
 
-  const text = new XMLSerializer().serializeToString(clone);
-  const blob = new Blob([text], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const image = new Image();
-  image.decoding = "async";
-  const loaded = new Promise<void>((resolve, reject) => {
-    image.onload = () => resolve();
-    image.onerror = () => reject(new Error("Snapshot image could not be decoded"));
+function buildSecondaryMetricText(
+  mode: RankingMode,
+  model: string,
+  combined: Map<string, number>,
+  actor: Map<string, number>,
+  judge: Map<string, number>,
+  outDegree: Map<string, number>,
+  inDegree: Map<string, number>
+): string {
+  const s = combined.get(model) ?? 0;
+  const a = actor.get(model) ?? 0;
+  const j = judge.get(model) ?? 0;
+  const out = outDegree.get(model) ?? 0;
+  const incoming = inDegree.get(model) ?? 0;
+  if (mode === "combined") return `A=${a.toFixed(3)}  J=${j.toFixed(3)}  in=${incoming} out=${out}`;
+  if (mode === "actor") return `S=${s.toFixed(3)}  J=${j.toFixed(3)}  in=${incoming} out=${out}`;
+  return `S=${s.toFixed(3)}  A=${a.toFixed(3)}  in=${incoming} out=${out}`;
+}
+
+function decorateGraphRender(
+  laid: LayoutResult | null,
+  primaryScoreByModel: Map<string, number>,
+  combinedScore: Map<string, number>,
+  actorScore: Map<string, number>,
+  judgeScore: Map<string, number>,
+  outDegreeByModel: Map<string, number>,
+  inDegreeByModel: Map<string, number>,
+  rankIndex: Map<string, number>,
+  rankingMode: RankingMode
+): GraphRender {
+  if (!laid) return { nodes: [], width: 1180, height: 660 };
+
+  const nodes = laid.nodes.map((n) => {
+    const shortLabel = clusterLabel(n.members);
+    const id = n.members[0]!;
+    const primaryMetricValue = n.members.length === 1 ? primaryScoreByModel.get(id) ?? 0 : 0;
+    const secondaryMetricText =
+      n.members.length === 1
+        ? buildSecondaryMetricText(
+            rankingMode,
+            id,
+            combinedScore,
+            actorScore,
+            judgeScore,
+            outDegreeByModel,
+            inDegreeByModel
+          )
+        : null;
+    const rankText = n.members.length === 1 ? `#${rankIndex.get(id) ?? "?"}` : null;
+
+    return {
+      ...n,
+      shortLabel,
+      r: nodeRadius(shortLabel, n.members.length),
+      fontSize: labelFontSize(shortLabel, n.members.length),
+      primaryMetricValue,
+      primaryMetricLabel: rankingModeShort(rankingMode),
+      secondaryMetricText,
+      rankText,
+    };
   });
-  image.src = url;
-  await image.decode().catch(() => loaded);
 
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(width * scale);
-  canvas.height = Math.round(height * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas context unavailable");
-  ctx.fillStyle = "#050706";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-  URL.revokeObjectURL(url);
+  return resolveCircleCollisions(nodes);
+}
 
-  const pngUrl = canvas.toDataURL("image/png");
-  const link = document.createElement("a");
-  link.href = pngUrl;
-  link.download = `turing-ordering-${new Date().toISOString().replace(/[:.]/g, "-")}.png`;
-  link.click();
+function pairJudgeAdvantage(row: PairRow, minValid: number): number | null {
+  const im = row.details?.imitationDataProvenance as string | undefined;
+  const ge = row.details?.genuineDataProvenance as string | undefined;
+  if (row.source === row.target || row.nValid < minValid || im === "imputed_uniform" || ge === "imputed_uniform") {
+    return null;
+  }
+  if (row.dHat != null && !Number.isNaN(row.dHat)) return row.dHat;
+  if (row.estimate == null || Number.isNaN(row.estimate)) return null;
+  return row.estimate - 0.5;
+}
+
+function pairCriticalEpsilon(row: PairRow, minValid: number): number | null {
+  const d = pairJudgeAdvantage(row, minValid);
+  if (d == null) return null;
+  return Math.max(0, d);
 }
 
 export function App() {
   const { loading, error, data } = useArtifact();
-  const svgRef = useRef<SVGSVGElement | null>(null);
   const [epsilon, setEpsilon] = useState(0.05);
   const [condition, setCondition] = useState<string>("");
+  const [rankingMode, setRankingMode] = useState<RankingMode>("combined");
   const [selected, setSelected] = useState<Selected>({ kind: "none" });
-  const [graphView, setGraphView] = useState<"condensation" | "raw">("condensation");
-  const [snapshotError, setSnapshotError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!data) return;
@@ -297,141 +354,199 @@ export function App() {
     return data.pairs.filter((p) => p.mode === "strict");
   }, [data]);
 
-  const modelsForCondition = useMemo(() => {
+  const graphModels = useMemo(() => {
     if (!data) return [];
     return data.modelsByCondition?.[condition] ?? data.models;
   }, [data, condition]);
 
-  const modelsForConditionSet = useMemo(() => new Set(modelsForCondition), [modelsForCondition]);
+  const graphModelsSet = useMemo(() => new Set(graphModels), [graphModels]);
 
   const pairsForCondition = useMemo(
     () =>
       strictPairs.filter(
         (p) =>
-          p.condition === condition &&
-          modelsForConditionSet.has(p.source) &&
-          modelsForConditionSet.has(p.target)
+          p.condition === condition && graphModelsSet.has(p.source) && graphModelsSet.has(p.target)
       ),
-    [strictPairs, condition, modelsForConditionSet]
+    [strictPairs, condition, graphModelsSet]
   );
 
-  const condensation = useMemo(() => {
-    if (!data || !condition) return null;
-    return buildCondensation({
-      models: modelsForCondition,
-      pairs: strictPairs,
-      condition,
-      epsilon,
-      minValid,
-    });
-  }, [data, modelsForCondition, strictPairs, condition, epsilon, minValid]);
+  const combinedScore = useMemo(
+    () => combinedScoreByModel(strictPairs, condition, graphModels),
+    [strictPairs, condition, graphModels]
+  );
+  const actorScore = useMemo(
+    () => actorScoreBySource(strictPairs, condition, graphModels),
+    [strictPairs, condition, graphModels]
+  );
+  const judgeScore = useMemo(
+    () => judgeScoreByTarget(strictPairs, condition, graphModels),
+    [strictPairs, condition, graphModels]
+  );
+  const selectedScore = useMemo(
+    () => chooseScoreMap(rankingMode, combinedScore, actorScore, judgeScore),
+    [rankingMode, combinedScore, actorScore, judgeScore]
+  );
 
-  const transitivity = useMemo(() => {
-    if (!data) return { count: 0, triples: [] as Array<[string, string, string]> };
-    const edges: Array<[string, string]> = [];
+  const epsilonStarByPair = useMemo(() => {
+    const out = new Map<string, number>();
     for (const p of pairsForCondition) {
-      if (effectiveOrderingStatus(p, epsilon, minValid) === "supported") edges.push([p.source, p.target]);
+      const eStar = pairCriticalEpsilon(p, minValid);
+      if (eStar == null) continue;
+      out.set(`${p.source}:::${p.target}`, eStar);
     }
-    const adj = buildSupportedAdjacency(modelsForCondition, edges);
-    return findTransitivityViolations(modelsForCondition, adj);
-  }, [data, modelsForCondition, pairsForCondition, epsilon, minValid]);
+    return out;
+  }, [pairsForCondition, minValid]);
 
-  const violationMembers = useMemo(() => {
-    const ids = new Set<string>();
-    for (const triple of transitivity.triples) {
-      for (const id of triple) ids.add(id);
-    }
-    return ids;
-  }, [transitivity]);
-
-  const laidCondensation = useMemo(() => {
-    if (!data || !condensation) return null;
-    const strictByModel = defenderImitationStrictness(strictPairs, condition, modelsForCondition);
-    const clusterIds = condensation.clusters.map((c) => c.id);
-    const heights = condensationHeights(clusterIds, condensation.supportedEdges);
-    const nodes: DagNode[] = condensation.clusters.map((c) => ({
-      id: c.id,
-      label: clusterLabel(c.members),
-      members: c.members,
-    }));
-    const scoreByClusterId = new Map<string, number>();
-    for (const n of nodes) {
-      const s =
-        n.members.length > 0
-          ? Math.max(...n.members.map((m) => strictByModel.get(m) ?? 0))
-          : 0;
-      scoreByClusterId.set(n.id, s);
-    }
-    const edges: DagEdge[] = [
-      ...condensation.supportedEdges.map(([from, to]) => ({ from, to, kind: "supported" as const })),
-      ...condensation.tentativeEdges.map(([from, to]) => ({ from, to, kind: "tentative" as const })),
-    ];
-    const base = layoutDag(nodes, edges);
-    applyHeightToY(base.nodes, heights, 112);
-    orderLayerNodesByScore(base.nodes, (id) => scoreByClusterId.get(id) ?? 0, 28);
-    return recomputeViewBox(base);
-  }, [data, condensation, strictPairs, condition, modelsForCondition]);
-
-  const laidRaw = useMemo(() => {
-    if (!data) return null;
-    const strictByModel = defenderImitationStrictness(strictPairs, condition, modelsForCondition);
+  const currentEdges = useMemo(() => {
     const edges: DagEdge[] = [];
     for (const p of pairsForCondition) {
-      const st = effectiveOrderingStatus(p, epsilon, minValid);
-      if (st === "supported") edges.push({ from: p.source, to: p.target, kind: "supported" });
-      if (st === "tentative") edges.push({ from: p.source, to: p.target, kind: "tentative" });
+      if (p.source === p.target) continue;
+      if (effectiveOrderingStatus(p, epsilon, minValid) === "supported") {
+        edges.push({ from: p.source, to: p.target, kind: "supported" });
+      }
     }
-    const nodes: DagNode[] = modelsForCondition.map((m) => ({
-      id: m,
-      label: modelName(m),
-      members: [m],
-    }));
-    const base = layoutDag(nodes, edges);
-    orderLayerNodesByScore(base.nodes, (id) => strictByModel.get(id) ?? 0, 22);
-    return base;
-  }, [data, modelsForCondition, pairsForCondition, strictPairs, condition, epsilon, minValid]);
+    return edges;
+  }, [pairsForCondition, epsilon, minValid]);
+
+  const outDegreeByModel = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const model of graphModels) out.set(model, 0);
+    for (const edge of currentEdges) {
+      out.set(edge.from, (out.get(edge.from) ?? 0) + 1);
+    }
+    return out;
+  }, [graphModels, currentEdges]);
+
+  const inDegreeByModel = useMemo(() => {
+    const out = new Map<string, number>();
+    for (const model of graphModels) out.set(model, 0);
+    for (const edge of currentEdges) {
+      out.set(edge.to, (out.get(edge.to) ?? 0) + 1);
+    }
+    return out;
+  }, [graphModels, currentEdges]);
+
+  const transitivity = useMemo(() => {
+    const tuples = currentEdges.map((e) => [e.from, e.to] as [string, string]);
+    const adj = buildSupportedAdjacency(graphModels, tuples);
+    const raw = findTransitivityViolations(graphModels, adj);
+    const triples: RankedViolation[] = raw.triples
+      .map((triple) => {
+        const [a, b, c] = triple;
+        const ab = epsilonStarByPair.get(`${a}:::${b}`);
+        const bc = epsilonStarByPair.get(`${b}:::${c}`);
+        const ac = epsilonStarByPair.get(`${a}:::${c}`);
+        const defect = ab != null && bc != null && ac != null ? ac - Math.max(ab, bc) : null;
+        return { triple, defect };
+      })
+      .sort(
+        (lhs, rhs) =>
+          (rhs.defect ?? Number.NEGATIVE_INFINITY) - (lhs.defect ?? Number.NEGATIVE_INFINITY) ||
+          lhs.triple.join("\0").localeCompare(rhs.triple.join("\0"))
+      );
+    return { count: raw.count, triples };
+  }, [currentEdges, graphModels, epsilonStarByPair]);
 
   const summaryCounts = useMemo(() => {
     const c = { supported: 0, tentative: 0, unsupported: 0, missing: 0 };
     for (const p of pairsForCondition) {
       if (p.source === p.target) continue;
-      const st = effectiveOrderingStatus(p, epsilon, minValid);
-      c[st] += 1;
+      c[effectiveOrderingStatus(p, epsilon, minValid)] += 1;
     }
     return c;
   }, [pairsForCondition, epsilon, minValid]);
 
-  const displayLaid = graphView === "condensation" ? laidCondensation : laidRaw;
-  const graphRender = useMemo<GraphRender>(() => {
-    if (!displayLaid) return { nodes: [], width: 1180, height: 660 };
-    const nodes = displayLaid.nodes.map((n) => {
-      const shortLabel = clusterLabel(n.members);
-      return {
-        ...n,
-        shortLabel,
-        r: nodeRadius(shortLabel, n.members.length),
-        fontSize: labelFontSize(shortLabel, n.members.length),
-        inViolation: n.members.some((m) => violationMembers.has(m)),
-      };
+  const graphOrder = useMemo(
+    () =>
+      [...graphModels].sort(
+        (a, b) =>
+          (inDegreeByModel.get(b) ?? 0) - (inDegreeByModel.get(a) ?? 0) ||
+          (combinedScore.get(b) ?? 0) - (combinedScore.get(a) ?? 0) ||
+          (actorScore.get(b) ?? 0) - (actorScore.get(a) ?? 0) ||
+          (judgeScore.get(b) ?? 0) - (judgeScore.get(a) ?? 0) ||
+          modelName(a).localeCompare(modelName(b))
+      ),
+    [graphModels, inDegreeByModel, combinedScore, actorScore, judgeScore]
+  );
+  const graphRankIndex = useMemo(
+    () => new Map(graphOrder.map((m, idx) => [m, idx + 1])),
+    [graphOrder]
+  );
+
+  const laidGraph = useMemo(() => {
+    if (!graphModels.length) return null;
+    const base = buildCircleLayout(graphOrder);
+    return { ...base, edges: currentEdges };
+  }, [graphModels.length, graphOrder, currentEdges]);
+
+  const graphRender = useMemo(
+    () =>
+      decorateGraphRender(
+        laidGraph,
+        selectedScore,
+        combinedScore,
+        actorScore,
+        judgeScore,
+        outDegreeByModel,
+        inDegreeByModel,
+        graphRankIndex,
+        rankingMode
+      ),
+    [
+      laidGraph,
+      selectedScore,
+      combinedScore,
+      actorScore,
+      judgeScore,
+      outDegreeByModel,
+      inDegreeByModel,
+      graphRankIndex,
+      rankingMode,
+    ]
+  );
+
+  const rankingCards = useMemo(() => {
+    if (!data) return [];
+    return data.conditions.map((id) => {
+      const models = data.modelsByCondition?.[id] ?? data.models;
+      const s = combinedScoreByModel(strictPairs, id, models);
+      const a = actorScoreBySource(strictPairs, id, models);
+      const j = judgeScoreByTarget(strictPairs, id, models);
+      const condPairs = strictPairs.filter(
+        (p) => p.condition === id && models.includes(p.source) && models.includes(p.target)
+      );
+      const out = new Map<string, number>();
+      for (const model of models) out.set(model, 0);
+      for (const p of condPairs) {
+        if (p.source === p.target) continue;
+        if (effectiveOrderingStatus(p, epsilon, minValid) === "supported") {
+          out.set(p.source, (out.get(p.source) ?? 0) + 1);
+        }
+      }
+      const primary = chooseScoreMap(rankingMode, s, a, j);
+      const rows = [...models]
+        .sort(
+          (lhs, rhs) =>
+            (primary.get(rhs) ?? 0) - (primary.get(lhs) ?? 0) ||
+            (s.get(rhs) ?? 0) - (s.get(lhs) ?? 0) ||
+            (a.get(rhs) ?? 0) - (a.get(lhs) ?? 0) ||
+            (j.get(rhs) ?? 0) - (j.get(lhs) ?? 0) ||
+            modelName(lhs).localeCompare(modelName(rhs))
+        )
+        .map((model, idx) => ({
+          rank: idx + 1,
+          model,
+          combined: s.get(model) ?? 0,
+          actor: a.get(model) ?? 0,
+          judge: j.get(model) ?? 0,
+          outDegree: out.get(model) ?? 0,
+        }));
+      return { id, rows };
     });
-    return resolveCircleCollisions(nodes);
-  }, [displayLaid, violationMembers]);
-
-  const graphNodes = graphRender.nodes;
-  const graphViewBox = `0 0 ${graphRender.width} ${graphRender.height}`;
-
-  const handleSnapshot = async () => {
-    if (!svgRef.current) return;
-    setSnapshotError(null);
-    try {
-      await exportSvgAsPng(svgRef.current);
-    } catch (e) {
-      setSnapshotError(String(e));
-    }
-  };
+  }, [data, strictPairs, rankingMode, epsilon, minValid]);
 
   if (loading) {
-    return <div className="load-state">Loading strict evidence...</div>;
+    return <div className="load-state">Loading strict epsilon evidence...</div>;
   }
 
   if (error) {
@@ -454,15 +569,15 @@ export function App() {
     <div className="viz-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">strict evidence graph · Condition A only</p>
-          <h1>Turing Ordering Field</h1>
+          <p className="eyebrow">strict epsilon graph and comparative rankings</p>
+          <h1>Turing Ordering Visualizer</h1>
         </div>
         <div className="stat-strip" aria-label="pair status counts">
           <StatusStat label="S" value={summaryCounts.supported} status="supported" />
           <StatusStat label="U" value={summaryCounts.unsupported} status="unsupported" />
           <StatusStat label="M" value={summaryCounts.missing} status="missing" />
           <div className="tv-pill">
-            <span>TV_epsilon</span>
+            <span>TV_ε</span>
             <strong>{transitivity.count}</strong>
           </div>
         </div>
@@ -501,73 +616,50 @@ export function App() {
             step={0.001}
             value={epsilon}
             onChange={(e) => setEpsilon(Number(e.target.value))}
+            onInput={(e) => setEpsilon(Number((e.target as HTMLInputElement).value))}
           />
           <small className="control-help">
-            Higher epsilon is more permissive: more supported edges and possible SCC merges. Lower epsilon is stricter:
-            fewer supported edges survive because d must be smaller.
+            Higher epsilon is more permissive: an edge survives whenever the judge advantage d(A,B) stays below the threshold.
           </small>
         </label>
 
         <label>
-          <span>Graph</span>
-          <select
-            value={graphView}
-            onChange={(e) => {
-              setGraphView(e.target.value as "condensation" | "raw");
-              setSelected({ kind: "none" });
-            }}
-          >
-            <option value="condensation">SCC condensation</option>
-            <option value="raw">Raw model graph</option>
+          <span>Ranking metric</span>
+          <select value={rankingMode} onChange={(e) => setRankingMode(e.target.value as RankingMode)}>
+            <option value="combined">Combined S</option>
+            <option value="actor">Actor A</option>
+            <option value="judge">Judge J</option>
           </select>
           <small className="control-help">
-            Raw keeps every model separate. SCC condensation collapses mutually supported cycles into one circle.
+            The graph keeps the strict epsilon relation; only node order and ranking tables switch between S, A, and J.
           </small>
         </label>
-
-        <button className="snapshot-button" type="button" onClick={handleSnapshot}>
-          Snapshot HD
-        </button>
       </section>
-
-      {snapshotError && <div className="snapshot-error">{snapshotError}</div>}
 
       <section className="method-panel" aria-label="strict epsilon computation">
         <div>
-          <p className="panel-kicker">Computation</p>
-          {data.pairIngestStats && (
-            <p className="ingest-stats">
-              Directed pair sources: measured in grouped JSON{" "}
-              <b>{data.pairIngestStats.from_json ?? 0}</b>, added from matrix fallback{" "}
-              <b>{data.pairIngestStats.from_matrix_fallback ?? 0}</b>,               uniform imputation (10 trials, 5×‘1’ / 5×‘0’){" "}
-              <b>{data.pairIngestStats.imputed_uniform ?? 0}</b>.
-            </p>
-          )}
-          <p>
-            For each actor <b>A</b> and distinguisher <b>B</b>, strict evidence combines the self-pair branch and the
-            imitation branch:
+          <p className="panel-kicker">Strict graph</p>
+          <p className="en-summary" lang="en">
+            For each ordered pair <b>(A,B)</b>, the judge-side correctness combines the self-pair branch and the imitation branch.
           </p>
           <Formula
             display
-            tex={
-              "\\widehat P(\\mathrm{correct}) = \\frac{1}{2}\\widehat p(y=1\\mid B,B) + \\frac{1}{2}\\widehat p(y=0\\mid A,B)"
-            }
+            tex={"\\widehat P(\\mathrm{correct}) = \\frac12\\widehat p(y=1\\mid B,B) + \\frac12\\widehat p(y=0\\mid A,B)"}
           />
-          <p>
-            The distinguisher advantage above chance is:
+          <Formula display tex={"\\widehat d(A,B)=\\widehat P(\\mathrm{correct})-\\frac12"} />
+          <p className="en-summary" lang="en">
+            The visualizer draws the directed edge <b>A → B</b> exactly when <b>d(A,B) ≤ ε</b>.
           </p>
-          <Formula display tex={"\\widehat d = \\widehat P(\\mathrm{correct}) - \\frac{1}{2}"} />
-          <p>
-            A <b>{"A -> B"}</b> edge is supported exactly when{" "}
-            <Formula tex={"\\widehat d \\le \\varepsilon"} />, equivalently{" "}
-            <Formula tex={"\\widehat P(\\mathrm{correct}) \\le \\frac{1}{2}+\\varepsilon"} />. Increasing{" "}
-            <Formula tex={"\\varepsilon"} /> makes the relation more permissive; decreasing it demands that the
-            distinguisher be closer to chance.
+          <Formula display tex={"A \\to B \\iff \\widehat d(A,B) \\le \\varepsilon"} />
+          <p className="panel-kicker">Rankings</p>
+          <p className="en-summary" lang="en">
+            The previous ranking family is recovered from the same pair table.
           </p>
+          <Formula display tex={"J(B)=\\frac12\\widehat p(y=1\\mid B,B)+\\frac12\\operatorname*{mean}_{A\\ne B}\\widehat p(y=0\\mid A,B)"} />
+          <Formula display tex={"A(M)=\\operatorname*{mean}_{T\\ne M}\\bigl(1-\\widehat p(y=0\\mid M,T)\\bigr)"} />
+          <Formula display tex={"S(M)=\\frac12A(M)+\\frac12J(M)"} />
           <p>
-            For each branch, the estimate is the observed frequency <Formula tex={"\\widehat p=k/n"} />. The visualizer
-            plugs those branch estimates into <Formula tex={"\\widehat P(\\mathrm{correct})"} /> and thresholds the
-            resulting <Formula tex={"\\widehat d"} /> directly.
+            The circular order and the ranking tables below can be sorted by <b>S</b>, <b>A</b>, or <b>J</b>, while the edge relation always remains the strict epsilon rule.
           </p>
         </div>
         <details className="legend-details">
@@ -575,15 +667,15 @@ export function App() {
           <dl>
             <div>
               <dt>S</dt>
-              <dd>supported: d is at most epsilon.</dd>
+              <dd>supported: d(A,B) is at most epsilon.</dd>
             </div>
             <div>
               <dt>U</dt>
-              <dd>unsupported: d is larger than epsilon.</dd>
+              <dd>unsupported: the pair exists, but the judge advantage stays above epsilon.</dd>
             </div>
             <div>
               <dt>M</dt>
-              <dd>missing: strict-branch data are absent or insufficient.</dd>
+              <dd>missing: no usable strict pair because a branch is absent, imputed, or under the validity threshold.</dd>
             </div>
           </dl>
         </details>
@@ -591,66 +683,35 @@ export function App() {
 
       <main className="workspace">
         <section className="graph-stage" aria-label="graph">
-          <svg ref={svgRef} className="graph-canvas" viewBox={graphViewBox} role="img">
-            <style>{GRAPH_SVG_STYLE}</style>
-            <defs>
-              <marker id="arrow-supported" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#28f0b8" />
-              </marker>
-              <marker id="arrow-tentative" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#f2d84a" />
-              </marker>
-              <pattern id="field-grid" width="42" height="42" patternUnits="userSpaceOnUse">
-                <path d="M 42 0 H 0 V 42" fill="none" stroke="#18342d" strokeWidth="0.8" opacity="0.52" />
-              </pattern>
-            </defs>
-            <rect x="0" y="0" width="100%" height="100%" fill="#050706" />
-            <rect x="0" y="0" width="100%" height="100%" fill="url(#field-grid)" />
-            {displayLaid?.edges.map((edge, idx) => (
-              <path
-                key={`${edge.from}-${edge.to}-${idx}`}
-                className={edge.kind === "supported" ? "edge-supported" : "edge-tentative"}
-                d={edgePath(edge, idx, graphNodes, displayLaid.edges)}
-                markerEnd={edge.kind === "supported" ? "url(#arrow-supported)" : "url(#arrow-tentative)"}
-              />
-            ))}
-            {graphNodes.map((node) => {
-              const isSelected = selected.kind === "cluster" && selected.clusterId === node.id;
-              const lines = labelLines(node.shortLabel);
-              return (
-                <g
-                  key={node.id}
-                  className="node-hit"
-                  onClick={() => setSelected({ kind: "cluster", clusterId: node.id, members: node.members })}
-                >
-                  <circle className="node-ring" cx={node.x} cy={node.y} r={node.r + 10} />
-                  <circle
-                    className={`node-core${isSelected ? " selected" : ""}${node.inViolation ? " violation" : ""}`}
-                    cx={node.x}
-                    cy={node.y}
-                    r={node.r}
-                  />
-                  {lines.map((line, lineIdx) => (
-                    <text
-                      key={`${line}-${lineIdx}`}
-                      className="node-label"
-                      x={node.x}
-                      y={node.y + (lineIdx - (lines.length - 1) / 2) * (node.fontSize + 2) + node.fontSize / 3}
-                      textAnchor="middle"
-                      fontSize={node.fontSize}
-                    >
-                      {line}
-                    </text>
-                  ))}
-                  {node.members.length > 1 && (
-                    <text className="node-sub" x={node.x} y={node.y + node.r - 14} textAnchor="middle" fontSize={10}>
-                      SCC
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
+          <div className="graph-stage-header">
+            <div>
+              <p className="panel-kicker">Strict graph</p>
+              <h2>Directed epsilon relation</h2>
+            </div>
+            <p className="graph-stage-note">
+              Visible edges: <b>{currentEdges.length}</b>. Nodes are ordered clockwise by current in-degree, i.e. how many models can fool that target at this epsilon.
+            </p>
+          </div>
+          <GraphFigure
+            title="Circular strict epsilon graph"
+            subtitle="pairwise judge advantage"
+            note="An edge is drawn iff d(A,B) = P(correct) - 1/2 is at most epsilon."
+            formula="A → B iff d(A,B) ≤ ε"
+            render={graphRender}
+            edges={currentEdges}
+            selected={selected}
+            onSelect={setSelected}
+          />
+          <DegreeBarChart
+            models={graphOrder}
+            inDegree={inDegreeByModel}
+            outDegree={outDegreeByModel}
+          />
+          <EpsilonCurve
+            pairs={pairsForCondition}
+            epsilon={epsilon}
+            minValid={minValid}
+          />
         </section>
 
         <aside className="inspector">
@@ -673,36 +734,90 @@ export function App() {
           <section>
             <p className="panel-kicker">Transitivity</p>
             <h2>{transitivity.count} violating triples</h2>
+            <p className="muted">
+              This count is computed on the current strict graph. For each violating chain A → B → C without A → C,
+              we also show the defect <Formula tex={"\\Delta = \\varepsilon^*(A,C)-\\max\\{\\varepsilon^*(A,B),\\varepsilon^*(B,C)\\}"} /> when available.
+              The list shows the 12 largest defects.
+            </p>
             {transitivity.count === 0 ? (
               <p className="muted">No supported chain violates closure at this epsilon.</p>
             ) : (
               <ol className="triple-list">
-                {transitivity.triples.slice(0, 12).map(([a, b, c]) => (
-                  <li key={`${a}|${b}|${c}`}>
-                    {modelName(a)}
-                    {" -> "}
-                    {modelName(b)}
-                    {" -> "}
-                    {modelName(c)}
-                  </li>
-                ))}
+                {transitivity.triples.slice(0, 12).map(({ triple, defect }) => {
+                  const [a, b, c] = triple;
+                  return (
+                    <li key={`${a}|${b}|${c}`}>
+                      {modelName(a)}
+                      {" -> "}
+                      {modelName(b)}
+                      {" -> "}
+                      {modelName(c)}
+                      {defect != null ? `  (Δ=${defect.toFixed(3)})` : ""}
+                    </li>
+                  );
+                })}
               </ol>
             )}
           </section>
         </aside>
       </main>
 
+      <section className="matrix-section ranking-section">
+        <div className="matrix-heading">
+          <h2>Rankings by Condition</h2>
+          <p>
+            Rows are sorted by <b>{rankingModeLabel(rankingMode)}</b>. Columns always show the full previous ranking tuple:
+            combined <b>S</b>, actor <b>A</b>, judge <b>J</b>, and current strict out-degree.
+          </p>
+        </div>
+        <div className="ranking-grid">
+          {rankingCards.map((card) => (
+            <section key={card.id} className="ranking-card">
+              <h2>{conditionLabel(card.id)}</h2>
+              <p>
+                Sort key: <b>{rankingModeLabel(rankingMode)}</b>. The graph itself still uses only the strict epsilon rule.
+              </p>
+              <div className="ranking-table-scroll">
+                <table className="ranking-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>model</th>
+                      <th>S</th>
+                      <th>A</th>
+                      <th>J</th>
+                      <th>out_ε</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {card.rows.map((row) => (
+                      <tr key={`${card.id}-${row.model}`}>
+                        <td>{row.rank}</td>
+                        <td>{modelName(row.model)}</td>
+                        <td>{row.combined.toFixed(3)}</td>
+                        <td>{row.actor.toFixed(3)}</td>
+                        <td>{row.judge.toFixed(3)}</td>
+                        <td>{row.outDegree}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ))}
+        </div>
+      </section>
+
       <section className="matrix-section">
         <div className="matrix-heading">
           <h2>Actor / Distinguisher Matrix</h2>
           <p>
-            S supported, U unsupported, M missing (no usable ordering edge: insufficient trials, missing run, or
-            imitation/genuine branch filled only with uniform imputation). Diagonal “—” = self-pair (not an ordering
-            edge).
+            S supported, U unsupported, M missing. Diagonal “—” is the self-pair used only for calibration in{" "}
+            <Formula tex={"\\widehat p(y=1\\mid B,B)"} /> and is not an ordering edge.
           </p>
         </div>
         <PairMatrix
-          models={modelsForCondition}
+          models={graphModels}
           pairs={pairsForCondition}
           epsilon={epsilon}
           minValid={minValid}
@@ -710,6 +825,248 @@ export function App() {
         />
       </section>
     </div>
+  );
+}
+
+function GraphFigure({
+  title,
+  subtitle,
+  note,
+  formula,
+  render,
+  edges,
+  selected,
+  onSelect,
+}: {
+  title: string;
+  subtitle: string;
+  note: string;
+  formula: string;
+  render: GraphRender;
+  edges: DagEdge[];
+  selected: Selected;
+  onSelect: (selection: Selected) => void;
+}) {
+  const viewBox = `0 0 ${render.width} ${render.height}`;
+
+  return (
+    <section className="graph-figure">
+      <header className="graph-figure-head">
+        <div>
+          <p className="panel-kicker">{subtitle}</p>
+          <h2>{title}</h2>
+        </div>
+        <p className="graph-formula">{formula}</p>
+      </header>
+      <p className="graph-interaction-hint" role="note">
+        {note}
+      </p>
+      <svg className="graph-canvas" viewBox={viewBox} role="img">
+        <style>{GRAPH_SVG_STYLE}</style>
+        <defs>
+          <marker id="arrow-supported" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#136f63" />
+          </marker>
+        </defs>
+        <rect x="0" y="0" width="100%" height="100%" fill="#ffffff" />
+        {edges.map((edge, idx) => {
+          const geom = edgeGeometry(edge, idx, render.nodes, edges);
+          return (
+            <g key={`${edge.from}-${edge.to}-${idx}`}>
+              <path className="edge-supported" d={geom.path} markerEnd="url(#arrow-supported)" />
+            </g>
+          );
+        })}
+        {render.nodes.map((node) => {
+          const isSelected = selected.kind === "cluster" && selected.clusterId === node.id;
+          const lines = labelLines(node.shortLabel);
+          return (
+            <g
+              key={node.id}
+              className="node-hit"
+              onClick={() => onSelect({ kind: "cluster", clusterId: node.id, members: node.members })}
+            >
+              <circle className="node-ring" cx={node.x} cy={node.y} r={node.r + 10} />
+              <circle className={`node-core${isSelected ? " selected" : ""}`} cx={node.x} cy={node.y} r={node.r} />
+              {lines.map((line, lineIdx) => (
+                <text
+                  key={`${line}-${lineIdx}`}
+                  className="node-label"
+                  x={node.x}
+                  y={node.y + (lineIdx - (lines.length - 1) / 2) * (node.fontSize + 2) + node.fontSize / 3}
+                  textAnchor="middle"
+                  fontSize={node.fontSize}
+                >
+                  {line}
+                </text>
+              ))}
+              {node.rankText && (
+                <text className="node-rank" x={node.x} y={node.y - node.r - 18} textAnchor="middle" fontSize={12}>
+                  {node.rankText}
+                </text>
+              )}
+              <text className="node-strat" x={node.x} y={node.y + node.r + 18} textAnchor="middle" fontSize={11}>
+                {`${node.primaryMetricLabel}=${node.primaryMetricValue.toFixed(3)}`}
+              </text>
+              {node.secondaryMetricText && (
+                <text className="node-strat-sub" x={node.x} y={node.y + node.r + 34} textAnchor="middle" fontSize={9}>
+                  {node.secondaryMetricText}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </section>
+  );
+}
+
+function DegreeBarChart({
+  models,
+  inDegree,
+  outDegree,
+}: {
+  models: string[];
+  inDegree: Map<string, number>;
+  outDegree: Map<string, number>;
+}) {
+  const maxDegree = Math.max(1, ...models.flatMap((model) => [inDegree.get(model) ?? 0, outDegree.get(model) ?? 0]));
+
+  return (
+    <section className="degree-panel" aria-label="in out degree chart">
+      <div className="degree-panel-head">
+        <div>
+          <p className="panel-kicker">Degree profile</p>
+          <h2>Fooling exposure at current epsilon</h2>
+        </div>
+        <p>in_ε counts how many actors fool the model; out_ε counts how many targets the model fools.</p>
+      </div>
+      <div className="degree-bars">
+        <div className="degree-row degree-row-head" aria-hidden="true">
+          <div />
+          <div>in_ε</div>
+          <div />
+          <div>out_ε</div>
+          <div />
+        </div>
+        {models.map((model) => {
+          const incoming = inDegree.get(model) ?? 0;
+          const outgoing = outDegree.get(model) ?? 0;
+          return (
+            <div className="degree-row" key={model}>
+              <div className="degree-label">{modelName(model)}</div>
+              <div className="degree-track" title={`in_ε=${incoming}`}>
+                <span className="degree-fill degree-fill-in" style={{ width: `${(100 * incoming) / maxDegree}%` }} />
+              </div>
+              <div className="degree-value">{incoming}</div>
+              <div className="degree-track" title={`out_ε=${outgoing}`}>
+                <span className="degree-fill degree-fill-out" style={{ width: `${(100 * outgoing) / maxDegree}%` }} />
+              </div>
+              <div className="degree-value">{outgoing}</div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function EpsilonCurve({
+  pairs,
+  epsilon,
+  minValid,
+}: {
+  pairs: PairRow[];
+  epsilon: number;
+  minValid: number;
+}) {
+  const width = 720;
+  const height = 250;
+  const pad = { top: 18, right: 20, bottom: 34, left: 42 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+
+  const epsilonStars = useMemo(
+    () =>
+      pairs
+        .filter((pair) => pair.source !== pair.target)
+        .map((pair) => pairCriticalEpsilon(pair, minValid))
+        .filter((value): value is number => value != null)
+        .sort((a, b) => a - b),
+    [pairs, minValid]
+  );
+
+  const maxEdges = Math.max(1, epsilonStars.length);
+  const thresholds = useMemo(
+    () => Array.from({ length: 101 }, (_, idx) => idx / 200),
+    []
+  );
+  const points = thresholds.map((threshold) => {
+    const count = epsilonStars.filter((value) => value <= threshold + 1e-12).length;
+    return {
+      threshold,
+      count,
+      x: pad.left + (threshold / 0.5) * plotW,
+      y: pad.top + plotH - (count / maxEdges) * plotH,
+    };
+  });
+  const path = points.map((point, idx) => `${idx === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
+  const activeCount = epsilonStars.filter((value) => value <= epsilon + 1e-12).length;
+  const activeX = pad.left + (Math.min(0.5, Math.max(0, epsilon)) / 0.5) * plotW;
+  const activeY = pad.top + plotH - (activeCount / maxEdges) * plotH;
+
+  return (
+    <section className="epsilon-curve-panel" aria-label="epsilon edge curve">
+      <div className="degree-panel-head">
+        <div>
+          <p className="panel-kicker">Epsilon curve</p>
+          <h2>Edge count as epsilon varies</h2>
+        </div>
+        <p>
+          The curve counts how many ordered pairs satisfy ε*(A,B) ≤ ε. The marker is the current slider value.
+        </p>
+      </div>
+      <div className="epsilon-curve-wrap">
+        <svg className="epsilon-curve" viewBox={`0 0 ${width} ${height}`} role="img">
+          <line className="curve-axis" x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} />
+          <line className="curve-axis" x1={pad.left} y1={pad.top} x2={pad.left} y2={pad.top + plotH} />
+          {[0, 0.1, 0.2, 0.3, 0.4, 0.5].map((tick) => {
+            const x = pad.left + (tick / 0.5) * plotW;
+            return (
+              <g key={tick}>
+                <line className="curve-grid" x1={x} y1={pad.top} x2={x} y2={pad.top + plotH} />
+                <text className="curve-tick" x={x} y={height - 12} textAnchor="middle">
+                  {tick.toFixed(1)}
+                </text>
+              </g>
+            );
+          })}
+          {[0, Math.round(maxEdges / 2), maxEdges].map((tick) => {
+            const y = pad.top + plotH - (tick / maxEdges) * plotH;
+            return (
+              <g key={tick}>
+                <line className="curve-grid" x1={pad.left} y1={y} x2={pad.left + plotW} y2={y} />
+                <text className="curve-tick" x={pad.left - 10} y={y + 4} textAnchor="end">
+                  {tick}
+                </text>
+              </g>
+            );
+          })}
+          <path className="curve-line" d={path} />
+          <line className="curve-marker-line" x1={activeX} y1={pad.top} x2={activeX} y2={pad.top + plotH} />
+          <circle className="curve-marker" cx={activeX} cy={activeY} r={5} />
+          <text className="curve-caption" x={pad.left + plotW} y={pad.top + 14} textAnchor="end">
+            {`${activeCount}/${maxEdges} edges at ε=${epsilon.toFixed(3)}`}
+          </text>
+          <text className="curve-axis-label" x={pad.left + plotW / 2} y={height - 1} textAnchor="middle">
+            epsilon
+          </text>
+          <text className="curve-axis-label" transform={`translate(12 ${pad.top + plotH / 2}) rotate(-90)`} textAnchor="middle">
+            supported edges
+          </text>
+        </svg>
+      </div>
+    </section>
   );
 }
 
@@ -731,7 +1088,12 @@ function StatusStat({
 }
 
 function PairDetails({ pair, epsilon, minValid }: { pair: PairRow; epsilon: number; minValid: number }) {
-  const st = effectiveOrderingStatus(pair, epsilon, minValid);
+  const isSelf = pair.source === pair.target;
+  const status = isSelf ? "self" : effectiveOrderingStatus(pair, epsilon, minValid);
+  const pCorrect = pair.details.pCorrect ?? pair.estimate;
+  const d = pairJudgeAdvantage(pair, minValid);
+  const epsilonStar = pairCriticalEpsilon(pair, minValid);
+
   return (
     <div className="pair-details">
       <h2>
@@ -740,21 +1102,21 @@ function PairDetails({ pair, epsilon, minValid }: { pair: PairRow; epsilon: numb
         {modelName(pair.target)}
       </h2>
       <div className="status-line">
-        <span style={{ backgroundColor: statusColor(st) }} />
-        {st}
+        <span style={{ backgroundColor: isSelf ? "#8ea4bf" : statusColor(status) }} />
+        {isSelf ? "self-pair calibration" : status}
       </div>
       <dl>
         <div>
           <dt>P(correct)</dt>
-          <dd>{formatPct(pair.estimate)}</dd>
+          <dd>{formatPct(pCorrect)}</dd>
         </div>
         <div>
           <dt>d = P(correct) - 1/2</dt>
-          <dd>{pair.dHat != null ? pair.dHat.toFixed(4) : "--"}</dd>
+          <dd>{d != null ? d.toFixed(4) : "--"}</dd>
         </div>
         <div>
           <dt>epsilon* = max(0, d)</dt>
-          <dd>{pair.epsilonStarHat != null ? pair.epsilonStarHat.toFixed(4) : "--"}</dd>
+          <dd>{epsilonStar != null ? epsilonStar.toFixed(4) : "--"}</dd>
         </div>
         <div>
           <dt>nValid</dt>
@@ -825,7 +1187,7 @@ function PairMatrix({
                       title={
                         pair
                           ? isSelf
-                            ? `${modelName(source)} self-pair: calibration only (not an ordering A→B edge)`
+                            ? `${modelName(source)} self-pair: calibration only`
                             : `${modelName(source)} -> ${modelName(target)}: ${st}`
                           : "missing"
                       }

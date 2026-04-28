@@ -12,15 +12,25 @@
     "within_actor_sorted_by": "distinguisher",
     "model_order": [
       "anthropic/claude-opus-4.6",
+      "anthropic/claude-sonnet-4.6",
       "google/gemini-3.1-pro-preview",
       "deepseek/deepseek-v3.2",
       "mistralai/mistral-large-2512",
       "qwen/qwen3-32b",
       "mistralai/ministral-8b-2512",
       "openai/gpt-5.4",
-      "anthropic/claude-sonnet-4.6",
-      "grok-4.20"
+      "x-ai/grok-4.20"
     ]
+  },
+  "ingest_notes": {
+    "condition": "no_query_no_explanation",
+    "results_root": "/Users/emanuelerimoldi/Library/CloudStorage/GoogleDrive-emanuelerimoldi7@gmail.com/Il mio Drive/Turing Ordering Project /Results/A",
+    "run_folders_seen": 81,
+    "measured_directed_pairs": 81,
+    "expected_directed_pairs": 81,
+    "missing_directed_pairs": [],
+    "parsed_opening_answers": 77,
+    "duplicate_replacements": []
   },
   "records_by_actor": [
     {
@@ -31,6 +41,12 @@
           "valid_trials": 10,
           "answer_1_count": 9,
           "answer_0_count": 1
+        },
+        {
+          "distinguisher": "anthropic/claude-sonnet-4.6",
+          "valid_trials": 10,
+          "answer_1_count": 10,
+          "answer_0_count": 0
         },
         {
           "distinguisher": "google/gemini-3.1-pro-preview",
@@ -52,8 +68,8 @@
         },
         {
           "distinguisher": "qwen/qwen3-32b",
-          "valid_trials": 9,
-          "answer_1_count": 7,
+          "valid_trials": 10,
+          "answer_1_count": 8,
           "answer_0_count": 2
         },
         {
@@ -64,9 +80,26 @@
         },
         {
           "distinguisher": "openai/gpt-5.4",
-          "valid_trials": 3,
+          "valid_trials": 10,
           "answer_1_count": 0,
-          "answer_0_count": 3
+          "answer_0_count": 10
+        },
+        {
+          "distinguisher": "x-ai/grok-4.20",
+          "valid_trials": 10,
+          "answer_1_count": 8,
+          "answer_0_count": 2
+        }
+      ]
+    },
+    {
+      "actor": "anthropic/claude-sonnet-4.6",
+      "rows": [
+        {
+          "distinguisher": "anthropic/claude-opus-4.6",
+          "valid_trials": 10,
+          "answer_1_count": 10,
+          "answer_0_count": 0
         },
         {
           "distinguisher": "anthropic/claude-sonnet-4.6",
@@ -75,7 +108,43 @@
           "answer_0_count": 0
         },
         {
-          "distinguisher": "grok-4.20",
+          "distinguisher": "google/gemini-3.1-pro-preview",
+          "valid_trials": 10,
+          "answer_1_count": 7,
+          "answer_0_count": 3
+        },
+        {
+          "distinguisher": "deepseek/deepseek-v3.2",
+          "valid_trials": 10,
+          "answer_1_count": 5,
+          "answer_0_count": 5
+        },
+        {
+          "distinguisher": "mistralai/mistral-large-2512",
+          "valid_trials": 10,
+          "answer_1_count": 4,
+          "answer_0_count": 6
+        },
+        {
+          "distinguisher": "qwen/qwen3-32b",
+          "valid_trials": 10,
+          "answer_1_count": 10,
+          "answer_0_count": 0
+        },
+        {
+          "distinguisher": "mistralai/ministral-8b-2512",
+          "valid_trials": 10,
+          "answer_1_count": 10,
+          "answer_0_count": 0
+        },
+        {
+          "distinguisher": "openai/gpt-5.4",
+          "valid_trials": 10,
+          "answer_1_count": 0,
+          "answer_0_count": 10
+        },
+        {
+          "distinguisher": "x-ai/grok-4.20",
           "valid_trials": 10,
           "answer_1_count": 8,
           "answer_0_count": 2
@@ -92,6 +161,12 @@
           "answer_0_count": 7
         },
         {
+          "distinguisher": "anthropic/claude-sonnet-4.6",
+          "valid_trials": 10,
+          "answer_1_count": 10,
+          "answer_0_count": 0
+        },
+        {
           "distinguisher": "google/gemini-3.1-pro-preview",
           "valid_trials": 10,
           "answer_1_count": 10,
@@ -123,18 +198,12 @@
         },
         {
           "distinguisher": "openai/gpt-5.4",
-          "valid_trials": 4,
-          "answer_1_count": 1,
-          "answer_0_count": 3
-        },
-        {
-          "distinguisher": "anthropic/claude-sonnet-4.6",
           "valid_trials": 10,
-          "answer_1_count": 10,
-          "answer_0_count": 0
+          "answer_1_count": 1,
+          "answer_0_count": 9
         },
         {
-          "distinguisher": "grok-4.20",
+          "distinguisher": "x-ai/grok-4.20",
           "valid_trials": 10,
           "answer_1_count": 10,
           "answer_0_count": 0
@@ -151,6 +220,12 @@
           "answer_0_count": 1
         },
         {
+          "distinguisher": "anthropic/claude-sonnet-4.6",
+          "valid_trials": 10,
+          "answer_1_count": 7,
+          "answer_0_count": 3
+        },
+        {
           "distinguisher": "google/gemini-3.1-pro-preview",
           "valid_trials": 10,
           "answer_1_count": 7,
@@ -182,18 +257,12 @@
         },
         {
           "distinguisher": "openai/gpt-5.4",
-          "valid_trials": 4,
-          "answer_1_count": 0,
-          "answer_0_count": 4
-        },
-        {
-          "distinguisher": "anthropic/claude-sonnet-4.6",
           "valid_trials": 10,
-          "answer_1_count": 7,
-          "answer_0_count": 3
+          "answer_1_count": 0,
+          "answer_0_count": 10
         },
         {
-          "distinguisher": "grok-4.20",
+          "distinguisher": "x-ai/grok-4.20",
           "valid_trials": 10,
           "answer_1_count": 7,
           "answer_0_count": 3
@@ -210,6 +279,12 @@
           "answer_0_count": 9
         },
         {
+          "distinguisher": "anthropic/claude-sonnet-4.6",
+          "valid_trials": 10,
+          "answer_1_count": 7,
+          "answer_0_count": 3
+        },
+        {
           "distinguisher": "google/gemini-3.1-pro-preview",
           "valid_trials": 10,
           "answer_1_count": 0,
@@ -241,18 +316,12 @@
         },
         {
           "distinguisher": "openai/gpt-5.4",
-          "valid_trials": 3,
-          "answer_1_count": 0,
-          "answer_0_count": 3
-        },
-        {
-          "distinguisher": "anthropic/claude-sonnet-4.6",
           "valid_trials": 10,
-          "answer_1_count": 7,
-          "answer_0_count": 3
+          "answer_1_count": 1,
+          "answer_0_count": 9
         },
         {
-          "distinguisher": "grok-4.20",
+          "distinguisher": "x-ai/grok-4.20",
           "valid_trials": 10,
           "answer_1_count": 7,
           "answer_0_count": 3
@@ -269,6 +338,12 @@
           "answer_0_count": 9
         },
         {
+          "distinguisher": "anthropic/claude-sonnet-4.6",
+          "valid_trials": 10,
+          "answer_1_count": 2,
+          "answer_0_count": 8
+        },
+        {
           "distinguisher": "google/gemini-3.1-pro-preview",
           "valid_trials": 10,
           "answer_1_count": 0,
@@ -288,8 +363,8 @@
         },
         {
           "distinguisher": "qwen/qwen3-32b",
-          "valid_trials": 7,
-          "answer_1_count": 6,
+          "valid_trials": 10,
+          "answer_1_count": 9,
           "answer_0_count": 1
         },
         {
@@ -300,18 +375,12 @@
         },
         {
           "distinguisher": "openai/gpt-5.4",
-          "valid_trials": 3,
-          "answer_1_count": 0,
-          "answer_0_count": 3
-        },
-        {
-          "distinguisher": "anthropic/claude-sonnet-4.6",
           "valid_trials": 10,
-          "answer_1_count": 2,
-          "answer_0_count": 8
+          "answer_1_count": 0,
+          "answer_0_count": 10
         },
         {
-          "distinguisher": "grok-4.20",
+          "distinguisher": "x-ai/grok-4.20",
           "valid_trials": 10,
           "answer_1_count": 5,
           "answer_0_count": 5
@@ -328,6 +397,12 @@
           "answer_0_count": 10
         },
         {
+          "distinguisher": "anthropic/claude-sonnet-4.6",
+          "valid_trials": 10,
+          "answer_1_count": 0,
+          "answer_0_count": 10
+        },
+        {
           "distinguisher": "google/gemini-3.1-pro-preview",
           "valid_trials": 10,
           "answer_1_count": 0,
@@ -347,8 +422,8 @@
         },
         {
           "distinguisher": "qwen/qwen3-32b",
-          "valid_trials": 8,
-          "answer_1_count": 8,
+          "valid_trials": 10,
+          "answer_1_count": 10,
           "answer_0_count": 0
         },
         {
@@ -359,18 +434,12 @@
         },
         {
           "distinguisher": "openai/gpt-5.4",
-          "valid_trials": 3,
-          "answer_1_count": 0,
-          "answer_0_count": 3
-        },
-        {
-          "distinguisher": "anthropic/claude-sonnet-4.6",
           "valid_trials": 10,
-          "answer_1_count": 0,
-          "answer_0_count": 10
+          "answer_1_count": 1,
+          "answer_0_count": 9
         },
         {
-          "distinguisher": "grok-4.20",
+          "distinguisher": "x-ai/grok-4.20",
           "valid_trials": 10,
           "answer_1_count": 4,
           "answer_0_count": 6
@@ -387,10 +456,16 @@
           "answer_0_count": 0
         },
         {
+          "distinguisher": "anthropic/claude-sonnet-4.6",
+          "valid_trials": 10,
+          "answer_1_count": 10,
+          "answer_0_count": 0
+        },
+        {
           "distinguisher": "google/gemini-3.1-pro-preview",
           "valid_trials": 10,
-          "answer_1_count": 6,
-          "answer_0_count": 4
+          "answer_1_count": 5,
+          "answer_0_count": 5
         },
         {
           "distinguisher": "deepseek/deepseek-v3.2",
@@ -419,17 +494,11 @@
         {
           "distinguisher": "openai/gpt-5.4",
           "valid_trials": 10,
-          "answer_1_count": 8,
-          "answer_0_count": 2
+          "answer_1_count": 1,
+          "answer_0_count": 9
         },
         {
-          "distinguisher": "anthropic/claude-sonnet-4.6",
-          "valid_trials": 10,
-          "answer_1_count": 10,
-          "answer_0_count": 0
-        },
-        {
-          "distinguisher": "grok-4.20",
+          "distinguisher": "x-ai/grok-4.20",
           "valid_trials": 10,
           "answer_1_count": 9,
           "answer_0_count": 1
@@ -437,36 +506,42 @@
       ]
     },
     {
-      "actor": "anthropic/claude-sonnet-4.6",
+      "actor": "x-ai/grok-4.20",
       "rows": [
         {
           "distinguisher": "anthropic/claude-opus-4.6",
           "valid_trials": 10,
-          "answer_1_count": 10,
-          "answer_0_count": 0
+          "answer_1_count": 1,
+          "answer_0_count": 9
         },
         {
-          "distinguisher": "google/gemini-3.1-pro-preview",
-          "valid_trials": 10,
-          "answer_1_count": 7,
-          "answer_0_count": 3
-        },
-        {
-          "distinguisher": "deepseek/deepseek-v3.2",
+          "distinguisher": "anthropic/claude-sonnet-4.6",
           "valid_trials": 10,
           "answer_1_count": 5,
           "answer_0_count": 5
         },
         {
-          "distinguisher": "mistralai/mistral-large-2512",
+          "distinguisher": "google/gemini-3.1-pro-preview",
           "valid_trials": 10,
           "answer_1_count": 4,
           "answer_0_count": 6
         },
         {
+          "distinguisher": "deepseek/deepseek-v3.2",
+          "valid_trials": 10,
+          "answer_1_count": 8,
+          "answer_0_count": 2
+        },
+        {
+          "distinguisher": "mistralai/mistral-large-2512",
+          "valid_trials": 10,
+          "answer_1_count": 10,
+          "answer_0_count": 0
+        },
+        {
           "distinguisher": "qwen/qwen3-32b",
-          "valid_trials": 9,
-          "answer_1_count": 9,
+          "valid_trials": 10,
+          "answer_1_count": 10,
           "answer_0_count": 0
         },
         {
@@ -482,72 +557,7 @@
           "answer_0_count": 10
         },
         {
-          "distinguisher": "anthropic/claude-sonnet-4.6",
-          "valid_trials": 10,
-          "answer_1_count": 10,
-          "answer_0_count": 0
-        },
-        {
-          "distinguisher": "grok-4.20",
-          "valid_trials": 10,
-          "answer_1_count": 8,
-          "answer_0_count": 2
-        }
-      ]
-    },
-    {
-      "actor": "grok-4.20",
-      "rows": [
-        {
-          "distinguisher": "anthropic/claude-opus-4.6",
-          "valid_trials": 10,
-          "answer_1_count": 1,
-          "answer_0_count": 9
-        },
-        {
-          "distinguisher": "google/gemini-3.1-pro-preview",
-          "valid_trials": 10,
-          "answer_1_count": 4,
-          "answer_0_count": 6
-        },
-        {
-          "distinguisher": "deepseek/deepseek-v3.2",
-          "valid_trials": 10,
-          "answer_1_count": 8,
-          "answer_0_count": 2
-        },
-        {
-          "distinguisher": "mistralai/mistral-large-2512",
-          "valid_trials": 10,
-          "answer_1_count": 10,
-          "answer_0_count": 0
-        },
-        {
-          "distinguisher": "qwen/qwen3-32b",
-          "valid_trials": 9,
-          "answer_1_count": 9,
-          "answer_0_count": 0
-        },
-        {
-          "distinguisher": "mistralai/ministral-8b-2512",
-          "valid_trials": 10,
-          "answer_1_count": 10,
-          "answer_0_count": 0
-        },
-        {
-          "distinguisher": "openai/gpt-5.4",
-          "valid_trials": 1,
-          "answer_1_count": 0,
-          "answer_0_count": 1
-        },
-        {
-          "distinguisher": "anthropic/claude-sonnet-4.6",
-          "valid_trials": 10,
-          "answer_1_count": 5,
-          "answer_0_count": 5
-        },
-        {
-          "distinguisher": "grok-4.20",
+          "distinguisher": "x-ai/grok-4.20",
           "valid_trials": 10,
           "answer_1_count": 8,
           "answer_0_count": 2
