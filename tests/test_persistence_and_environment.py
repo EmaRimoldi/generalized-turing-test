@@ -65,6 +65,10 @@ def test_write_csv_uses_superset_schema(tmp_path):
                 "reasoning": "because",
                 "specimen_turns": 2,
                 "specimen_stopped_cleanly": True,
+                "num_queries": 2,
+                "num_turns": 4,
+                "controlled_budget_respected": True,
+                "premature_answer_detected": False,
             }
         ],
         output,
@@ -82,6 +86,10 @@ def test_write_csv_uses_superset_schema(tmp_path):
     assert "specimen_stopped_cleanly" in contents[0]
     assert "target_model" in contents[0]
     assert "target/model" in contents[1]
+    assert "num_queries" in contents[0]
+    assert "num_turns" in contents[0]
+    assert "controlled_budget_respected" in contents[0]
+    assert "premature_answer_detected" in contents[0]
 
 
 def test_write_csv_leaves_specimen_stopped_cleanly_blank_without_specimen_phase(tmp_path):

@@ -100,6 +100,17 @@ def test_chat_session_preserves_generation_metadata_on_assistant_messages():
     }
 
 
+def test_chat_session_can_append_user_message_without_generating():
+    backend = EchoBackend()
+    session = ChatSession(backend, "test", initial_prompt="prompt")
+    session.add_user_message("context-only")
+    assert backend.calls == 0
+    assert session.messages == [
+        {"role": "user", "content": "prompt"},
+        {"role": "user", "content": "context-only"},
+    ]
+
+
 def test_chat_session_legacy_system_prompt_arg_is_user_framed():
     backend = EchoBackend()
     session = ChatSession(backend, "test", system_prompt="legacy")

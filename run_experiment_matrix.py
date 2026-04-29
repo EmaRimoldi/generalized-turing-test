@@ -28,6 +28,8 @@ def main() -> int:
     parser.add_argument("--distinguisher-api-provider", choices=sorted(PROVIDERS), default=None)
     parser.add_argument("--max-new-tokens", type=int, default=None)
     parser.add_argument("--temperature", type=float, default=None)
+    parser.add_argument("--num-queries", type=int, default=None)
+    parser.add_argument("--num-turns", type=int, default=None)
     args = parser.parse_args()
 
     pairs = []
@@ -81,6 +83,10 @@ def main() -> int:
             command.extend(["--max-new-tokens", str(args.max_new_tokens)])
         if args.temperature is not None:
             command.extend(["--temperature", str(args.temperature)])
+        if args.num_queries is not None:
+            command.extend(["--num-queries", str(args.num_queries)])
+        if args.num_turns is not None:
+            command.extend(["--num-turns", str(args.num_turns)])
         return_code = subprocess.run(command).returncode
         if return_code != 0:
             failures.append((actor, distinguisher, return_code))

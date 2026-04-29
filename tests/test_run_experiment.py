@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 import run_experiment
 
 
@@ -312,3 +314,146 @@ def test_run_experiment_passes_target_model_to_runner_and_transcript(monkeypatch
     assert rows[0]["target_model"] == "gemini-3-pro"
     payload = json.loads((out_dir / "trusted-target-check" / "trial_000.json").read_text())
     assert payload["target_model"] == "gemini-3-pro"
+
+
+def test_run_experiment_passes_num_queries_to_controlled_query_mode(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    backends = {
+        "gpt-5.4-pro": FakeBackend("actor/model"),
+        "claude-opus-4.6": FakeBackend("dist/model"),
+    }
+    captured_kwargs = {}
+
+    def fake_runner(**kwargs):
+        captured_kwargs.update(kwargs)
+        return {
+            "trial_id": kwargs["trial_id"],
+            "success": True,
+            "turns": 1,
+            "answer": 1,
+            "specimen_turns": kwargs["num_queries"],
+            "controlled_budget_respected": True,
+            "first_message": "hello",
+            "raw_final_message": "<answer>1</answer>",
+        }
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "yes_query_controlled_queries", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", lambda model_name, *args, **kwargs: backends[model_name])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "yes_query_controlled_queries",
+            "--num-trials",
+            "1",
+            "--num-queries",
+            "3",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "controlled-queries-check",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    assert captured_kwargs["num_queries"] == 3
+    assert captured_kwargs["turn_limit"] == 40
+    assert captured_kwargs["specimen"].display_name == "dist/model"
+
+
+def test_run_experiment_passes_num_turns_to_controlled_turn_mode(monkeypatch, tmp_path):
+    out_dir = tmp_path / "results"
+    backend = FakeBackend("model")
+    captured_kwargs = {}
+
+    def fake_runner(**kwargs):
+        captured_kwargs.update(kwargs)
+        return {
+            "trial_id": kwargs["trial_id"],
+            "success": True,
+            "turns": kwargs["num_turns"],
+            "answer": 0,
+            "controlled_budget_respected": True,
+            "first_message": "hello",
+            "raw_final_message": "<answer>0</answer>",
+        }
+
+    monkeypatch.setitem(run_experiment.CONDITIONS, "no_query_controlled_turns", fake_runner)
+    monkeypatch.setattr(run_experiment, "load_backend", lambda *args, **kwargs: backend)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "no_query_controlled_turns",
+            "--num-trials",
+            "1",
+            "--num-turns",
+            "4",
+            "--output-dir",
+            str(out_dir),
+            "--run-name",
+            "controlled-turns-check",
+        ],
+    )
+
+    rc = run_experiment.main()
+
+    assert rc == 0
+    assert captured_kwargs["num_turns"] == 4
+    assert captured_kwargs["turn_limit"] == 40
+
+
+def test_run_experiment_requires_num_queries_for_controlled_query_mode(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "yes_query_controlled_queries",
+            "--output-dir",
+            "unused",
+        ],
+    )
+
+    with pytest.raises(SystemExit):
+        run_experiment.main()
+
+
+def test_run_experiment_requires_num_turns_for_controlled_turn_mode(monkeypatch):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment.py",
+            "--actor",
+            "gpt-5.4-pro",
+            "--distinguisher",
+            "claude-opus-4.6",
+            "--condition",
+            "no_query_controlled_turns",
+            "--output-dir",
+            "unused",
+        ],
+    )
+
+    with pytest.raises(SystemExit):
+        run_experiment.main()

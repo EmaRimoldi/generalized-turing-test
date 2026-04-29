@@ -231,6 +231,62 @@ def test_batch_runner_rejects_actor_hint_model_for_wrong_condition(tmp_path):
         run_experiment_batch.load_experiments(csv_path)
 
 
+def test_batch_runner_supports_controlled_query_and_turn_columns(monkeypatch, tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,num_trials,turn_limit,specimen_turn_limit,num_queries,num_turns,condition",
+                "exp-a,gpt-5.4-pro,claude-opus-4.6,2,17,,3,,yes_query_controlled_queries",
+                "exp-b,ministral-8b-2512,qwen3-32b,3,15,,,4,no_query_controlled_turns",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    commands: list[list[str]] = []
+
+    def fake_run(command):
+        commands.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(run_experiment_batch.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_experiment_batch.py",
+            "--csv",
+            str(csv_path),
+            "--output-dir",
+            str(tmp_path / "results"),
+        ],
+    )
+
+    rc = run_experiment_batch.main()
+
+    assert rc == 0
+    assert "--num-queries" in commands[0] and "3" in commands[0]
+    assert "--num-turns" not in commands[0]
+    assert "--num-turns" in commands[1] and "4" in commands[1]
+    assert "--num-queries" not in commands[1]
+
+
+def test_batch_runner_requires_controlled_budget_columns(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,num_trials,turn_limit,condition",
+                "exp-a,gpt-5.4-pro,claude-opus-4.6,2,17,yes_query_controlled_queries",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="num_queries"):
+        run_experiment_batch.load_experiments(csv_path)
+
+
 def test_batch_runner_rejects_missing_required_csv_columns(tmp_path):
     csv_path = tmp_path / "batch.csv"
     csv_path.write_text(

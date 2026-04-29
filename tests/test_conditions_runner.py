@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from turing_eval.conditions import (
     is_stop_signal,
+    run_trial_no_query_controlled_turns,
     run_trial_no_query_no_explanation,
     run_trial_no_query_no_explanation_explicit_model,
     run_trial_no_prompt_self_pair,
     run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
+    run_trial_yes_query_controlled_queries,
     run_trial_yes_query_no_explanation,
 )
 from turing_eval.prompts import build_distinguisher_prompt_explicit_model_no_reasoning
@@ -244,3 +246,45 @@ def test_run_trial_yes_query_no_explanation_requires_matching_specimen():
         assert "specimen must be the same model type" in str(exc)
     else:
         raise AssertionError("Expected assertion for mismatched specimen")
+
+
+def test_run_trial_yes_query_controlled_queries_uses_exact_budget():
+    actor = ScriptedBackend("actor/model", ["query one", "query two", "stage2 reply"])
+    specimen = ScriptedBackend("dist/model", ["specimen answer one", "specimen answer two"])
+    distinguisher = ScriptedBackend("dist/model", ["d opening", "<answer>1</answer>"])
+    result = run_trial_yes_query_controlled_queries(
+        12,
+        actor,
+        distinguisher,
+        specimen,
+        num_queries=2,
+        turn_limit=4,
+    )
+    assert result["success"] is True
+    assert result["answer"] == 1
+    assert result["specimen_turns"] == 2
+    assert result["num_queries"] == 2
+    assert result["controlled_budget_respected"] is True
+    assert result["specimen_stopped_cleanly"] is None
+    assert len(result["stage1_actor_messages"]) == 5
+    assert len(result["stage2_actor_messages"]) == 2
+
+
+def test_run_trial_no_query_controlled_turns_enforces_final_answer_turn():
+    actor = ScriptedBackend("actor/model", ["actor round 1", "actor round 2", "actor round 3"])
+    distinguisher = ScriptedBackend(
+        "dist/model",
+        [
+            "opening question",
+            "premature question <answer>0</answer>",
+            "round 3 question",
+            "<answer>1</answer>",
+        ],
+    )
+    result = run_trial_no_query_controlled_turns(13, actor, distinguisher, num_turns=3)
+    assert result["success"] is True
+    assert result["answer"] == 1
+    assert result["turns"] == 3
+    assert result["num_turns"] == 3
+    assert result["controlled_budget_respected"] is True
+    assert result["premature_answer_detected"] is True

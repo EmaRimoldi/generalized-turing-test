@@ -31,7 +31,7 @@ Open **http://127.0.0.1:8765/** .
 
 - `actor`: tries to imitate the target model
 - `distinguisher`: interrogates the actor and returns a final decision
-- `specimen`: a helper instance of the target model used only in the warm-up phase of condition `yes_query_no_explanation`
+- `specimen`: a helper instance of the target model used only in the warm-up phase of conditions `yes_query_no_explanation` and `yes_query_controlled_queries`
 
 The final scientific signal is the distinguisher's parsed `<answer>`:
 
@@ -44,7 +44,7 @@ Important: `success=True` does not mean the actor fooled the distinguisher. It o
 
 The current benchmark roster is intentionally restricted to these models:
 
-- Tier 0 `frontier`: `claude-opus-4.6` (`anthropic/claude-opus-4.6`), `gpt-5.4-pro` (`openai/gpt-5.4-pro`), `gemini-3-pro` (`google/gemini-3.1-pro-preview`)
+- Tier 0 `frontier`: `claude-opus-4.6` (`anthropic/claude-opus-4.6`), `gpt-5.4-pro` (`openai/gpt-5.4-pro`), `grok-4.20` (`x-ai/grok-4.20`), `gemini-3-pro` (`google/gemini-3.1-pro-preview`)
 - Tier 1 `large MoE`: `deepseek-v3.2` (`deepseek/deepseek-v3.2`), `mistral-large-2512` (`mistralai/mistral-large-2512`)
 - Tier 2 `medium dense`: `qwen3-32b` (`qwen/qwen3-32b`), `gemma-4-31b` (`google/gemma-4-31b-it`)
 - Tier 3 `small dense`: `ministral-8b-2512` (`mistralai/ministral-8b-2512`), `llama-3.3-8b` (`meta-llama/llama-3.3-8b-instruct`)
@@ -69,6 +69,14 @@ This is a single-stage self-pair condition. The distinguisher still opens immedi
 
 The actor first talks to a specimen of the target model, then a fresh distinguisher begins the real interrogation.
 
+### `yes_query_controlled_queries`
+
+This is the same two-stage setup as `yes_query_no_explanation`, but the specimen warm-up is limited to exactly `N` actor queries, supplied with `--num-queries`. The actor does not terminate the specimen stage with `STOP`; the budget ends automatically after the fixed number of specimen interactions.
+
+### `no_query_controlled_turns`
+
+This is a single-stage direct interaction like `no_query_no_explanation`, but the distinguisher is constrained to exactly `N` interrogation rounds before giving its final answer. The budget is supplied with `--num-turns`, and the transcript records whether any premature `<answer>` appeared before the final round.
+
 ### `no_query_yes_explanation`
 
 This is the same direct setup as `no_query_no_explanation`, but the distinguisher is also asked to include a short `<reasoning>` block with its final answer.
@@ -86,6 +94,7 @@ Current behavior that matters experimentally:
 - initial actor and distinguisher prompts are sent as `user` messages, not `system`
 - in condition `no_prompt_self_pair`, the actor receives no initial prompt and the distinguisher's opening is sent directly as the actor's first user turn
 - the specimen in condition `yes_query_no_explanation` receives no initial prompt
+- the specimen in condition `yes_query_controlled_queries` also receives no initial prompt
 - the distinguisher prompts explicitly say `Do NOT output an answer in your first message.`
 - if the distinguisher still emits `<answer>` in its opening message, the trial is recorded with `error="distinguisher_answered_in_opening"`
 
@@ -197,6 +206,8 @@ Validate OpenRouter slugs:
 - `--distinguisher`
 - `--condition`
 - `--target-model`
+- `--num-queries`
+- `--num-turns`
 - `--num-trials`
 - `--turn-limit`
 - `--specimen-turn-limit`
@@ -258,6 +269,10 @@ Columns:
 - `reasoning`
 - `specimen_turns`
 - `specimen_stopped_cleanly`
+- `num_queries`
+- `num_turns`
+- `controlled_budget_respected`
+- `premature_answer_detected`
 
 Interpretation:
 
@@ -293,6 +308,8 @@ Conversation fields depend on the condition:
 - `no_prompt_self_pair`: `actor_messages`, `distinguisher_messages`
 - `no_query_yes_explanation`: `actor_messages`, `distinguisher_messages`, `reasoning`
 - `yes_query_no_explanation`: `stage1_actor_messages`, `stage2_actor_messages`, `distinguisher_messages`, `specimen_turns`, `specimen_stopped_cleanly`
+- `yes_query_controlled_queries`: `stage1_actor_messages`, `stage2_actor_messages`, `distinguisher_messages`, `specimen_turns`, `num_queries`, `controlled_budget_respected`
+- `no_query_controlled_turns`: `actor_messages`, `distinguisher_messages`, `num_turns`, `controlled_budget_respected`, `premature_answer_detected`
 - `no_query_trusted_distinguisher`: `actor_messages`, `distinguisher_messages`, `target_model`
 
 ### Failure artifacts
@@ -332,6 +349,8 @@ Relevant columns:
 - `num_trials`
 - `turn_limit`
 - `specimen_turn_limit`
+- `num_queries`
+- `num_turns`
 - `condition`
 - `target_model`
 
@@ -346,18 +365,24 @@ Column-to-flag mapping:
 - `num_trials` -> `--num-trials`
 - `turn_limit` -> `--turn-limit`
 - `specimen_turn_limit` -> `--specimen-turn-limit`
+- `num_queries` -> `--num-queries`
+- `num_turns` -> `--num-turns`
 - `run_name` -> `--run-name`
 
 Validation rules:
 
 - `specimen_turn_limit` is required only for `yes_query_no_explanation`
+- `num_queries` is required only for `yes_query_controlled_queries`
+- `num_turns` is required only for `no_query_controlled_turns`
 - `target_model` is required only for `no_query_trusted_distinguisher`
 - `actor` and `distinguisher` must match for `no_prompt_self_pair`
 - for other conditions, `specimen_turn_limit` may be blank or omitted
+- for other conditions, `num_queries` may be blank or omitted
+- for other conditions, `num_turns` may be blank or omitted
 - for other conditions, `target_model` may be blank or omitted
 - `actor` and `distinguisher` must be valid model nicknames from [turing_eval/models.py](turing_eval/models.py)
 - `target_model`, when provided, must be a valid model nickname from [turing_eval/models.py](turing_eval/models.py)
-- `condition` must be one of `no_query_no_explanation`, `no_query_no_explanation_explicit_model`, `no_prompt_self_pair`, `yes_query_no_explanation`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
+- `condition` must be one of `no_query_no_explanation`, `no_query_no_explanation_explicit_model`, `no_prompt_self_pair`, `yes_query_no_explanation`, `yes_query_controlled_queries`, `no_query_controlled_turns`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
 
 ### Batch-level flags
 
@@ -376,10 +401,12 @@ These remain CLI flags on `run_experiment_batch.py` and apply to every row in th
 ### Example CSV
 
 ```csv
-run_name,actor,distinguisher,target_model,num_trials,turn_limit,specimen_turn_limit,condition,notes
-smoke_a,llama-3.3-8b,ministral-8b-2512,,2,20,,no_query_no_explanation,extra columns are ignored
-smoke_b,ministral-8b-2512,qwen3-32b,,3,15,8,yes_query_no_explanation,this row needs specimen_turn_limit
-smoke_c,llama-3.3-8b,ministral-8b-2512,gemini-3-pro,2,20,,no_query_trusted_distinguisher,this row needs target_model
+run_name,actor,distinguisher,target_model,num_trials,turn_limit,specimen_turn_limit,num_queries,num_turns,condition,notes
+smoke_a,llama-3.3-8b,ministral-8b-2512,,2,20,,,,no_query_no_explanation,extra columns are ignored
+smoke_b,ministral-8b-2512,qwen3-32b,,3,15,8,,,yes_query_no_explanation,this row needs specimen_turn_limit
+smoke_c,llama-3.3-8b,ministral-8b-2512,gemini-3-pro,2,20,,,,no_query_trusted_distinguisher,this row needs target_model
+smoke_d,gpt-5.4-pro,claude-opus-4.6,,2,20,,3,,yes_query_controlled_queries,this row needs num_queries
+smoke_e,ministral-8b-2512,qwen3-32b,,2,20,,,4,no_query_controlled_turns,this row needs num_turns
 ```
 
 ### Example invocation

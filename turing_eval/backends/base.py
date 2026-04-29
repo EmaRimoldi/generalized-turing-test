@@ -87,8 +87,11 @@ class ChatSession:
         message.update(metadata)
         self.messages.append(message)
 
-    def send(self, content: str) -> str:
+    def add_user_message(self, content: str) -> None:
         self.messages.append({"role": "user", "content": content})
+
+    def send(self, content: str) -> str:
+        self.add_user_message(content)
         reply, metadata = self.backend.generate_with_metadata(self.messages)
         self._append_assistant_message(reply, metadata)
         return reply

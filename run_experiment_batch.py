@@ -22,6 +22,8 @@ CONDITIONS = {
     "yes_query_no_explanation_grand",
     "no_query_yes_explanation",
     "no_query_trusted_distinguisher",
+    "yes_query_controlled_queries",
+    "no_query_controlled_turns",
 }
 
 REQUIRED_COLUMNS = {
@@ -45,6 +47,8 @@ class BatchExperiment:
     turn_limit: int
     specimen_turn_limit: int | None
     actor_hint_model: str | None
+    num_queries: int | None
+    num_turns: int | None
 
 
 def _clean(value: str | None) -> str | None:
@@ -104,6 +108,8 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
 
     specimen_required = condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}
     target_model_required = condition == "no_query_trusted_distinguisher"
+    queries_required = condition == "yes_query_controlled_queries"
+    turns_required = condition == "no_query_controlled_turns"
     specimen_turn_limit = _parse_int_field(
         row,
         "specimen_turn_limit",
@@ -117,6 +123,8 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
         raise ValueError(f"CSV row {row_number}: unknown target model {target_model!r}")
     if not target_model_required:
         target_model = None
+    num_queries = _parse_int_field(row, "num_queries", row_number, required=queries_required)
+    num_turns = _parse_int_field(row, "num_turns", row_number, required=turns_required)
 
     return BatchExperiment(
         run_name=_require_field(row, "run_name", row_number),
@@ -128,6 +136,8 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
         turn_limit=_parse_int_field(row, "turn_limit", row_number, required=True),
         specimen_turn_limit=specimen_turn_limit,
         actor_hint_model=actor_hint_model,
+        num_queries=num_queries,
+        num_turns=num_turns,
     )
 
 
@@ -168,6 +178,10 @@ def _build_command(args: argparse.Namespace, experiment: BatchExperiment) -> lis
         command.extend(["--specimen-turn-limit", str(experiment.specimen_turn_limit)])
     if experiment.target_model is not None:
         command.extend(["--target-model", experiment.target_model])
+    if experiment.num_queries is not None:
+        command.extend(["--num-queries", str(experiment.num_queries)])
+    if experiment.num_turns is not None:
+        command.extend(["--num-turns", str(experiment.num_turns)])
     if args.verbose:
         command.append("--verbose")
     if args.actor_backend is not None:

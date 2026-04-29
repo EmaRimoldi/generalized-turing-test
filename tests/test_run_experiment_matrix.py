@@ -48,6 +48,10 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
             "123",
             "--temperature",
             "0.4",
+            "--num-queries",
+            "6",
+            "--num-turns",
+            "4",
         ],
     )
 
@@ -66,6 +70,8 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
     assert "--distinguisher-api-provider" in first and "openrouter" in first
     assert "--max-new-tokens" in first and "123" in first
     assert "--temperature" in first and "0.4" in first
+    assert "--num-queries" in first and "6" in first
+    assert "--num-turns" in first and "4" in first
 
 
 def test_matrix_runner_limits_no_prompt_self_pair_to_self_matches(monkeypatch, tmp_path):

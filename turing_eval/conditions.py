@@ -8,14 +8,21 @@ from typing import Dict, Optional
 from .backends.base import ChatBackend, ChatSession
 from .prompts import (
     build_actor_prompt_no_query,
+    build_actor_prompt_no_query_controlled_turns,
     build_actor_prompt_no_query_trusted_distinguisher,
     build_actor_prompt_yes_query,
+    build_actor_prompt_yes_query_controlled_queries_final,
+    build_actor_prompt_yes_query_controlled_queries_initial,
+    build_actor_prompt_yes_query_controlled_queries_intermediate,
     build_distinguisher_prompt,
-    build_distinguisher_prompt_no_reasoning_50_50_prior,
-    build_distinguisher_prompt_explicit_model_no_reasoning,
     build_distinguisher_prompt_actor_model_hint_no_reasoning,
-    build_distinguisher_prompt_no_query_trusted_distinguisher,
+    build_distinguisher_prompt_controlled_turns_final,
+    build_distinguisher_prompt_controlled_turns_initial,
+    build_distinguisher_prompt_controlled_turns_intermediate,
+    build_distinguisher_prompt_explicit_model_no_reasoning,
     build_distinguisher_prompt_grand_experiment_no_reasoning,
+    build_distinguisher_prompt_no_query_trusted_distinguisher,
+    build_distinguisher_prompt_no_reasoning_50_50_prior,
 )
 
 _ANSWER_RE = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
@@ -53,6 +60,7 @@ def _invalid_opening_result(
     stage1_actor_messages: Optional[list[dict[str, object]]] = None,
     stage2_actor_messages: Optional[list[dict[str, object]]] = None,
     reasoning: Optional[str] = None,
+    **extra_fields: object,
 ) -> Dict[str, object]:
     result: Dict[str, object] = {
         "trial_id": trial_id,
@@ -78,6 +86,7 @@ def _invalid_opening_result(
         result["stage2_actor_messages"] = stage2_actor_messages
     if reasoning is not None:
         result["reasoning"] = reasoning
+    result.update(extra_fields)
     return result
 
 
@@ -576,6 +585,187 @@ def run_trial_yes_query_no_explanation_grand(
         "stage1_actor_messages": stage1_actor_messages,
         "stage2_actor_messages": copy.deepcopy(a_session.messages[len(stage1_actor_messages) :]),
         "distinguisher_messages": copy.deepcopy(d_session.messages),
+    }
+
+
+def run_trial_yes_query_controlled_queries(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    specimen: ChatBackend,
+    num_queries: int,
+    turn_limit: int,
+    verbose: bool = False,
+) -> Dict[str, object]:
+    assert specimen.display_name == distinguisher.display_name, (
+        "specimen must be the same model type as the distinguisher"
+    )
+    if num_queries <= 0:
+        raise ValueError("num_queries must be >= 1 for yes_query_controlled_queries")
+
+    actor_prompt = build_actor_prompt_yes_query_controlled_queries_initial(
+        distinguisher.display_name,
+        num_queries,
+    )
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    s_session = ChatSession(specimen, "specimen", initial_prompt=None)
+
+    actor_to_specimen = a_session.generate_opening()
+    if verbose:
+        print("[A->S]", actor_to_specimen)
+
+    specimen_turns = 0
+    last_specimen_reply = ""
+    while specimen_turns < num_queries:
+        specimen_reply = s_session.send(actor_to_specimen)
+        last_specimen_reply = specimen_reply
+        if verbose:
+            print("[S->A]", specimen_reply)
+        specimen_turns += 1
+        if specimen_turns < num_queries:
+            actor_to_specimen = a_session.send(
+                build_actor_prompt_yes_query_controlled_queries_intermediate(
+                    specimen_reply,
+                    specimen_turns + 1,
+                    num_queries,
+                )
+            )
+            if verbose:
+                print("[A->S]", actor_to_specimen)
+
+    a_session.add_user_message(
+        build_actor_prompt_yes_query_controlled_queries_final(
+            last_specimen_reply,
+            num_queries,
+        )
+    )
+    stage1_actor_messages = copy.deepcopy(a_session.messages)
+    controlled_budget_respected = specimen_turns == num_queries
+
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt(with_reasoning=False),
+    )
+    first_message = d_session.generate_opening()
+    if verbose:
+        print("[D]", first_message)
+
+    if extract_answer(first_message) is not None:
+        return _invalid_opening_result(
+            trial_id=trial_id,
+            first_message=first_message,
+            error="distinguisher_answered_in_opening",
+            actor_prompt=actor_prompt,
+            specimen_turns=specimen_turns,
+            specimen_stopped_cleanly=None,
+            stage1_actor_messages=stage1_actor_messages,
+            stage2_actor_messages=[],
+            distinguisher_messages=copy.deepcopy(d_session.messages),
+            num_queries=num_queries,
+            controlled_budget_respected=controlled_budget_respected,
+        )
+
+    actor_reply = a_session.send(first_message)
+    if verbose:
+        print("[A]", actor_reply)
+    turns = 1
+    d_reply = d_session.send(actor_reply)
+    if verbose:
+        print("[D]", d_reply)
+
+    answer = extract_answer(d_reply)
+    while answer is None and turns < turn_limit:
+        actor_reply = a_session.send(d_reply)
+        if verbose:
+            print("[A]", actor_reply)
+        turns += 1
+        d_reply = d_session.send(actor_reply)
+        if verbose:
+            print("[D]", d_reply)
+        answer = extract_answer(d_reply)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "specimen_turns": specimen_turns,
+        "specimen_stopped_cleanly": None,
+        "answer": answer,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "stage1_actor_messages": stage1_actor_messages,
+        "stage2_actor_messages": copy.deepcopy(a_session.messages[len(stage1_actor_messages) :]),
+        "distinguisher_messages": copy.deepcopy(d_session.messages),
+        "num_queries": num_queries,
+        "controlled_budget_respected": controlled_budget_respected,
+    }
+
+
+def run_trial_no_query_controlled_turns(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    num_turns: int,
+    turn_limit: int | None = None,
+    verbose: bool = False,
+) -> Dict[str, object]:
+    if num_turns <= 0:
+        raise ValueError("num_turns must be >= 1 for no_query_controlled_turns")
+
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt_controlled_turns_initial(num_turns),
+    )
+    first_message = d_session.generate_opening()
+    if verbose:
+        print("[D]", first_message)
+
+    actor_prompt = build_actor_prompt_no_query_controlled_turns(distinguisher.display_name, first_message)
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    actor_reply = a_session.generate_opening()
+    if verbose:
+        print("[A]", actor_reply)
+
+    premature_answer_detected = extract_answer(first_message) is not None
+    turns = 1
+    while turns < num_turns:
+        d_reply = d_session.send(
+            build_distinguisher_prompt_controlled_turns_intermediate(
+                actor_reply,
+                turns + 1,
+                num_turns,
+            )
+        )
+        if verbose:
+            print("[D]", d_reply)
+        if extract_answer(d_reply) is not None:
+            premature_answer_detected = True
+        actor_reply = a_session.send(d_reply)
+        turns += 1
+        if verbose:
+            print("[A]", actor_reply)
+
+    d_reply = d_session.send(build_distinguisher_prompt_controlled_turns_final(actor_reply))
+    if verbose:
+        print("[D]", d_reply)
+    answer = extract_answer(d_reply)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "answer": answer,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "actor_messages": copy.deepcopy(a_session.messages),
+        "distinguisher_messages": copy.deepcopy(d_session.messages),
+        "num_turns": num_turns,
+        "controlled_budget_respected": turns == num_turns,
+        "premature_answer_detected": premature_answer_detected,
     }
 
 

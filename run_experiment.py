@@ -11,6 +11,7 @@ from pathlib import Path
 from turing_eval.backends.api_backend import PROVIDERS
 from turing_eval.backends.base import GenerationConfig
 from turing_eval.conditions import (
+    run_trial_no_query_controlled_turns,
     run_trial_no_query_no_explanation,
     run_trial_no_query_no_explanation_explicit_model,
     run_trial_no_query_no_explanation_50_50_prior,
@@ -18,6 +19,7 @@ from turing_eval.conditions import (
     run_trial_no_prompt_self_pair,
     run_trial_no_query_trusted_distinguisher,
     run_trial_no_query_yes_explanation,
+    run_trial_yes_query_controlled_queries,
     run_trial_yes_query_no_explanation,
     run_trial_yes_query_no_explanation_grand,
 )
@@ -34,6 +36,8 @@ CONDITIONS = {
     "yes_query_no_explanation_grand": run_trial_yes_query_no_explanation_grand,
     "no_query_yes_explanation": run_trial_no_query_yes_explanation,
     "no_query_trusted_distinguisher": run_trial_no_query_trusted_distinguisher,
+    "yes_query_controlled_queries": run_trial_yes_query_controlled_queries,
+    "no_query_controlled_turns": run_trial_no_query_controlled_turns,
 }
 
 
@@ -48,6 +52,14 @@ def _validate_condition_args(args: argparse.Namespace) -> None:
         raise SystemExit(
             "--actor-hint-model is only valid for condition no_query_no_explanation_actor_model_hint"
         )
+    if args.condition == "yes_query_controlled_queries" and args.num_queries is None:
+        raise SystemExit("--num-queries is required for condition yes_query_controlled_queries")
+    if args.condition != "yes_query_controlled_queries" and args.num_queries is not None:
+        raise SystemExit("--num-queries is only valid for condition yes_query_controlled_queries")
+    if args.condition == "no_query_controlled_turns" and args.num_turns is None:
+        raise SystemExit("--num-turns is required for condition no_query_controlled_turns")
+    if args.condition != "no_query_controlled_turns" and args.num_turns is not None:
+        raise SystemExit("--num-turns is only valid for condition no_query_controlled_turns")
 
 
 def _is_valid_trial_result(result: dict[str, object]) -> bool:
@@ -104,6 +116,8 @@ def main() -> int:
             "in the distinguisher prompt (overrides the real actor's slug)."
         ),
     )
+    parser.add_argument("--num-queries", type=int, default=None)
+    parser.add_argument("--num-turns", type=int, default=None)
     args = parser.parse_args()
     _validate_condition_args(args)
     max_attempts = args.max_attempts if args.max_attempts is not None else (3 * args.num_trials)
@@ -140,7 +154,11 @@ def main() -> int:
             "turn_limit": args.turn_limit,
             "verbose": args.verbose,
         }
-        if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
+        if args.condition in {
+            "yes_query_no_explanation",
+            "yes_query_no_explanation_grand",
+            "yes_query_controlled_queries",
+        }:
             specimen = load_backend(
                 args.distinguisher,
                 generation,
@@ -148,11 +166,16 @@ def main() -> int:
                 force_api_provider=args.distinguisher_api_provider,
             )
             kwargs["specimen"] = specimen
-            kwargs["specimen_turn_limit"] = args.specimen_turn_limit
+            if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
+                kwargs["specimen_turn_limit"] = args.specimen_turn_limit
+            else:
+                kwargs["num_queries"] = args.num_queries
         if args.condition == "no_query_trusted_distinguisher":
             kwargs["target_model"] = args.target_model
         if args.condition == "no_query_no_explanation_actor_model_hint" and args.actor_hint_model is not None:
             kwargs["actor_model_hint_display"] = MODEL_REGISTRY[args.actor_hint_model].display_name
+        if args.condition == "no_query_controlled_turns":
+            kwargs["num_turns"] = args.num_turns
         try:
             result = runner(**kwargs)
         except Exception as exc:  # noqa: BLE001
@@ -168,7 +191,11 @@ def main() -> int:
         result["attempt_id"] = attempt_id
         result["actor_route"] = _describe_backend_route(actor)
         result["distinguisher_route"] = _describe_backend_route(distinguisher)
-        if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
+        if args.condition in {
+            "yes_query_no_explanation",
+            "yes_query_no_explanation_grand",
+            "yes_query_controlled_queries",
+        }:
             result["specimen_route"] = _describe_backend_route(specimen)
 
         if _is_valid_trial_result(result):

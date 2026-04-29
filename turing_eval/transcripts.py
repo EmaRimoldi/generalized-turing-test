@@ -30,6 +30,10 @@ EXTRA_CSV_FIELDS = [
     "reasoning",
     "specimen_turns",
     "specimen_stopped_cleanly",
+    "num_queries",
+    "num_turns",
+    "controlled_budget_respected",
+    "premature_answer_detected",
 ]
 
 
@@ -84,5 +88,9 @@ def write_csv(
                     "reasoning": row.get("reasoning"),
                     "specimen_turns": row.get("specimen_turns"),
                     "specimen_stopped_cleanly": row.get("specimen_stopped_cleanly"),
+                    "num_queries": row.get("num_queries"),
+                    "num_turns": row.get("num_turns"),
+                    "controlled_budget_respected": row.get("controlled_budget_respected"),
+                    "premature_answer_detected": row.get("premature_answer_detected"),
                 }
             )
