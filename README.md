@@ -44,8 +44,8 @@ Important: `success=True` does not mean the actor fooled the distinguisher. It o
 
 The current benchmark roster is intentionally restricted to these models:
 
-- Tier 0 `frontier`: `claude-opus-4.6` (`anthropic/claude-opus-4.6`), `gpt-5.4-pro` (`openai/gpt-5.4-pro`), `grok-4.20` (`x-ai/grok-4.20`), `gemini-3-pro` (`google/gemini-3.1-pro-preview`)
-- Tier 1 `large MoE`: `deepseek-v3.2` (`deepseek/deepseek-v3.2`), `mistral-large-2512` (`mistralai/mistral-large-2512`)
+- Tier 0 `frontier`: `claude-sonnet-4.6` (`anthropic/claude-sonnet-4.6`), `claude-opus-4.6` (`anthropic/claude-opus-4.6`), `gpt-5.4-pro` (`openai/gpt-5.4-pro`), `gemini-3-pro` (`google/gemini-3.1-pro-preview`)
+- Tier 1 `large MoE`: `grok-4.20` (`x-ai/grok-4.20`), `deepseek-v3.2` (`deepseek/deepseek-v3.2`), `mistral-large-2512` (`mistralai/mistral-large-2512`)
 - Tier 2 `medium dense`: `qwen3-32b` (`qwen/qwen3-32b`), `gemma-4-31b` (`google/gemma-4-31b-it`)
 - Tier 3 `small dense`: `ministral-8b-2512` (`mistralai/ministral-8b-2512`), `llama-3.3-8b` (`meta-llama/llama-3.3-8b-instruct`)
 
