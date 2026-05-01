@@ -80,21 +80,21 @@ type GraphRender = {
 };
 
 function conditionLabel(id: string): string {
-  if (id === "no_query_no_explanation") return "Condition A · no query, no explanation";
-  if (id === "yes_query_no_explanation") return "Condition B · query allowed, no explanation";
+  if (id === "no_query_no_explanation") return "GTT · no query, no explanation";
+  if (id === "yes_query_no_explanation") return "GTTQ · query allowed, no explanation";
   return id;
 }
 
 function rankingModeLabel(mode: RankingMode): string {
-  if (mode === "combined") return "Combined S";
-  if (mode === "actor") return "Actor A";
-  return "Judge J";
+  if (mode === "combined") return "Turing score T";
+  if (mode === "actor") return "Fooling score F";
+  return "Distinguishing score D";
 }
 
 function rankingModeShort(mode: RankingMode): string {
-  if (mode === "combined") return "S";
-  if (mode === "actor") return "A";
-  return "J";
+  if (mode === "combined") return "T";
+  if (mode === "actor") return "F";
+  return "D";
 }
 
 function renderFormula(tex: string, displayMode = false): string {
@@ -267,9 +267,9 @@ function buildSecondaryMetricText(
   const j = judge.get(model) ?? 0;
   const out = outDegree.get(model) ?? 0;
   const incoming = inDegree.get(model) ?? 0;
-  if (mode === "combined") return `A=${a.toFixed(3)}  J=${j.toFixed(3)}  in=${incoming} out=${out}`;
-  if (mode === "actor") return `S=${s.toFixed(3)}  J=${j.toFixed(3)}  in=${incoming} out=${out}`;
-  return `S=${s.toFixed(3)}  A=${a.toFixed(3)}  in=${incoming} out=${out}`;
+  if (mode === "combined") return `F=${a.toFixed(3)}  D=${j.toFixed(3)}  in=${incoming} out=${out}`;
+  if (mode === "actor") return `T=${s.toFixed(3)}  D=${j.toFixed(3)}  in=${incoming} out=${out}`;
+  return `T=${s.toFixed(3)}  F=${a.toFixed(3)}  in=${incoming} out=${out}`;
 }
 
 function decorateGraphRender(
@@ -585,7 +585,7 @@ export function App() {
 
       <section className="control-strip" aria-label="graph controls">
         <label>
-          <span>Condition</span>
+          <span>Experiment</span>
           {singleCondition ? (
             <span className="condition-static" title={condition}>
               {conditionLabel(condition)}
@@ -626,12 +626,12 @@ export function App() {
         <label>
           <span>Ranking metric</span>
           <select value={rankingMode} onChange={(e) => setRankingMode(e.target.value as RankingMode)}>
-            <option value="combined">Combined S</option>
-            <option value="actor">Actor A</option>
-            <option value="judge">Judge J</option>
+            <option value="combined">Turing score T</option>
+            <option value="actor">Fooling score F</option>
+            <option value="judge">Distinguishing score D</option>
           </select>
           <small className="control-help">
-            The graph keeps the strict epsilon relation; only node order and ranking tables switch between S, A, and J.
+            The graph keeps the strict epsilon relation; only node order and ranking tables switch between T, F, and D.
           </small>
         </label>
       </section>
@@ -764,10 +764,10 @@ export function App() {
 
       <section className="matrix-section ranking-section">
         <div className="matrix-heading">
-          <h2>Rankings by Condition</h2>
+          <h2>Rankings by Experiment</h2>
           <p>
             Rows are sorted by <b>{rankingModeLabel(rankingMode)}</b>. Columns always show the full previous ranking tuple:
-            combined <b>S</b>, actor <b>A</b>, judge <b>J</b>, and current strict out-degree.
+            Turing score <b>T</b>, fooling score <b>F</b>, distinguishing score <b>D</b>, and current strict out-degree.
           </p>
         </div>
         <div className="ranking-grid">
@@ -783,9 +783,9 @@ export function App() {
                     <tr>
                       <th>#</th>
                       <th>model</th>
-                      <th>S</th>
-                      <th>A</th>
-                      <th>J</th>
+                      <th>T</th>
+                      <th>F</th>
+                      <th>D</th>
                       <th>out_ε</th>
                     </tr>
                   </thead>

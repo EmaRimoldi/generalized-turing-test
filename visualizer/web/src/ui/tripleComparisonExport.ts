@@ -133,13 +133,13 @@ function columnSvgFragment(
     const sA = (scoreA.get(node.id) ?? 0).toFixed(3);
     if (mode === "combined") {
       lines.push(
-        `<text class="ns" x="${tx}" y="${node.y - 4}" text-anchor="start">S=${sS}</text>`,
-        `<text class="nsb" x="${tx}" y="${node.y + 8}" text-anchor="start">J=${sJ}  A=${sA}</text>`
+        `<text class="ns" x="${tx}" y="${node.y - 4}" text-anchor="start">T=${sS}</text>`,
+        `<text class="nsb" x="${tx}" y="${node.y + 8}" text-anchor="start">D=${sJ}  F=${sA}</text>`
       );
     } else if (mode === "actor") {
-      lines.push(`<text class="ns" x="${tx}" y="${node.y + 2}" text-anchor="start">A=${sA}</text>`);
+      lines.push(`<text class="ns" x="${tx}" y="${node.y + 2}" text-anchor="start">F=${sA}</text>`);
     } else {
-      lines.push(`<text class="ns" x="${tx}" y="${node.y + 2}" text-anchor="start">J=${sJ}</text>`);
+      lines.push(`<text class="ns" x="${tx}" y="${node.y + 2}" text-anchor="start">D=${sJ}</text>`);
     }
   }
   return lines.join("\n");
@@ -193,9 +193,9 @@ export function buildTripleComparisonSvgString(input: TripleExportInput): string
   const c2 = buildStratifiedColumn(nodes, edges, scoreA, tierOpt);
   const c3 = buildStratifiedColumn(nodes, edges, scoreJ, tierOpt);
 
-  const title1 = "Combined S = ½J + ½A";
-  const title2 = "Actor only (mean 1 − pDiff as source)";
-  const title3 = "Distinguisher + self (J)";
+  const title1 = "Turing score T = ½D + ½F";
+  const title2 = "Fooling score F";
+  const title3 = "Distinguishing score D";
 
   const innerH = Math.max(c1.render.height, c2.render.height, c3.render.height);
   const h = GRAPH_PAD_TOP + 18 + innerH;
