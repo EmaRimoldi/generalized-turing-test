@@ -1,7 +1,7 @@
 # Generalizing the Turing Test to Interactive Agents
 
-**Daniel Mitropolsky · Riccardo Neumarker<sup>*</sup> · Emanuele Rimoldi<sup>*</sup> · Susan S. Hong · Tomaso Poggio**
-<sup>*</sup>Equal contribution
+**Daniel Mitropolsky · Riccardo Neumarker<sup>†</sup> · Emanuele Rimoldi<sup>†</sup> · Susan S. Hong · Tomaso Poggio**<br>
+<sup>†</sup>Equal contribution
 
 [Paper](https://arxiv.org/abs/2605.10851) · [Interactive explorer](https://turing.gtt-explorer.workers.dev/) · [Reproduction guide](REPRODUCIBILITY.md) · [Data](data/README.md)
 
@@ -28,7 +28,7 @@ export OPENROUTER_API_KEY="<your-key>"
 python run_experiment.py \
   --actor claude-opus-4.6 --distinguisher gemini-3-pro \
   --condition no_query_no_explanation \
-  --num-trials 25 --turn-limit 40 --output-dir results/gtt
+  --num-trials 40 --turn-limit 40 --output-dir results/gtt
 ```
 
 The baseline schedules below encode the nine-model grid and trial budgets from Appendix B.1. They are reconstructed launch configurations, rather than the original execution manifests. These commands make paid model calls.
