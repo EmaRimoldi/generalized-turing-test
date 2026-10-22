@@ -6,13 +6,22 @@ from pathlib import Path
 import shutil
 import subprocess
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_tmux_launcher_quotes_caller_paths_and_uses_selected_python(tmp_path):
+@pytest.mark.parametrize("invalid_env", [False, True])
+def test_tmux_launcher_quotes_caller_paths_and_uses_selected_python(tmp_path, invalid_env):
     repo = tmp_path / "project's folder"
     (repo / "scripts").mkdir(parents=True)
     shutil.copy2(ROOT / "scripts/run_batch_in_tmux.sh", repo / "scripts/run_batch_in_tmux.sh")
+    (repo / ".venv/bin").mkdir(parents=True)
+    unselected = repo / ".venv/bin/python"
+    unselected.write_text("#!/bin/bash\nexit 99\n")
+    unselected.chmod(0o755)
+    if invalid_env:
+        (repo / ".env").write_text("false\n")
     csv = tmp_path / "batch$(touch injected).csv"
     csv.write_text("test-only schedule")
     python = tmp_path / "fake-python"
@@ -48,6 +57,10 @@ sys.exit(subprocess.run(sys.argv[5:],check=False).returncode)
         capture_output=True,
         text=True,
     )
+    if invalid_env:
+        assert result.returncode != 0
+        assert not log.exists()
+        return
     assert result.returncode == 0, result.stderr
     args = json.loads(log.read_text())
     assert args[args.index("--csv") + 1] == str(csv)

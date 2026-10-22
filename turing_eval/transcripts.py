@@ -8,6 +8,9 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, List
 
@@ -37,6 +40,22 @@ EXTRA_CSV_FIELDS = [
 ]
 
 
+@contextmanager
+def _atomic_text(path: Path):
+    """Publish a complete file, preserving the previous one if writing fails."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", newline="", encoding="utf-8",
+                                         dir=path.parent, delete=False) as handle:
+            temporary = Path(handle.name)
+            yield handle
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def save_transcript_json(
     trial_result: Dict[str, object],
     path: Path,
@@ -46,16 +65,15 @@ def save_transcript_json(
     target_model: str | None = None,
 ) -> None:
     payload = {
+        **trial_result,
         "trial_id": trial_result["trial_id"],
         "condition": condition,
         "actor_model": actor_model,
         "distinguisher_model": distinguisher_model,
         "target_model": target_model,
         "environment": capture_environment(),
-        **{key: value for key, value in trial_result.items() if key != "trial_id"},
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
+    with _atomic_text(path) as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2, default=str)
 
 
@@ -67,9 +85,8 @@ def write_csv(
     condition: str,
     target_model: str | None = None,
 ) -> None:
-    output_csv.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = SUSAN_CSV_FIELDS + EXTRA_CSV_FIELDS
-    with output_csv.open("w", newline="", encoding="utf-8") as handle:
+    with _atomic_text(output_csv) as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for row in results:

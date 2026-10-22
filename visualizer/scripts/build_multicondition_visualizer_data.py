@@ -16,6 +16,7 @@ from epsilon_visualizer.ingest import (  # noqa: E402
     IngestConfig,
     _serialize_pair_row,
     compute_pair_evidence_strict,
+    pair_counts_from_grouped_model_pair_json,
     trials_from_grouped_model_pair_json,
     write_visualizer_artifact_json,
 )
@@ -78,16 +79,12 @@ def main() -> int:
         exclude_answered_in_opening=True,
         exclude_any_error=True,
     )
-    pair_evidence = compute_pair_evidence_strict(trials=all_trials, cfg=cfg)
-
-    conditions = sorted({t.condition for t in all_trials if t.condition})
     models_by_condition = {
-        cond: sorted(
-            {t.actor_model for t in all_trials if t.condition == cond and t.actor_model}
-            | {t.distinguisher_model for t in all_trials if t.condition == cond and t.distinguisher_model}
-        )
-        for cond in conditions
+        "no_query_no_explanation": sorted(pair_counts_from_grouped_model_pair_json(grouped_a)[0]),
+        "yes_query_no_explanation": sorted(pair_counts_from_grouped_model_pair_json(grouped_b)[0]),
     }
+    pair_evidence = compute_pair_evidence_strict(trials=all_trials, cfg=cfg, models_by_condition=models_by_condition)
+    conditions = sorted(models_by_condition)
     models = sorted({m for xs in models_by_condition.values() for m in xs})
 
     artifact = {

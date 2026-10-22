@@ -37,7 +37,10 @@ def load_rows(csv_paths: Iterable[Path]) -> List[Dict[str, str]]:
 def _to_int(value: object) -> int | None:
     if value in {"", "None", None}:
         return None
-    return int(value)
+    try:
+        return int(value)
+    except (ValueError, TypeError, OverflowError):
+        return None
 
 
 def summarize_rows(rows: Iterable[Dict[str, str]]) -> List[Dict[str, object]]:
@@ -54,12 +57,12 @@ def summarize_rows(rows: Iterable[Dict[str, str]]) -> List[Dict[str, object]]:
 
     summary_rows: List[Dict[str, object]] = []
     for (condition, target_model, actor_model, distinguisher_model), items in sorted(grouped.items()):
-        answers = [_to_int(item["answer"]) for item in items if _to_int(item["answer"]) is not None]
-        turns = [_to_int(item["turns"]) for item in items if _to_int(item["turns"]) is not None]
+        answers = [value for item in items if (value := _to_int(item.get("answer"))) in (0, 1)]
+        turns = [_to_int(item.get("turns")) for item in items if _to_int(item.get("turns")) is not None]
         specimen_turns = [
-            _to_int(item["specimen_turns"])
+            _to_int(item.get("specimen_turns"))
             for item in items
-            if _to_int(item["specimen_turns"]) is not None
+            if _to_int(item.get("specimen_turns")) is not None
         ]
         completion_count = sum(str(item["success"]).lower() == "true" for item in items)
         answer_one_count = sum(answer == 1 for answer in answers)
@@ -73,10 +76,11 @@ def summarize_rows(rows: Iterable[Dict[str, str]]) -> List[Dict[str, object]]:
                 "n_trials": len(items),
                 "n_completed": completion_count,
                 "completion_rate": completion_count / len(items),
+                "n_answered": len(answers),
                 "n_answer_1": answer_one_count,
                 "n_answer_0": answer_zero_count,
-                "answer_1_rate": answer_one_count / len(items),
-                "answer_0_rate": answer_zero_count / len(items),
+                "answer_1_rate": answer_one_count / len(answers) if answers else None,
+                "answer_0_rate": answer_zero_count / len(answers) if answers else None,
                 "mean_turns": mean(turns) if turns else None,
                 "mean_specimen_turns": mean(specimen_turns) if specimen_turns else None,
             }
@@ -94,6 +98,7 @@ def write_summary_csv(summary_rows: List[Dict[str, object]], output_csv: Path) -
         "n_trials",
         "n_completed",
         "completion_rate",
+        "n_answered",
         "n_answer_1",
         "n_answer_0",
         "answer_1_rate",
@@ -129,7 +134,7 @@ def render_summary_table(summary_rows: List[Dict[str, object]], output_png: Path
                 row["distinguisher_model"],
                 row["n_trials"],
                 f"{row['completion_rate']:.2f}",
-                f"{row['answer_1_rate']:.2f}",
+                "" if row["answer_1_rate"] is None else f"{row['answer_1_rate']:.2f}",
                 "" if row["mean_turns"] is None else f"{row['mean_turns']:.2f}",
             ]
         )
@@ -166,8 +171,10 @@ def render_condition_heatmaps(summary_rows: List[Dict[str, object]], output_dir:
         for row in rows:
             i = actor_index[str(row["actor_model"])]
             j = distinguisher_index[str(row["distinguisher_model"])]
+            if row["answer_1_rate"] is None:
+                continue
             matrix[i][j] = float(row["answer_1_rate"])
-            annotations[i][j] = f"p1={row['answer_1_rate']:.2f}\nn={row['n_trials']}"
+            annotations[i][j] = f"p1={row['answer_1_rate']:.2f}\nn={row['n_answered']}"
 
         fig, ax = plt.subplots(figsize=(1.8 * len(distinguishers) + 3, 1.1 * len(actors) + 2))
         im = ax.imshow(matrix, cmap="viridis", vmin=0.0, vmax=1.0)

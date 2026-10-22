@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
@@ -14,8 +15,8 @@ from .types import Branch, BranchEvidence, PairEvidence, TrialRecord
 def _normalize_model_slug(model_id: str) -> str:
     """Align matrix slugs with grouped JSON (e.g. Grok provider id vs short label)."""
     s = (model_id or "").strip()
-    if s in {"x-ai/grok-2", "x-ai/grok-4.20"}:
-        return "grok-4.20"
+    if s == "grok-4.20":
+        return "x-ai/grok-4.20"
     return s
 
 
@@ -98,30 +99,52 @@ def pair_counts_from_matrix_a_aggregate_csv(matrix_csv: Path) -> dict[tuple[str,
                 continue
             n1 = _parse_int(row.get("answer_1_count"))
             n0 = _parse_int(row.get("answer_0_count"))
-            if n1 is None or n0 is None or n1 + n0 != vt:
-                continue
+            _validate_counts(vt, n1, n0, context=(actor, dist))
+            if (actor, dist) in out:
+                raise ValueError(f"Duplicate aggregate pair {(actor, dist)!r} in {matrix_csv}")
             out[(actor, dist)] = (vt, n1, n0)
     return out
 
 
+def _validate_counts(vt: Any, n1: Any, n0: Any, *, context: object) -> None:
+    if any(type(n) is not int or n < 0 for n in (vt, n1, n0)) or n1 + n0 != vt:
+        raise ValueError(f"Invalid aggregate counts for {context!r}: expected nonnegative integers summing to valid_trials")
+
+
 def pair_counts_from_grouped_model_pair_json(grouped_json: Path) -> tuple[list[str], dict[tuple[str, str], tuple[int, int, int]]]:
-    """Parse ``model_pair_results_grouped.json``; return canonical model order and pair aggregates."""
-    raw: dict[str, Any] = json.loads(grouped_json.read_text(encoding="utf-8"))
-    ordering = raw.get("ordering") or {}
-    model_order = [str(x).strip() for x in (ordering.get("model_order") or []) if str(x).strip()]
+    """Validate aggregate evidence before considering fallback or imputation."""
+    raw = json.loads(grouped_json.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict) or not isinstance(raw.get("ordering"), dict):
+        raise ValueError(f"Missing ordering in {grouped_json}")
+    order = raw["ordering"].get("model_order")
+    if not isinstance(order, list) or not order or any(not isinstance(m, str) or not m.strip() for m in order):
+        raise ValueError(f"Invalid ordering.model_order in {grouped_json}")
+    model_order = [_normalize_model_slug(m) for m in order]
+    if len(set(model_order)) != len(model_order):
+        raise ValueError(f"Duplicate models in {grouped_json}")
+    groups = raw.get("records_by_actor")
+    if not isinstance(groups, list):
+        raise ValueError(f"Invalid records_by_actor in {grouped_json}")
     pairs: dict[tuple[str, str], tuple[int, int, int]] = {}
-    for group in raw.get("records_by_actor") or []:
-        actor = (group.get("actor") or "").strip()
-        if not actor:
-            continue
-        for row in group.get("rows") or []:
-            dist = (row.get("distinguisher") or "").strip()
-            vt = int(row["valid_trials"]) if row.get("valid_trials") is not None else None
-            n1 = int(row["answer_1_count"]) if row.get("answer_1_count") is not None else None
-            n0 = int(row["answer_0_count"]) if row.get("answer_0_count") is not None else None
-            if not dist or vt is None or vt <= 0 or n1 is None or n0 is None or n1 + n0 != vt:
-                continue
-            pairs[(actor, dist)] = (vt, n1, n0)
+    seen: set[tuple[str, str]] = set()
+    for group in groups:
+        if not isinstance(group, dict) or not isinstance(group.get("actor"), str) or not isinstance(group.get("rows"), list):
+            raise ValueError(f"Invalid actor group in {grouped_json}")
+        actor = _normalize_model_slug(group["actor"])
+        if actor not in model_order:
+            raise ValueError(f"Unknown actor {actor!r} in {grouped_json}")
+        for row in group["rows"]:
+            if not isinstance(row, dict) or not isinstance(row.get("distinguisher"), str):
+                raise ValueError(f"Invalid pair row in {grouped_json}")
+            dist = _normalize_model_slug(row["distinguisher"])
+            key = actor, dist
+            if dist not in model_order or key in seen:
+                raise ValueError(f"Unknown or duplicate pair {key!r} in {grouped_json}")
+            seen.add(key)
+            vt, n1, n0 = (row.get(k) for k in ("valid_trials", "answer_1_count", "answer_0_count"))
+            _validate_counts(vt, n1, n0, context=key)
+            if vt:
+                pairs[key] = vt, n1, n0
     return model_order, pairs
 
 
@@ -145,11 +168,12 @@ def trials_from_grouped_model_pair_json(
     model_order, json_pairs = pair_counts_from_grouped_model_pair_json(grouped_json)
     if not model_order:
         raise ValueError(f"No ordering.model_order in {grouped_json}")
-    if impute_answer_1_count + impute_answer_0_count != impute_valid_trials:
-        raise ValueError("impute counts must sum to impute_valid_trials")
+    _validate_counts(impute_valid_trials, impute_answer_1_count, impute_answer_0_count, context="imputation")
+    if impute_uniform_if_missing and impute_valid_trials == 0:
+        raise ValueError("impute_valid_trials must be positive")
 
     matrix_pairs: dict[tuple[str, str], tuple[int, int, int]] = {}
-    if matrix_fallback_csv is not None and matrix_fallback_csv.is_file():
+    if matrix_fallback_csv is not None:
         matrix_pairs = pair_counts_from_matrix_a_aggregate_csv(matrix_fallback_csv)
 
     stats = {"from_json": 0, "from_matrix_fallback": 0, "imputed_uniform": 0}
@@ -167,7 +191,7 @@ def trials_from_grouped_model_pair_json(
             stats["imputed_uniform"] += 1
 
     missing = [(a, b) for a in model_order for b in model_order if (a, b) not in merged]
-    if missing:
+    if missing and impute_uniform_if_missing:
         raise ValueError(
             f"Incomplete grid after JSON/matrix/impute: {len(missing)} pairs still missing "
             f"(set impute_uniform_if_missing=True). Example: {missing[0]!r}."
@@ -204,6 +228,14 @@ class IngestConfig:
     z: float = 1.645  # ~95% one-sided
     exclude_answered_in_opening: bool = True
     exclude_any_error: bool = True
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.epsilon) or not 0 <= self.epsilon <= .5:
+            raise ValueError("epsilon must be finite and between 0 and 0.5")
+        if type(self.min_valid_per_branch) is not int or self.min_valid_per_branch <= 0:
+            raise ValueError("min_valid_per_branch must be a positive integer")
+        if not math.isfinite(self.z) or self.z <= 0:
+            raise ValueError("z must be finite and positive")
 
 
 def _parse_int(x: str | None) -> int | None:
@@ -243,20 +275,19 @@ def trials_from_matrix_a_aggregate_csv(
         fieldnames = reader.fieldnames or []
         avg_col = "avg # turns" if "avg # turns" in fieldnames else "avg_turns"
         for row in reader:
-            actor = (row.get("actor") or "").strip()
-            dist = (row.get("distinguisher") or "").strip()
+            actor = _normalize_model_slug(row.get("actor") or "")
+            dist = _normalize_model_slug(row.get("distinguisher") or "")
             vt = _parse_int(row.get("valid_trials"))
             if not actor or not dist or vt is None or vt <= 0:
                 continue
             n1 = _parse_int(row.get("answer_1_count"))
             n0 = _parse_int(row.get("answer_0_count"))
-            if n1 is None or n0 is None or n1 + n0 != vt:
-                continue
+            _validate_counts(vt, n1, n0, context=(actor, dist))
             avg_raw = (row.get(avg_col) or "").strip()
             turn: int | None
             try:
                 turn = int(round(float(avg_raw.replace(",", ".")))) if avg_raw else None
-            except ValueError:
+            except (ValueError, OverflowError):
                 turn = None
             for _ in range(n1):
                 trials.append(
@@ -343,6 +374,8 @@ def load_trials_from_results_csv(results_csv: Path) -> list[TrialRecord]:
 
 
 def discover_results_csvs(results_root: Path) -> list[Path]:
+    if not results_root.is_dir():
+        raise FileNotFoundError(f"Results directory does not exist: {results_root}")
     return sorted(p for p in results_root.glob("*/results.csv") if p.is_file())
 
 
@@ -416,6 +449,7 @@ def compute_pair_evidence_strict(
     *,
     trials: list[TrialRecord],
     cfg: IngestConfig,
+    models_by_condition: dict[str, list[str]] | None = None,
 ) -> list[PairEvidence]:
     """Compute strict evidence for all ordered pairs A->B using self-pairs as genuine-B branch.
 
@@ -425,19 +459,18 @@ def compute_pair_evidence_strict(
     """
     # Group trials by (condition, actor_model, distinguisher_model)
     by_run: dict[tuple[str, str, str], list[TrialRecord]] = {}
-    models: set[str] = set()
-    conditions: set[str] = set()
+    condition_models = {c: set(ms) for c, ms in (models_by_condition or {}).items()}
     for t in trials:
+        if t.condition == "no_query_trusted_distinguisher":
+            raise ValueError("UTT requires nominated-target calibration; the strict A/B visualizer cannot pool independent judges and targets")
         if not t.actor_model or not t.distinguisher_model or not t.condition:
             continue
-        models.add(t.actor_model)
-        models.add(t.distinguisher_model)
-        conditions.add(t.condition)
+        condition_models.setdefault(t.condition, set()).update((t.actor_model, t.distinguisher_model))
         by_run.setdefault((t.condition, t.actor_model, t.distinguisher_model), []).append(t)
 
     pair_evidence: list[PairEvidence] = []
 
-    for cond in sorted(conditions):
+    for cond, models in sorted(condition_models.items()):
         # selfpairs define genuine branch per target
         genuine_by_target: dict[str, tuple[BranchEvidence, dict[str, int], list[str], float | None, float | None]] = {}
         for m in sorted(models):
@@ -453,6 +486,7 @@ def compute_pair_evidence_strict(
                     continue
                 if a == b:
                     # Self-pairs are calibration diagnostics, not ordering edges.
+                    self_trials = by_run.get((cond, b, b), [])
                     genuine = genuine_by_target.get(b)
                     if genuine is None:
                         self_valid = 0
@@ -466,7 +500,7 @@ def compute_pair_evidence_strict(
                         self_excluded = genuine_ev.n_excluded
                         self_psame = genuine_ev.p_hat
                         self_raw_paths = genuine_raw
-                        self_genuine_prov = _branch_trials_provenance(by_run[key])
+                        self_genuine_prov = _branch_trials_provenance(self_trials)
                     tr = classify_pair(
                         epsilon=cfg.epsilon,
                         estimate=None,
@@ -491,7 +525,7 @@ def compute_pair_evidence_strict(
                             p_same_real_b=self_psame,
                             p_diff_impostor=None,
                             p_correct=None,
-                            avg_turn_count=_avg([t.turn_count for t in by_run[key]]),
+                            avg_turn_count=_avg([t.turn_count for t in self_trials]),
                             avg_specimen_turn_count=None,
                             exclusions={"self_pair_calibration_only": 1},
                             raw_paths=self_raw_paths,
@@ -686,8 +720,11 @@ def build_visualizer_artifact(
         exclude_any_error=exclude_any_error,
     )
 
+    declared_models = None
     pair_ingest_stats: dict[str, int] | None = None
     if grouped_json is not None:
+        order, _ = pair_counts_from_grouped_model_pair_json(grouped_json)
+        declared_models = {"no_query_no_explanation": order}
         all_trials, pair_ingest_stats = trials_from_grouped_model_pair_json(
             grouped_json,
             matrix_fallback_csv=grouped_matrix_fallback_csv,
@@ -702,16 +739,13 @@ def build_visualizer_artifact(
         for p in csvs:
             all_trials.extend(load_trials_from_results_csv(p))
 
-    pair_evidence = compute_pair_evidence_strict(trials=all_trials, cfg=cfg)
-    models = sorted({t.actor_model for t in all_trials if t.actor_model} | {t.distinguisher_model for t in all_trials if t.distinguisher_model})
-    conditions = sorted({t.condition for t in all_trials if t.condition})
+    pair_evidence = compute_pair_evidence_strict(trials=all_trials, cfg=cfg, models_by_condition=declared_models)
     models_by_condition = {
-        cond: sorted(
-            {t.actor_model for t in all_trials if t.condition == cond and t.actor_model}
-            | {t.distinguisher_model for t in all_trials if t.condition == cond and t.distinguisher_model}
-        )
-        for cond in conditions
+        cond: sorted({p.source for p in pair_evidence if p.condition == cond})
+        for cond in sorted({p.condition for p in pair_evidence})
     }
+    conditions = sorted(models_by_condition)
+    models = sorted({m for ms in models_by_condition.values() for m in ms})
 
     # Serialize as JSON-friendly dict
     return {

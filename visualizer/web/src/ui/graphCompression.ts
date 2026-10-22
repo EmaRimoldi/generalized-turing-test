@@ -66,7 +66,8 @@ export function buildCondensation(args: {
   minValid: number;
 }): Condensation {
   const { models, pairs, condition, epsilon, minValid } = args;
-  const relevant = pairs.filter((p) => p.condition === condition);
+  const selected = new Set(models);
+  const relevant = pairs.filter((p) => p.condition === condition && p.source !== p.target && selected.has(p.source) && selected.has(p.target));
   const status = (p: PairRow): PairStatus =>
     effectiveOrderingStatus(p, epsilon, minValid);
 

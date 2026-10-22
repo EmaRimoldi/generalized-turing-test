@@ -22,7 +22,7 @@ Imports remain `from epsilon_visualizer...` with `visualizer/python` on
 
 ## Build and serve
 
-Requirements: Python 3.11, Node.js 20, and npm. From the repository root:
+Requirements: Python 3.11, Node.js 22.12+, and npm. From the repository root:
 
 ```bash
 npm --prefix visualizer/web ci
@@ -76,9 +76,17 @@ figures. The browser and grouped inputs retain all nine models.
 - `build_grouped_condition_json_from_results.py` creates grouped inputs from
   original trial JSON using the snapshot's historical policy. Review recovered
   opening answers and model routes before regenerating scientific inputs.
+  It now reads verdicts only from generated assistant messages and rejects
+  failed-trial answers. Historical Grok-2 relabeling requires the explicit
+  `--legacy-model-aliases` option; inspect route metadata before using it.
 - [`scripts/legacy/`](scripts/legacy/README.md) retains the earlier CSV-based
   aggregators, with different selection and alias policies. They require
   explicit original inputs and should write to separate outputs.
+- `--grouped-no-impute` preserves missing cells and the declared model roster.
+  Grouped counts must be consistent nonnegative integers; malformed or duplicate
+  cells fail before fallback/imputation. Graphs and rankings exclude imputed
+  evidence and respect the selected model set and minimum sample count. The
+  strict A/B analysis rejects UTT inputs, which need separate target calibration.
 - `plot_grouped_json_pair_coverage.py` inspects the grouped input coverage.
 - `serve_epsilon_visualizer.py` serves the local production build without Node
   at serving time; Node is needed to build it first.
@@ -97,7 +105,7 @@ npm --prefix visualizer/web run build
 `tests/test_visualizer_build.py` regenerates the A+B artifact outside the
 repository and compares it with the tracked snapshot, including all 162 pairs.
 `.github/workflows/validate.yml` runs Python correctness checks and tests,
-frontend geometry tests, TypeScript checking, and the production build. It also
+frontend evidence/geometry tests, TypeScript checking, and the production build. It also
 checks that regeneration does not change the snapshot. Screen and image exports
 share the graph geometry implementation.
 

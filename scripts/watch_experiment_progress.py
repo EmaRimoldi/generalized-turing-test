@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import re
 import sys
 import time
@@ -59,7 +60,7 @@ def _scan_run(run_dir: Path) -> dict[str, object]:
         "answer_1": answer_1,
         "answer_0": answer_0,
         "opening_invalid": opening_invalid,
-        "csv_complete": csv_path.is_file() and csv_rows > 0,
+        "csv_present": csv_path.is_file(),
     }
 
 
@@ -98,8 +99,10 @@ def _print_report(
             f"{d.name}\n"
             f"  trial .json validi: {valid}{exp_note}  |  failed_attempt: {failed}"
         )
-        if info["csv_complete"]:
-            line1 += "  |  results.csv: OK (coppia completata)"
+        if info["csv_present"]:
+            complete = expected_trials is not None and info["csv_rows"] >= expected_trials and valid >= expected_trials
+            status = "target raggiunto" if complete else "presente (verificare il target)"
+            line1 += f"  |  results.csv: {status}"
         elif valid > 0:
             line1 += "  |  results.csv: assente finché il run della coppia non termina"
 
@@ -147,6 +150,10 @@ def main() -> int:
         help="Non cancellare lo schermo tra un refresh e l'altro",
     )
     args = parser.parse_args()
+    if not math.isfinite(args.interval) or args.interval <= 0:
+        parser.error("--interval must be finite and positive")
+    if args.expected_trials is not None and args.expected_trials <= 0:
+        parser.error("--expected-trials must be positive")
     root = args.results_dir
     if not root.is_dir():
         print(f"Cartella inesistente: {root}", file=sys.stderr)
