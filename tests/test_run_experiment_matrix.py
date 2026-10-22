@@ -9,7 +9,8 @@ import run_experiment_matrix
 def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
     commands: list[list[str]] = []
 
-    def fake_run(command):
+    def fake_run(command, *, check):
+        assert check is False
         commands.append(command)
         return SimpleNamespace(returncode=0)
 
@@ -20,10 +21,10 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
         [
             "run_experiment_matrix.py",
             "--models",
-            "actor-a",
-            "dist-b",
+            "claude-opus-4.6",
+            "qwen3-32b",
             "--condition",
-            "yes_query_no_explanation",
+            "no_query_trusted_distinguisher",
             "--target-model",
             "gemini-3-pro",
             "--num-trials",
@@ -48,10 +49,8 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
             "123",
             "--temperature",
             "0.4",
-            "--num-queries",
+            "--max-attempts",
             "6",
-            "--num-turns",
-            "4",
         ],
     )
 
@@ -70,14 +69,14 @@ def test_matrix_runner_forwards_optional_flags(monkeypatch, tmp_path):
     assert "--distinguisher-api-provider" in first and "openrouter" in first
     assert "--max-new-tokens" in first and "123" in first
     assert "--temperature" in first and "0.4" in first
-    assert "--num-queries" in first and "6" in first
-    assert "--num-turns" in first and "4" in first
+    assert "--max-attempts" in first and "6" in first
 
 
 def test_matrix_runner_limits_no_prompt_self_pair_to_self_matches(monkeypatch, tmp_path):
     commands: list[list[str]] = []
 
-    def fake_run(command):
+    def fake_run(command, *, check):
+        assert check is False
         commands.append(command)
         return SimpleNamespace(returncode=0)
 
@@ -88,8 +87,8 @@ def test_matrix_runner_limits_no_prompt_self_pair_to_self_matches(monkeypatch, t
         [
             "run_experiment_matrix.py",
             "--models",
-            "actor-a",
-            "dist-b",
+            "claude-opus-4.6",
+            "qwen3-32b",
             "--condition",
             "no_prompt_self_pair",
             "--num-trials",
@@ -103,7 +102,7 @@ def test_matrix_runner_limits_no_prompt_self_pair_to_self_matches(monkeypatch, t
 
     assert rc == 0
     assert len(commands) == 2
-    assert commands[0][commands[0].index("--actor") + 1] == "actor-a"
-    assert commands[0][commands[0].index("--distinguisher") + 1] == "actor-a"
-    assert commands[1][commands[1].index("--actor") + 1] == "dist-b"
-    assert commands[1][commands[1].index("--distinguisher") + 1] == "dist-b"
+    assert commands[0][commands[0].index("--actor") + 1] == "claude-opus-4.6"
+    assert commands[0][commands[0].index("--distinguisher") + 1] == "claude-opus-4.6"
+    assert commands[1][commands[1].index("--actor") + 1] == "qwen3-32b"
+    assert commands[1][commands[1].index("--distinguisher") + 1] == "qwen3-32b"

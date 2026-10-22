@@ -21,7 +21,17 @@ cp .env.example .env
 ```
 
 The container definition is `apptainer/turing-eval.def`; the wrapper loads `.env`
-and forwards provider keys. All paper model calls used OpenRouter. The optional
+and forwards provider keys. Both image definitions install `requirements.txt`;
+the HF image additionally installs `requirements-hf.txt`. Build helpers try
+fakeroot and unprivileged builds, retaining the previous image on failure.
+If neither mode is available, `scripts/build-container-fallback.sh` prepares a
+base image and a separate virtual environment; invoke its interpreter explicitly:
+
+```bash
+./scripts/run-in-container.sh /workspace/.venv-container/bin/python run_experiment.py --help
+```
+
+All paper model calls used OpenRouter. The optional
 HF backend, alternate routes, and historical prompt variants remain available
 for compatibility but are not the paper's default configuration.
 
@@ -54,8 +64,9 @@ python run_experiment_batch.py --csv configs/paper_gttq.csv --output-dir results
 ```
 
 These commands invoke paid APIs. Leave temperature and token caps unset to use
-the served defaults. Neither command is a resume operation: choose a new output
-root for a fresh run to avoid mixing outputs.
+the served defaults. Runs refuse existing output directories. Batch schedules
+require unique run names and are validated in full before any experiment starts.
+Choose a new output root for a fresh run; these commands do not resume old runs.
 
 The runner evaluates each specified pair; it does not randomly select a new
 actor identity for every call. The balanced GTT probability is computed during
@@ -109,8 +120,16 @@ histories, prompts, routes, answers, budgets, and environment metadata.
 
 Provider failures are retried up to `--max-attempts` (default: three attempts per
 requested trial). Failed attempts are stored separately from collected trials.
-The runner prints a warning if it cannot collect the requested count; verify
-collected counts rather than relying on the exit code alone.
+If the requested count cannot be collected, the runner saves the partial results
+and returns a nonzero exit code. Batch and matrix launchers continue other runs,
+report failures, and also exit unsuccessfully if any run is incomplete.
+
+The shared protocol registry and option validation live in `turing_eval/cli.py`.
+Batch and matrix launchers resolve the single-run script independently of the
+working directory. Relative input/output paths still refer to the caller's
+working directory. `scripts/run_batch_in_tmux.sh schedule.csv [output-dir]` is an
+optional detached launcher using the local virtual environment and safe path
+quoting; it requires tmux.
 
 To inspect newly collected CSVs:
 
@@ -151,7 +170,12 @@ models and routing. Retain route metadata and record any deviations.
 Offline validation:
 
 ```bash
+python -m ruff check .
 python -m pytest tests/ -q
+npm --prefix visualizer/web test
 npm --prefix visualizer/web run build
 git diff --exit-code -- visualizer/web/public/epsilon_visualizer_data.json
 ```
+
+The frontend build includes TypeScript checking. Python lint rules are defined
+in `ruff.toml`, so local user settings do not alter the project's checks.

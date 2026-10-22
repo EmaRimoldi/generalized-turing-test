@@ -7,7 +7,7 @@ Python analytics, the Vite web UI, build/serve scripts, and formalization notes.
 
 | Path | Role |
 |------|------|
-| `docs/` | Formalization and implementation notes |
+| `docs/` | Mathematical working note; earlier design documents in `docs/archive/` |
 | `python/epsilon_visualizer/` | Ingest, thresholding, condensation graph, and transitivity analytics |
 | `web/public/condition_a_model_pair_results.json` | Tracked grouped input for A (`no_query_no_explanation`) |
 | `web/public/condition_b_model_pair_results.json` | Tracked grouped input for B (`yes_query_no_explanation`) |
@@ -15,7 +15,7 @@ Python analytics, the Vite web UI, build/serve scripts, and formalization notes.
 | `web/public/exports/` | Ignored figure exports, generated on demand with `npm run export:triple-png` |
 | `web/src/` | Frontend source |
 | `web/dist/` | Ignored, generated static app; rebuilt locally and in deployment CI |
-| `scripts/` | Data generation, aggregation, plotting, and serving tools |
+| `scripts/` | Data generation, plotting, and serving; older aggregation policies in `scripts/legacy/` |
 
 Imports remain `from epsilon_visualizer...` with `visualizer/python` on
 `PYTHONPATH` (see repository-root `pytest.ini`).
@@ -71,13 +71,14 @@ figures. The browser and grouped inputs retain all nine models.
 ## Advanced and historical tools
 
 - `build_epsilon_visualizer_data.py` supports single-condition builds and
-  alternate CSV/trial inputs. Use `--out` to a separate path when exploring;
+  alternate CSV/trial inputs. It requires an explicit `--out` path;
   the published app uses the combined A+B generator above.
-- `aggregate_condition_a_grouped_json.py`,
-  `aggregate_condition_b_grouped_json.py`, and
-  `build_grouped_condition_json_from_results.py` create grouped inputs from
-  original data. They retain their existing run-selection and filtering rules.
-  Check the intended protocol before regenerating scientific inputs.
+- `build_grouped_condition_json_from_results.py` creates grouped inputs from
+  original trial JSON using the snapshot's historical policy. Review recovered
+  opening answers and model routes before regenerating scientific inputs.
+- [`scripts/legacy/`](scripts/legacy/README.md) retains the earlier CSV-based
+  aggregators, with different selection and alias policies. They require
+  explicit original inputs and should write to separate outputs.
 - `plot_grouped_json_pair_coverage.py` inspects the grouped input coverage.
 - `serve_epsilon_visualizer.py` serves the local production build without Node
   at serving time; Node is needed to build it first.
@@ -87,13 +88,18 @@ figures. The browser and grouped inputs retain all nine models.
 Run the offline Python suite from the repository root:
 
 ```bash
+python3 -m ruff check .
 python3 -m pytest tests/ -q
+npm --prefix visualizer/web test
+npm --prefix visualizer/web run build
 ```
 
 `tests/test_visualizer_build.py` regenerates the A+B artifact outside the
 repository and compares it with the tracked snapshot, including all 162 pairs.
-`.github/workflows/validate.yml` runs the tests, builds the frontend, and checks
-that regeneration does not change the snapshot.
+`.github/workflows/validate.yml` runs Python correctness checks and tests,
+frontend geometry tests, TypeScript checking, and the production build. It also
+checks that regeneration does not change the snapshot. Screen and image exports
+share the graph geometry implementation.
 
 GitHub Pages deployment is configured in
 `.github/workflows/deploy-epsilon-visualizer.yml`. It builds from source with the

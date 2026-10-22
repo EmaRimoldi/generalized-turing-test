@@ -60,8 +60,8 @@ PROVIDERS: Dict[str, ProviderConfig] = {
         base_url="https://openrouter.ai/api/v1",
         api_key_env="OPENROUTER_API_KEY",
         extra_headers={
-            "HTTP-Referer": "https://github.com/suahong/llm-eval",
-            "X-Title": "turing-eval",
+            "HTTP-Referer": "https://github.com/EmaRimoldi/generalized-turing-test",
+            "X-Title": "Generalized Turing Test",
         },
     ),
     "deepseek": ProviderConfig(

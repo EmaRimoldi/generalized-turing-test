@@ -10,6 +10,7 @@ import {
   formatPct,
   judgeScoreByTarget,
 } from "./logic";
+import { edgeGeometry, resolveCircleCollisions } from "./graphGeometry";
 import type { DagEdge, DagNode, LayoutResult } from "./layout";
 import { buildSupportedAdjacency, findTransitivityViolations } from "./transitivity";
 import "./App.css";
@@ -115,105 +116,11 @@ function Formula({ tex, display = false }: { tex: string; display?: boolean }) {
   );
 }
 
-function resolveCircleCollisions(nodes: GraphNode[]): GraphRender {
-  const solved = nodes.map((n, idx) => ({ ...n, idx }));
-  const margin = 34;
-  const maxIterations = 120;
-
-  for (let iter = 0; iter < maxIterations; iter += 1) {
-    let moved = false;
-    for (let i = 0; i < solved.length; i += 1) {
-      for (let j = i + 1; j < solved.length; j += 1) {
-        const a = solved[i];
-        const b = solved[j];
-        const dy = b.y - a.y;
-        const dx = b.x - a.x;
-        const dist = Math.hypot(dx, dy);
-        const minDist = a.r + b.r + margin;
-        if (dist >= minDist) continue;
-
-        if (dist < 1e-3) {
-          const half = minDist * 0.5;
-          a.x -= half;
-          b.x += half;
-          moved = true;
-          continue;
-        }
-
-        const needMag = Math.sqrt(Math.max(0, minDist * minDist - dy * dy));
-        if (needMag <= 0) continue;
-
-        const adx = Math.abs(dx);
-        if (adx >= needMag - 1e-3) continue;
-
-        const shortfall = (needMag - adx) * 0.5;
-        if (a.x <= b.x) {
-          a.x -= shortfall;
-          b.x += shortfall;
-        } else {
-          a.x += shortfall;
-          b.x -= shortfall;
-        }
-        moved = true;
-      }
-    }
-    if (!moved) break;
-  }
-
-  const minX = Math.min(...solved.map((n) => n.x - n.r - 56), 0);
-  const minY = Math.min(...solved.map((n) => n.y - n.r - 56), 0);
-  if (minX < 0 || minY < 0) {
-    for (const n of solved) {
-      n.x += Math.max(0, -minX);
-      n.y += Math.max(0, -minY);
-    }
-  }
-
-  const width = Math.max(...solved.map((n) => n.x + n.r + 96), 1180);
-  const height = Math.max(...solved.map((n) => n.y + n.r + 130), 660);
-  return { nodes: solved, width, height };
-}
-
 function statusColor(st: PairStatus): string {
   if (st === "supported") return "#28f0b8";
   if (st === "tentative") return "#f2d84a";
   if (st === "unsupported") return "#ff5a6f";
   return "#7a8883";
-}
-
-function edgeGeometry(
-  edge: DagEdge,
-  idx: number,
-  nodes: GraphNode[],
-  edges: DagEdge[]
-): { path: string; labelX: number; labelY: number } {
-  const from = nodes.find((n) => n.id === edge.from);
-  const to = nodes.find((n) => n.id === edge.to);
-  if (!from || !to) return { path: "", labelX: 0, labelY: 0 };
-
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const len = Math.max(1, Math.hypot(dx, dy));
-  const ux = dx / len;
-  const uy = dy / len;
-  const sx = from.x + ux * (from.r + 3);
-  const sy = from.y + uy * (from.r + 3);
-  const tx = to.x - ux * (to.r + 7);
-  const ty = to.y - uy * (to.r + 7);
-  const reciprocal = edges.some((e) => e.from === edge.to && e.to === edge.from);
-  const nx = -uy;
-  const ny = ux;
-  const bend = reciprocal ? (edge.from < edge.to ? 48 : -48) : (idx % 2 === 0 ? 22 : -22);
-  const cx = (sx + tx) / 2 + nx * bend;
-  const cy = (sy + ty) / 2 + ny * bend;
-  const t = 0.5;
-  const labelX = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cx + t * t * tx;
-  const labelY = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cy + t * t * ty;
-  return {
-    path: `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`,
-    labelX,
-    labelY,
-  };
 }
 
 function buildCircleLayout(models: string[]): LayoutResult {
@@ -631,7 +538,7 @@ export function App() {
             <option value="judge">Distinguishing score D</option>
           </select>
           <small className="control-help">
-            The graph keeps the strict epsilon relation; only node order and ranking tables switch between T, F, and D.
+            The metric changes node annotations and table order; the graph keeps the strict epsilon relation.
           </small>
         </label>
       </section>
@@ -653,13 +560,13 @@ export function App() {
           <Formula display tex={"A \\to B \\iff \\widehat d(A,B) \\le \\varepsilon"} />
           <p className="panel-kicker">Rankings</p>
           <p className="en-summary" lang="en">
-            The previous ranking family is recovered from the same pair table.
+            Scores aggregate the same pairwise outcomes over actor and distinguisher roles.
           </p>
-          <Formula display tex={"J(B)=\\frac12\\widehat p(y=1\\mid B,B)+\\frac12\\operatorname*{mean}_{A\\ne B}\\widehat p(y=0\\mid A,B)"} />
-          <Formula display tex={"A(M)=\\operatorname*{mean}_{T\\ne M}\\bigl(1-\\widehat p(y=0\\mid M,T)\\bigr)"} />
-          <Formula display tex={"S(M)=\\frac12A(M)+\\frac12J(M)"} />
+          <Formula display tex={"D(B)=\\frac12\\widehat p(y=1\\mid B,B)+\\frac12\\operatorname*{mean}_{A\\ne B}\\widehat p(y=0\\mid A,B)"} />
+          <Formula display tex={"F(M)=\\operatorname*{mean}_{B\\ne M}\\bigl(1-\\widehat p(y=0\\mid M,B)\\bigr)"} />
+          <Formula display tex={"T(M)=\\frac12F(M)+\\frac12D(M)"} />
           <p>
-            The circular order and the ranking tables below can be sorted by <b>S</b>, <b>A</b>, or <b>J</b>, while the edge relation always remains the strict epsilon rule.
+            Tables can be sorted by <b>T</b>, <b>F</b>, or <b>D</b>. Circular node order follows current in-degree; edges follow the strict epsilon rule.
           </p>
         </div>
         <details className="legend-details">
@@ -766,7 +673,7 @@ export function App() {
         <div className="matrix-heading">
           <h2>Rankings by Experiment</h2>
           <p>
-            Rows are sorted by <b>{rankingModeLabel(rankingMode)}</b>. Columns always show the full previous ranking tuple:
+            Rows are sorted by <b>{rankingModeLabel(rankingMode)}</b>. Columns report:
             Turing score <b>T</b>, fooling score <b>F</b>, distinguishing score <b>D</b>, and current strict out-degree.
           </p>
         </div>
@@ -1089,7 +996,7 @@ function StatusStat({
 
 function PairDetails({ pair, epsilon, minValid }: { pair: PairRow; epsilon: number; minValid: number }) {
   const isSelf = pair.source === pair.target;
-  const status = isSelf ? "self" : effectiveOrderingStatus(pair, epsilon, minValid);
+  const status = effectiveOrderingStatus(pair, epsilon, minValid);
   const pCorrect = pair.details.pCorrect ?? pair.estimate;
   const d = pairJudgeAdvantage(pair, minValid);
   const epsilonStar = pairCriticalEpsilon(pair, minValid);

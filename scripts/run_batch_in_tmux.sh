@@ -1,49 +1,37 @@
 #!/usr/bin/env bash
-# Avvia run_experiment_batch.py in una sessione tmux staccata: sopravvive a chiusura SSH / laptop.
-#
-# Uso (dalla root del repo):
-#   ./scripts/run_batch_in_tmux.sh path/to/your_batch.csv
-#
-# Variabili opzionali:
-#   TMUX_SESSION_NAME=my-session  (default: llm-eval-batch)
-#
-# Rientrare nel log live:
-#   tmux attach -t llm-eval-batch
-# Staccare di nuovo: Ctrl+B poi D
-
+# Run a CSV batch in tmux. Usage: run_batch_in_tmux.sh schedule.csv [output-dir]
+# Install requirements.txt first; uses .venv/bin/python when available.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "${REPO_ROOT}"
-
-SESSION="${TMUX_SESSION_NAME:-llm-eval-batch}"
-if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 path/to/batch.csv" >&2
-  echo "  Example: $0 ./my_batches/condition_A.csv" >&2
-  exit 1
+SESSION="${TMUX_SESSION_NAME:-gtt-batch}"
+if [[ $# -lt 1 || $# -gt 2 ]]; then
+    echo "Usage: $0 schedule.csv [output-dir]" >&2
+    exit 2
 fi
-CSV_REL="$1"
-LOG_DIR="${REPO_ROOT}/logs"
-mkdir -p "${LOG_DIR}"
-LOG_FILE="${LOG_DIR}/batch-${SESSION}.log"
+CSV_PATH="$1"
+OUTPUT_DIR="${2:-results/batch}"
+# Resolve caller-relative paths before the detached process changes directory.
+CSV_PATH="$(cd "$(dirname "${CSV_PATH}")" && pwd)/$(basename "${CSV_PATH}")"
+if [[ ! -f ${CSV_PATH} ]]; then echo "CSV not found: ${CSV_PATH}" >&2; exit 1; fi
+if [[ ${OUTPUT_DIR} != /* ]]; then OUTPUT_DIR="${PWD}/${OUTPUT_DIR}"; fi
+PYTHON_BIN="${PYTHON:-python3}"
+if [[ -x ${REPO_ROOT}/.venv/bin/python ]]; then PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"; fi
+mkdir -p "${REPO_ROOT}/logs"
+LOG_FILE="${REPO_ROOT}/logs/batch-${SESSION}.log"
 
 if tmux has-session -t "${SESSION}" 2>/dev/null; then
-  echo "tmux: la sessione '${SESSION}' esiste già." >&2
-  echo "  tmux attach -t ${SESSION}   # per vedere l'output" >&2
-  echo "  tmux kill-session -t ${SESSION}   # solo se vuoi terminarla" >&2
-  exit 1
+    echo "Session already exists: tmux attach -t ${SESSION}" >&2
+    exit 1
 fi
-
-if [[ ! -f "${REPO_ROOT}/.env" ]]; then
-  echo "Manca ${REPO_ROOT}/.env (chiavi API)." >&2
-  exit 1
+ENV_COMMAND=""
+if [[ -f ${REPO_ROOT}/.env ]]; then
+    printf -v ENV_COMMAND 'set -a; source %q; set +a; ' "${REPO_ROOT}/.env"
 fi
-
-# Una sola riga per bash -lc (evita problemi di quoting con tmux).
-tmux new-session -d -s "${SESSION}" \
-  bash -lc "cd '${REPO_ROOT}' && set -a && . ./.env && set +a && export PYTHONUNBUFFERED=1 && exec uv run python run_experiment_batch.py --csv '${CSV_REL}' --output-dir RESULTS --verbose 2>&1 | tee -a '${LOG_FILE}'"
-
-echo "Avviato tmux session: ${SESSION}"
-echo "  Log file: ${LOG_FILE}"
-echo "  Rientra con: tmux attach -t ${SESSION}"
-echo "  Stacca con:  Ctrl+B poi D"
+# Quote every external value before passing the command through tmux's shell.
+printf -v RUN_COMMAND 'cd %q && %s%q -u %q --csv %q --output-dir %q --verbose 2>&1 | tee -a %q' \
+    "${REPO_ROOT}" "${ENV_COMMAND}" "${PYTHON_BIN}" "${REPO_ROOT}/run_experiment_batch.py" \
+    "${CSV_PATH}" "${OUTPUT_DIR}" "${LOG_FILE}"
+tmux new-session -d -s "${SESSION}" bash -o pipefail -c "${RUN_COMMAND}"
+echo "Started ${SESSION}; attach with: tmux attach -t ${SESSION}"
+echo "Log: ${LOG_FILE}"

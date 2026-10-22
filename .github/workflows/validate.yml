@@ -29,6 +29,9 @@ jobs:
       - name: Install Python test dependencies
         run: python -m pip install -r requirements.txt
 
+      - name: Check Python correctness
+        run: python -m ruff check .
+
       - name: Run offline Python tests
         run: python -m pytest tests/ -q
 
@@ -36,6 +39,7 @@ jobs:
         working-directory: visualizer/web
         run: |
           npm ci
+          npm test
           npm run build
 
       - name: Verify published visualizer data is current

@@ -24,4 +24,4 @@ apptainer exec "${SIF_FILE}" "${VENV_DIR}/bin/pip" install --upgrade pip==24.2
 apptainer exec "${SIF_FILE}" "${VENV_DIR}/bin/pip" install -r "${REPO_ROOT}/requirements.txt"
 
 echo "Fallback setup complete."
-echo "NOTE: When using this fallback, scripts/run-in-container.sh runs the venv Python, not the container Python directly."
+echo "Run with: ./scripts/run-in-container.sh /workspace/.venv-container/bin/python <script.py> [args...]"

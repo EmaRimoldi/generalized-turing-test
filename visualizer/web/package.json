@@ -8,10 +8,11 @@
     "predev": "npm run build:data",
     "dev": "vite",
     "prebuild": "npm run build:data",
-    "build": "vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
-    "export:triple-png": "tsx scripts/save-triple-png.mts"
+    "export:triple-png": "tsx scripts/save-triple-png.mts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "dagre": "^0.8.5",
