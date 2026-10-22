@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this research code, please cite the associated paper."
+type: software
+title: "Generalized Turing Test: experimental framework"
+url: "https://github.com/EmaRimoldi/generalized-turing-test"
+authors:
+  - family-names: Mitropolsky
+    given-names: Daniel
+  - family-names: Neumarker
+    given-names: Riccardo
+  - family-names: Rimoldi
+    given-names: Emanuele
+  - family-names: Hong
+    given-names: Susan S.
+  - family-names: Poggio
+    given-names: Tomaso
+preferred-citation:
+  type: article
+  title: "Generalizing the Turing Test to Interactive Agents"
+  authors:
+    - family-names: Mitropolsky
+      given-names: Daniel
+    - family-names: Neumarker
+      given-names: Riccardo
+    - family-names: Rimoldi
+      given-names: Emanuele
+    - family-names: Hong
+      given-names: Susan S.
+    - family-names: Poggio
+      given-names: Tomaso
+  year: 2026
+  journal: arXiv
+  url: "https://arxiv.org/abs/2605.10851"

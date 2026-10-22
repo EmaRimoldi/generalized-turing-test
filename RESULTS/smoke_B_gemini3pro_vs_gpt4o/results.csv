@@ -1,4 +1,0 @@
-trial_id,actor_model,distinguisher_model,success,turns,answer,transcript_path,condition,error,reasoning,specimen_turns,specimen_stopped_cleanly
-0,google/gemini-3.1-pro-preview,openai/gpt-4o,True,4,1,RESULTS/smoke_B_gemini3pro_vs_gpt4o/trial_000.json,yes_query_no_explanation,,,2,True
-1,google/gemini-3.1-pro-preview,openai/gpt-4o,True,5,1,RESULTS/smoke_B_gemini3pro_vs_gpt4o/trial_001.json,yes_query_no_explanation,,,2,True
-2,google/gemini-3.1-pro-preview,openai/gpt-4o,True,4,1,RESULTS/smoke_B_gemini3pro_vs_gpt4o/trial_002.json,yes_query_no_explanation,,,3,True

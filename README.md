@@ -1,25 +1,48 @@
-# Generalized Turing Test
+# Generalizing the Turing Test to Interactive Agents
 
-Code and experiments for [**Generalizing the Turing Test to Interactive Agents**](https://arxiv.org/abs/2605.10851).
+**Daniel Mitropolsky · Riccardo Neumarker<sup>†</sup> · Emanuele Rimoldi<sup>†</sup> · Susan S. Hong · Tomaso Poggio**<br>
+<sup>†</sup>Equal contribution
 
-This repository runs controlled actor/distinguisher experiments for language models.
+[Paper](https://arxiv.org/abs/2605.10851) · [Interactive explorer](https://turing.gtt-explorer.workers.dev/) · [Reproduction guide](REPRODUCIBILITY.md) · [Data](data/README.md)
 
-The core question is simple: can one model imitate another model's conversational behavior well enough to fool a fresh instance of that target model?
+Research code used to launch the paper's experiments and implement its **Generalized Turing Test (GTT)** framework: role prompts, interactive protocols, transcript collection, pairwise comparison, and relation graphs.
 
-## Maintained workflow
+The GTT asks whether an actor **A** can imitate a target **B** well enough to fool a fresh instance of **B**. **GTTQ** first lets the actor query a specimen of the target; **UTT** uses a separate distinguisher **D**.
 
-The maintained entrypoints are:
+![GTT protocol: a fresh target instance or an actor imitating the target interacts with a fresh distinguisher; GTTQ adds specimen access before imitation.](docs/assets/gtt-protocol.svg)
 
-- [run_experiment.py](run_experiment.py): run one actor/distinguisher pair for `N` trials under one condition
-- [run_experiment_matrix.py](run_experiment_matrix.py): sweep many actor/distinguisher pairings
-- [scripts/render_results_summary.py](scripts/render_results_summary.py): aggregate `results.csv` files into summary tables and figures
-- [scripts/verify_model_slugs.py](scripts/verify_model_slugs.py): validate OpenRouter model slugs
+The comparator is $A \geq_{\epsilon} B$ when the distinguisher's probability of a correct decision is at most $\frac{1}{2}+\epsilon$. The analysis code estimates this relation and explores its graph structure and transitivity.
 
-## Turing ordering visualizer (epsilon graph)
+## Run experiments
 
-The visualizer lives under **`visualizer/`** (Python package, web app, scripts, docs). Hub: **[visualizer/README.md](visualizer/README.md)**.
+Use Python 3.11. Hosted experiments use OpenRouter and require an API key.
 
-The web UI uses grouped results for both **Condition A** ([JSON](visualizer/web/public/condition_a_model_pair_results.json)) and **Condition B** ([JSON](visualizer/web/public/condition_b_model_pair_results.json)). With Python 3.11 and Node.js 20 available, build and serve from the repository root:
+```bash
+git clone https://github.com/EmaRimoldi/generalized-turing-test.git
+cd generalized-turing-test
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+export OPENROUTER_API_KEY="<your-key>"
+
+python run_experiment.py \
+  --actor claude-opus-4.6 --distinguisher gemini-3-pro \
+  --condition no_query_no_explanation \
+  --num-trials 40 --turn-limit 40 --output-dir results/gtt
+```
+
+The baseline schedules below encode the nine-model grid and trial budgets from Appendix B.1. They are reconstructed launch configurations, rather than the original execution manifests. These commands make paid model calls.
+
+```bash
+python run_experiment_batch.py --csv configs/paper_gtt.csv --output-dir results/gtt
+python run_experiment_batch.py --csv configs/paper_gttq.csv --output-dir results/gttq
+```
+
+See the [reproduction guide](REPRODUCIBILITY.md) for controlled budgets, UTT, output semantics, and the Apptainer environment.
+
+## Explore the included results
+
+With Node.js 20 and Python available:
 
 ```bash
 npm --prefix visualizer/web ci
@@ -27,404 +50,33 @@ npm --prefix visualizer/web run build
 python3 visualizer/scripts/serve_epsilon_visualizer.py
 ```
 
-Open **http://127.0.0.1:8765/**. The build regenerates A+B data automatically; `dist/` is generated locally and is not versioned. See the [visualizer guide](visualizer/README.md) for development and data-only builds.
+Open [localhost:8765](http://127.0.0.1:8765/). This rebuilds the explorer offline from the two committed grouped inputs.
 
-## Roles
+**Data coverage.** The included GTT/GTTQ snapshots each contain 81 ordered pairs with 10 trials per pair. They preserve an earlier experiment snapshot and do not contain the paper's full final sample. Full transcripts and results for the additional paper experiments are not bundled here. See [data provenance and limitations](data/README.md).
 
-- `actor`: tries to imitate the target model
-- `distinguisher`: interrogates the actor and returns a final decision
-- `specimen`: a helper instance of the target model used only in the warm-up phase of conditions `yes_query_no_explanation` and `yes_query_controlled_queries`
+## Repository
 
-The final scientific signal is the distinguisher's parsed `<answer>`:
+| Path | Purpose |
+| --- | --- |
+| [`turing_eval/`](turing_eval/) | Protocols, prompts, model routing, and transcript persistence |
+| [`run_experiment.py`](run_experiment.py) | Single pair; [`batch`](run_experiment_batch.py) and [`matrix`](run_experiment_matrix.py) launchers |
+| [`configs/`](configs/) | Paper baseline launch schedules |
+| [`visualizer/`](visualizer/README.md) | Pairwise estimates, relation graphs, transitivity, and web explorer |
+| [`data/`](data/README.md) | Data inventory and retained pilot CSVs |
+| [`tests/`](tests/) | Offline protocol and analysis checks |
 
-- `1`: "same model"
-- `0`: "different model"
+Validate locally with `python -m pytest tests/ -q` and the frontend build above.
 
-Important: `success=True` does not mean the actor fooled the distinguisher. It only means the trial produced a valid parsed answer, or in one special case was recorded as a meaningful invalid opening-answer outcome.
+## Citation
 
-## Selected benchmark set
-
-The current benchmark roster is intentionally restricted to these models:
-
-- Tier 0 `frontier`: `claude-sonnet-4.6` (`anthropic/claude-sonnet-4.6`), `claude-opus-4.6` (`anthropic/claude-opus-4.6`), `gpt-5.4` (`openai/gpt-5.4`), `gemini-3-pro` (`google/gemini-3.1-pro-preview`)
-- Tier 1 `large MoE`: `grok-4.20` (`x-ai/grok-4.20`), `deepseek-v3.2` (`deepseek/deepseek-v3.2`), `mistral-large-2512` (`mistralai/mistral-large-2512`)
-- Tier 2 `medium dense`: `qwen3-32b` (`qwen/qwen3-32b`), `gemma-4-31b` (`google/gemma-4-31b-it`)
-- Tier 3 `small dense`: `ministral-8b-2512` (`mistralai/ministral-8b-2512`), `llama-3.3-8b` (`meta-llama/llama-3.3-8b-instruct`)
-
-## Conditions
-
-The maintained conditions live in [turing_eval/conditions.py](turing_eval/conditions.py).
-
-### `no_query_no_explanation`
-
-The distinguisher opens immediately. The actor receives an imitation prompt containing that first message and responds without any prior specimen interaction.
-
-### `no_query_no_explanation_explicit_model`
-
-Same protocol as `no_query_no_explanation` (single-stage, no specimen, same actor prompt and turn-taking). The distinguisher’s **initial** instruction differs: it names the concrete OpenRouter slug (from `distinguisher.display_name`) explicitly when stating same-type vs not, so nearby model families (e.g. Claude Sonnet vs Opus) are not conflated under vague “same model as yourself” wording.
-
-### `no_prompt_self_pair`
-
-This is a single-stage self-pair condition. The distinguisher still opens immediately, but the actor receives no initial prompt wrapper. Instead, the distinguisher's first message is passed directly to the actor as the first user turn. This condition only accepts runs where `actor == distinguisher`.
-
-### `yes_query_no_explanation`
-
-The actor first talks to a specimen of the target model, then a fresh distinguisher begins the real interrogation.
-
-### `yes_query_controlled_queries`
-
-This is the same two-stage setup as `yes_query_no_explanation`, but the specimen warm-up is limited to exactly `N` actor queries, supplied with `--num-queries`. The actor does not terminate the specimen stage with `STOP`; the budget ends automatically after the fixed number of specimen interactions.
-
-### `no_query_controlled_turns`
-
-This is a single-stage direct interaction like `no_query_no_explanation`, but the distinguisher is constrained to exactly `N` interrogation rounds before giving its final answer. The budget is supplied with `--num-turns`, and the transcript records whether any premature `<answer>` appeared before the final round.
-
-### `no_query_yes_explanation`
-
-This is the same direct setup as `no_query_no_explanation`, but the distinguisher is also asked to include a short `<reasoning>` block with its final answer.
-
-### `no_query_trusted_distinguisher`
-
-This is the same single-stage flow as `no_query_no_explanation`, but the prompts refer explicitly to a separate target model name rather than asking whether the actor is "the same model as yourself." This target identity is supplied independently with `--target-model`.
-
-## Prompt and trial semantics
-
-Maintained prompts live in [turing_eval/prompts.py](turing_eval/prompts.py).
-
-Current behavior that matters experimentally:
-
-- initial actor and distinguisher prompts are sent as `user` messages, not `system`
-- in condition `no_prompt_self_pair`, the actor receives no initial prompt and the distinguisher's opening is sent directly as the actor's first user turn
-- the specimen in condition `yes_query_no_explanation` receives no initial prompt
-- the specimen in condition `yes_query_controlled_queries` also receives no initial prompt
-- the distinguisher prompts explicitly say `Do NOT output an answer in your first message.`
-- if the distinguisher still emits `<answer>` in its opening message, the trial is recorded with `error="distinguisher_answered_in_opening"`
-
-For condition `yes_query_no_explanation`, the Stage 1 warm-up conversation is saved once from the actor's point of view under `stage1_actor_messages`. It is not duplicated under a separate specimen-perspective array.
-
-## Routing policy
-
-Model routing is defined in [turing_eval/models.py](turing_eval/models.py).
-
-The intended policy is:
-
-1. Use OpenRouter by default when the model is available there.
-2. For `gpt-5.4-pro`, you can opt into direct OpenAI per role.
-3. The selected benchmark roster is currently configured as API-backed.
-
-The provider-agnostic API client is in [turing_eval/backends/api_backend.py](turing_eval/backends/api_backend.py).
-
-## Environment
-
-This project is set up for Apptainer.
-
-API-only workflow:
-
-- build with [scripts/build-container.sh](scripts/build-container.sh)
-- run with [scripts/run-in-container.sh](scripts/run-in-container.sh)
-
-Copy [.env.example](.env.example) to `.env` and fill in the keys you need. The container wrappers forward provider keys automatically.
-
-Supported environment variables:
-
-- `OPENROUTER_API_KEY`
-- `OPENAI_API_KEY`
-
-For the current benchmark roster, `OPENROUTER_API_KEY` is enough for the default workflow. `OPENAI_API_KEY` is only needed if you opt into direct OpenAI routing for `gpt-5.4-pro`.
-
-## Quick start
-
-Build the default image:
-
-```bash
-./scripts/build-container.sh
+```bibtex
+@misc{mitropolsky2026generalizing,
+  title={Generalizing the Turing Test to Interactive Agents},
+  author={Daniel Mitropolsky and Riccardo Neumarker and Emanuele Rimoldi and Susan S. Hong and Tomaso Poggio},
+  year={2026},
+  eprint={2605.10851},
+  archivePrefix={arXiv},
+  primaryClass={cs.AI},
+  url={https://arxiv.org/abs/2605.10851}
+}
 ```
-
-Run the test suite:
-
-```bash
-./scripts/run-in-container.sh pytest tests/ -q
-```
-
-Validate OpenRouter slugs:
-
-```bash
-./scripts/run-in-container.sh python -m scripts.verify_model_slugs
-```
-
-## Running experiments
-
-### Single pair, default routing
-
-```bash
-./scripts/run-in-container.sh python run_experiment.py \
-  --actor llama-3.3-8b \
-  --distinguisher ministral-8b-2512 \
-  --condition no_query_no_explanation \
-  --num-trials 5 \
-  --turn-limit 20 \
-  --output-dir results
-```
-
-### Force direct OpenAI for a GPT role
-
-```bash
-./scripts/run-in-container.sh python run_experiment.py \
-  --actor gpt-5.4-pro \
-  --actor-api-provider openai \
-  --distinguisher claude-opus-4.6 \
-  --condition no_query_no_explanation \
-  --num-trials 2 \
-  --turn-limit 12 \
-  --output-dir results
-```
-
-### Condition B with specimen warm-up
-
-```bash
-./scripts/run-in-container.sh python run_experiment.py \
-  --actor ministral-8b-2512 \
-  --distinguisher qwen3-32b \
-  --condition yes_query_no_explanation \
-  --num-trials 3 \
-  --turn-limit 15 \
-  --specimen-turn-limit 8 \
-  --output-dir results
-```
-
-### Sweep multiple pairings
-
-```bash
-./scripts/run-in-container.sh python run_experiment_matrix.py \
-  --models ministral-8b-2512 llama-3.3-8b qwen3-32b claude-opus-4.6 \
-  --condition no_query_no_explanation \
-  --num-trials 2 \
-  --output-dir results/matrix_smoke
-```
-
-## Common `run_experiment.py` flags
-
-- `--actor`
-- `--distinguisher`
-- `--condition`
-- `--target-model`
-- `--num-queries`
-- `--num-turns`
-- `--num-trials`
-- `--turn-limit`
-- `--specimen-turn-limit`
-- `--output-dir`
-- `--run-name`
-- `--actor-backend`
-- `--distinguisher-backend`
-- `--actor-api-provider`
-- `--distinguisher-api-provider`
-- `--max-new-tokens`
-- `--temperature`
-- `--max-attempts`
-- `--verbose`
-
-By default, `run_experiment.py` does not send any `max_tokens` cap to the backend. Use `--max-new-tokens` only when you want to impose one explicitly.
-
-Important retry behavior:
-
-- the runner keeps retrying infra/provider failures until it collects the requested number of analyzable trials, up to `--max-attempts`
-- by default, `max_attempts = 3 * num_trials`
-- failed infra/provider attempts are saved as `failed_attempt_*.json`
-- collected `trial_XXX.json` files correspond only to successful-answer trials and opening-answer invalid trials
-
-## Output structure
-
-Each `run_experiment.py` invocation writes one run directory:
-
-```text
-<output-dir>/<run-name>/
-  results.csv
-  trial_000.json
-  trial_001.json
-  ...
-  failed_attempt_000_<timestamp>.json   # only if retries failed
-```
-
-If `--run-name` is omitted, the default is:
-
-```text
-<actor>_vs_<distinguisher>_<condition>_<utc-timestamp>
-```
-
-### `results.csv`
-
-The CSV schema is defined in [turing_eval/transcripts.py](turing_eval/transcripts.py).
-
-Columns:
-
-- `trial_id`
-- `actor_model`
-- `distinguisher_model`
-- `success`
-- `turns`
-- `answer`
-- `transcript_path`
-- `condition`
-- `target_model`
-- `error`
-- `reasoning`
-- `specimen_turns`
-- `specimen_stopped_cleanly`
-- `num_queries`
-- `num_turns`
-- `controlled_budget_respected`
-- `premature_answer_detected`
-
-Interpretation:
-
-- `success=True` means the trial produced a valid parsed answer
-- `answer=1` means the distinguisher judged the actor to be the same model
-- `answer=0` means the distinguisher judged the actor to be a different model
-- `error="distinguisher_answered_in_opening"` is a recorded invalid opening-answer outcome
-
-### `trial_XXX.json`
-
-Each transcript contains common metadata such as:
-
-- `trial_id`
-- `condition`
-- `actor_model`
-- `distinguisher_model`
-- optional `target_model`
-- `success`
-- `turns`
-- `answer`
-- optional `reasoning`
-- `first_message`
-- `actor_prompt`
-- `raw_final_message`
-- `actor_route`
-- `distinguisher_route`
-- optional `specimen_route`
-- `environment`
-
-Conversation fields depend on the condition:
-
-- `no_query_no_explanation`: `actor_messages`, `distinguisher_messages`
-- `no_prompt_self_pair`: `actor_messages`, `distinguisher_messages`
-- `no_query_yes_explanation`: `actor_messages`, `distinguisher_messages`, `reasoning`
-- `yes_query_no_explanation`: `stage1_actor_messages`, `stage2_actor_messages`, `distinguisher_messages`, `specimen_turns`, `specimen_stopped_cleanly`
-- `yes_query_controlled_queries`: `stage1_actor_messages`, `stage2_actor_messages`, `distinguisher_messages`, `specimen_turns`, `num_queries`, `controlled_budget_respected`
-- `no_query_controlled_turns`: `actor_messages`, `distinguisher_messages`, `num_turns`, `controlled_budget_respected`, `premature_answer_detected`
-- `no_query_trusted_distinguisher`: `actor_messages`, `distinguisher_messages`, `target_model`
-
-### Failure artifacts
-
-Provider or infrastructure failures that are retried are written as `failed_attempt_*.json`. They are not added to `results.csv` unless they correspond to a collected opening-answer invalid trial.
-
-## Reproducibility
-
-Saved transcripts include an `environment` block from [turing_eval/environment.py](turing_eval/environment.py), including:
-
-- Python version and platform
-- git commit, branch, and dirty state
-- container metadata when available
-- hostname
-
-## Model registry
-
-For the current list of supported model nicknames and their routes, inspect [turing_eval/models.py](turing_eval/models.py).
-
-If you are unsure whether a nickname uses OpenRouter, direct OpenAI, or HF fallback, the registry is the source of truth.
-
-## CSV Batch Runs
-
-The repository also includes a separate batch entrypoint, [run_experiment_batch.py](run_experiment_batch.py), for running an explicit list of experiments from a CSV file.
-
-This section is additive documentation for that entrypoint only. The maintained single-run and matrix workflows above are unchanged.
-
-### CSV schema
-
-Each CSV row represents one `run_experiment.py` invocation.
-
-Relevant columns:
-
-- `run_name`
-- `actor`
-- `distinguisher`
-- `num_trials`
-- `turn_limit`
-- `specimen_turn_limit`
-- `num_queries`
-- `num_turns`
-- `condition`
-- `target_model`
-
-Extra columns are ignored.
-
-Column-to-flag mapping:
-
-- `actor` -> `--actor`
-- `distinguisher` -> `--distinguisher`
-- `condition` -> `--condition`
-- `target_model` -> `--target-model`
-- `num_trials` -> `--num-trials`
-- `turn_limit` -> `--turn-limit`
-- `specimen_turn_limit` -> `--specimen-turn-limit`
-- `num_queries` -> `--num-queries`
-- `num_turns` -> `--num-turns`
-- `run_name` -> `--run-name`
-
-Validation rules:
-
-- `specimen_turn_limit` is required only for `yes_query_no_explanation`
-- `num_queries` is required only for `yes_query_controlled_queries`
-- `num_turns` is required only for `no_query_controlled_turns`
-- `target_model` is required only for `no_query_trusted_distinguisher`
-- `actor` and `distinguisher` must match for `no_prompt_self_pair`
-- for other conditions, `specimen_turn_limit` may be blank or omitted
-- for other conditions, `num_queries` may be blank or omitted
-- for other conditions, `num_turns` may be blank or omitted
-- for other conditions, `target_model` may be blank or omitted
-- `actor` and `distinguisher` must be valid model nicknames from [turing_eval/models.py](turing_eval/models.py)
-- `target_model`, when provided, must be a valid model nickname from [turing_eval/models.py](turing_eval/models.py)
-- `condition` must be one of `no_query_no_explanation`, `no_query_no_explanation_explicit_model`, `no_prompt_self_pair`, `yes_query_no_explanation`, `yes_query_controlled_queries`, `no_query_controlled_turns`, `no_query_yes_explanation`, or `no_query_trusted_distinguisher`
-
-### Batch-level flags
-
-These remain CLI flags on `run_experiment_batch.py` and apply to every row in the CSV:
-
-- `--output-dir`
-- `--actor-backend`
-- `--distinguisher-backend`
-- `--actor-api-provider`
-- `--distinguisher-api-provider`
-- `--max-new-tokens`
-- `--temperature`
-- `--max-attempts`
-- `--verbose`
-
-### Example CSV
-
-```csv
-run_name,actor,distinguisher,target_model,num_trials,turn_limit,specimen_turn_limit,num_queries,num_turns,condition,notes
-smoke_a,llama-3.3-8b,ministral-8b-2512,,2,20,,,,no_query_no_explanation,extra columns are ignored
-smoke_b,ministral-8b-2512,qwen3-32b,,3,15,8,,,yes_query_no_explanation,this row needs specimen_turn_limit
-smoke_c,llama-3.3-8b,ministral-8b-2512,gemini-3-pro,2,20,,,,no_query_trusted_distinguisher,this row needs target_model
-smoke_d,gpt-5.4-pro,claude-opus-4.6,,2,20,,3,,yes_query_controlled_queries,this row needs num_queries
-smoke_e,ministral-8b-2512,qwen3-32b,,2,20,,,4,no_query_controlled_turns,this row needs num_turns
-```
-
-### Example invocation
-
-```bash
-./scripts/run-in-container.sh python run_experiment_batch.py \
-  --csv experiments.csv \
-  --output-dir results/batch_smoke \
-  --max-new-tokens 512 \
-  --temperature 0.7 \
-  --max-attempts 12 \
-  --verbose
-```
-
-Behavior:
-
-- one subprocess call to `run_experiment.py` is made per CSV row
-- each row writes its own run directory under `--output-dir`
-- the batch runner continues past failed rows and reports a summary at the end
