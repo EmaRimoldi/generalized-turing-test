@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run a single actor/distinguisher pairing for N trials under one condition."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,58 +9,18 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
-from turing_eval.backends.api_backend import PROVIDERS
 from turing_eval.backends.base import GenerationConfig
-from turing_eval.conditions import (
-    run_trial_no_query_controlled_turns,
-    run_trial_no_query_no_explanation,
-    run_trial_no_query_no_explanation_explicit_model,
-    run_trial_no_query_no_explanation_50_50_prior,
-    run_trial_no_query_no_explanation_actor_model_hint,
-    run_trial_no_prompt_self_pair,
-    run_trial_no_query_trusted_distinguisher,
-    run_trial_no_query_yes_explanation,
-    run_trial_yes_query_controlled_queries,
-    run_trial_yes_query_no_explanation,
-    run_trial_yes_query_no_explanation_grand,
+from turing_eval.cli import (
+    CONDITIONS,
+    SPECIMEN_BUDGET_CONDITIONS,
+    SPECIMEN_CONDITIONS,
+    add_backend_arguments,
+    add_condition_arguments,
+    positive_int,
+    validate_condition_options,
 )
 from turing_eval.models import MODEL_REGISTRY, load_backend
 from turing_eval.transcripts import save_transcript_json, write_csv
-
-CONDITIONS = {
-    "no_query_no_explanation": run_trial_no_query_no_explanation,
-    "no_query_no_explanation_explicit_model": run_trial_no_query_no_explanation_explicit_model,
-    "no_query_no_explanation_50_50_prior": run_trial_no_query_no_explanation_50_50_prior,
-    "no_query_no_explanation_actor_model_hint": run_trial_no_query_no_explanation_actor_model_hint,
-    "no_prompt_self_pair": run_trial_no_prompt_self_pair,
-    "yes_query_no_explanation": run_trial_yes_query_no_explanation,
-    "yes_query_no_explanation_grand": run_trial_yes_query_no_explanation_grand,
-    "no_query_yes_explanation": run_trial_no_query_yes_explanation,
-    "no_query_trusted_distinguisher": run_trial_no_query_trusted_distinguisher,
-    "yes_query_controlled_queries": run_trial_yes_query_controlled_queries,
-    "no_query_controlled_turns": run_trial_no_query_controlled_turns,
-}
-
-
-def _validate_condition_args(args: argparse.Namespace) -> None:
-    if args.condition == "no_query_trusted_distinguisher" and args.target_model is None:
-        raise SystemExit("--target-model is required for condition no_query_trusted_distinguisher")
-    if args.condition != "no_query_trusted_distinguisher" and args.target_model is not None:
-        raise SystemExit("--target-model is only valid for condition no_query_trusted_distinguisher")
-    if args.condition == "no_prompt_self_pair" and args.actor != args.distinguisher:
-        raise SystemExit("--condition no_prompt_self_pair requires --actor and --distinguisher to match")
-    if args.actor_hint_model is not None and args.condition != "no_query_no_explanation_actor_model_hint":
-        raise SystemExit(
-            "--actor-hint-model is only valid for condition no_query_no_explanation_actor_model_hint"
-        )
-    if args.condition == "yes_query_controlled_queries" and args.num_queries is None:
-        raise SystemExit("--num-queries is required for condition yes_query_controlled_queries")
-    if args.condition != "yes_query_controlled_queries" and args.num_queries is not None:
-        raise SystemExit("--num-queries is only valid for condition yes_query_controlled_queries")
-    if args.condition == "no_query_controlled_turns" and args.num_turns is None:
-        raise SystemExit("--num-turns is required for condition no_query_controlled_turns")
-    if args.condition != "no_query_controlled_turns" and args.num_turns is not None:
-        raise SystemExit("--num-turns is only valid for condition no_query_controlled_turns")
 
 
 def _is_valid_trial_result(result: dict[str, object]) -> bool:
@@ -88,39 +49,26 @@ def main() -> int:
     parser.add_argument("--actor", required=True, choices=sorted(MODEL_REGISTRY))
     parser.add_argument("--distinguisher", required=True, choices=sorted(MODEL_REGISTRY))
     parser.add_argument("--condition", required=True, choices=list(CONDITIONS))
-    parser.add_argument("--target-model", choices=sorted(MODEL_REGISTRY), default=None)
-    parser.add_argument("--num-trials", type=int, default=5)
-    parser.add_argument("--turn-limit", type=int, default=40)
-    parser.add_argument("--specimen-turn-limit", type=int, default=20)
+    parser.add_argument("--num-trials", type=positive_int, default=5)
+    parser.add_argument("--turn-limit", type=positive_int, default=40)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--run-name", default=None)
-    parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--actor-backend", choices=["api", "hf"], default=None)
-    parser.add_argument("--distinguisher-backend", choices=["api", "hf"], default=None)
-    parser.add_argument("--actor-api-provider", choices=sorted(PROVIDERS), default=None)
-    parser.add_argument("--distinguisher-api-provider", choices=sorted(PROVIDERS), default=None)
-    parser.add_argument(
-        "--max-new-tokens",
-        type=int,
-        default=None,
-        help="Maximum new tokens per response. Defaults to provider/model default when omitted.",
-    )
-    parser.add_argument("--temperature", type=float, default=None)
-    parser.add_argument("--max-attempts", type=int, default=None)
-    parser.add_argument(
-        "--actor-hint-model",
-        default=None,
-        choices=sorted(MODEL_REGISTRY),
-        help=(
-            "For no_query_no_explanation_actor_model_hint only: OpenRouter slug substituted as {actor_model} "
-            "in the distinguisher prompt (overrides the real actor's slug)."
-        ),
-    )
-    parser.add_argument("--num-queries", type=int, default=None)
-    parser.add_argument("--num-turns", type=int, default=None)
+    add_condition_arguments(parser)
+    add_backend_arguments(parser)
     args = parser.parse_args()
-    _validate_condition_args(args)
+    try:
+        validate_condition_options(args)
+    except ValueError as exc:
+        parser.error(str(exc))
     max_attempts = args.max_attempts if args.max_attempts is not None else (3 * args.num_trials)
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+    run_name = args.run_name or f"{args.actor}_vs_{args.distinguisher}_{args.condition}_{timestamp}"
+    out_dir = Path(args.output_dir) / run_name
+    if out_dir.exists():
+        parser.error(
+            f"Run directory already exists: {out_dir}. Choose a new --run-name or --output-dir."
+        )
 
     generation = GenerationConfig(max_new_tokens=args.max_new_tokens, temperature=args.temperature)
     actor = load_backend(
@@ -136,17 +84,16 @@ def main() -> int:
         force_api_provider=args.distinguisher_api_provider,
     )
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    run_name = args.run_name or f"{args.actor}_vs_{args.distinguisher}_{args.condition}_{timestamp}"
-    out_dir = Path(args.output_dir) / run_name
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=False)
 
     runner = CONDITIONS[args.condition]
     results = []
     attempt_id = 0
     while len(results) < args.num_trials and attempt_id < max_attempts:
         trial_id = len(results)
-        print(f"\n=== Trial {trial_id + 1}/{args.num_trials} (attempt {attempt_id + 1}/{max_attempts}) ===")
+        print(
+            f"\n=== Trial {trial_id + 1}/{args.num_trials} (attempt {attempt_id + 1}/{max_attempts}) ==="
+        )
         kwargs: dict[str, object] = {
             "trial_id": trial_id,
             "actor": actor,
@@ -154,11 +101,7 @@ def main() -> int:
             "turn_limit": args.turn_limit,
             "verbose": args.verbose,
         }
-        if args.condition in {
-            "yes_query_no_explanation",
-            "yes_query_no_explanation_grand",
-            "yes_query_controlled_queries",
-        }:
+        if args.condition in SPECIMEN_CONDITIONS:
             specimen = load_backend(
                 args.distinguisher,
                 generation,
@@ -166,13 +109,16 @@ def main() -> int:
                 force_api_provider=args.distinguisher_api_provider,
             )
             kwargs["specimen"] = specimen
-            if args.condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}:
+            if args.condition in SPECIMEN_BUDGET_CONDITIONS:
                 kwargs["specimen_turn_limit"] = args.specimen_turn_limit
             else:
                 kwargs["num_queries"] = args.num_queries
         if args.condition == "no_query_trusted_distinguisher":
             kwargs["target_model"] = args.target_model
-        if args.condition == "no_query_no_explanation_actor_model_hint" and args.actor_hint_model is not None:
+        if (
+            args.condition == "no_query_no_explanation_actor_model_hint"
+            and args.actor_hint_model is not None
+        ):
             kwargs["actor_model_hint_display"] = MODEL_REGISTRY[args.actor_hint_model].display_name
         if args.condition == "no_query_controlled_turns":
             kwargs["num_turns"] = args.num_turns
@@ -191,11 +137,7 @@ def main() -> int:
         result["attempt_id"] = attempt_id
         result["actor_route"] = _describe_backend_route(actor)
         result["distinguisher_route"] = _describe_backend_route(distinguisher)
-        if args.condition in {
-            "yes_query_no_explanation",
-            "yes_query_no_explanation_grand",
-            "yes_query_controlled_queries",
-        }:
+        if args.condition in SPECIMEN_CONDITIONS:
             result["specimen_route"] = _describe_backend_route(specimen)
 
         if _is_valid_trial_result(result):
@@ -237,7 +179,7 @@ def main() -> int:
             f"{len(results)}/{args.num_trials} valid trials."
         )
     print(f"\nSaved {len(results)} valid trials to {out_dir}")
-    return 0
+    return 0 if len(results) == args.num_trials else 1
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ if str(VIS_PYTHON) not in sys.path:
 
 WEB_PUBLIC = REPO_ROOT / "visualizer" / "web" / "public"
 
-from epsilon_visualizer.ingest import build_visualizer_artifact, write_visualizer_artifact_json
+from epsilon_visualizer.ingest import build_visualizer_artifact, write_visualizer_artifact_json  # noqa: E402
 
 
 def main() -> int:
@@ -48,7 +48,7 @@ def main() -> int:
         action="store_true",
         help="With --grouped-json: do not add uniform 5/5 trials for pairs absent from JSON and matrix (may leave missing_run).",
     )
-    parser.add_argument("--out", default=str(WEB_PUBLIC / "epsilon_visualizer_data.json"))
+    parser.add_argument("--out", required=True, help="Separate output path; the published A+B snapshot is built by build_multicondition_visualizer_data.py.")
     parser.add_argument("--epsilon-default", type=float, default=0.05)
     parser.add_argument("--min-valid-per-branch", type=int, default=3)
     parser.add_argument("--z", type=float, default=1.645)

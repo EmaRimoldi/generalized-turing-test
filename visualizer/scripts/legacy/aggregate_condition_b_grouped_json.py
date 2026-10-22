@@ -20,8 +20,8 @@ from pathlib import Path
 
 def _normalize_model_id(model_id: str) -> str:
     s = (model_id or "").strip()
-    if s in {"x-ai/grok-4.20", "x-ai/grok-2"}:
-        return "grok-4.20"
+    if s in {"grok-4.20", "x-ai/grok-4.20", "x-ai/grok-2"}:
+        return "x-ai/grok-4.20"
     return s
 
 
@@ -30,7 +30,7 @@ def _load_model_order(grouped_a: Path) -> list[str]:
     order = [str(x).strip() for x in (raw.get("ordering") or {}).get("model_order") or [] if str(x).strip()]
     if not order:
         raise ValueError(f"No model_order in {grouped_a}")
-    return order
+    return [_normalize_model_id(model) for model in order]
 
 
 def _accum_row(
@@ -116,22 +116,20 @@ def main() -> int:
     parser.add_argument(
         "--results-b-root",
         type=Path,
-        default=Path(
-            "/Users/emanuelerimoldi/Library/CloudStorage/GoogleDrive-emanuelerimoldi7@gmail.com/"
-            "Il mio Drive/Turing Ordering Project /Results/B"
-        ),
-        help="Path to the Google Drive (synced) ``Results/B`` directory.",
+        required=True,
+        help="Path to an original Results/B directory.",
     )
     parser.add_argument(
         "--grouped-a-json",
         type=Path,
-        default=Path(__file__).resolve().parents[1] / "web" / "public" / "condition_a_model_pair_results.json",
+        default=Path(__file__).resolve().parents[2] / "web" / "public" / "condition_a_model_pair_results.json",
         help="Reference grouped JSON (for model_order only).",
     )
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path(__file__).resolve().parents[1] / "web" / "public" / "condition_b_model_pair_results.json",
+        required=True,
+        help="Output path for this historical aggregation policy.",
     )
     args = parser.parse_args()
 

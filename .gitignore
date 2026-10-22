@@ -24,7 +24,7 @@ apptainer/*.sif
 node_modules/
 visualizer/web/dist/
 visualizer/web/public/exports/
-visualizer/docs/build_actor_note/
+visualizer/docs/**/build_actor_note/
 
 # macOS metadata
 .DS_Store

@@ -1,19 +1,19 @@
 import type { DagEdge } from "./layout";
 
-export type NodeWithRadius = { id: string; x: number; y: number; r: number; [k: string]: unknown };
+export type NodeWithRadius = { id: string; x: number; y: number; r: number };
 
 /**
  * Quadratic edge between node centers (same logic as the main graph).
  */
-export function edgePathDag(
+export function edgeGeometry(
   edge: DagEdge,
   idx: number,
   nodes: NodeWithRadius[],
   edges: DagEdge[]
-): string {
+): { path: string; labelX: number; labelY: number } {
   const from = nodes.find((n) => n.id === edge.from);
   const to = nodes.find((n) => n.id === edge.to);
-  if (!from || !to) return "";
+  if (!from || !to) return { path: "", labelX: 0, labelY: 0 };
 
   const dx = to.x - from.x;
   const dy = to.y - from.y;
@@ -30,13 +30,22 @@ export function edgePathDag(
   const bend = reciprocal ? (edge.from < edge.to ? 48 : -48) : (idx % 2 === 0 ? 22 : -22);
   const cx = (sx + tx) / 2 + nx * bend;
   const cy = (sy + ty) / 2 + ny * bend;
-  return `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`;
+  return {
+    path: `M ${sx.toFixed(2)} ${sy.toFixed(2)} Q ${cx.toFixed(2)} ${cy.toFixed(2)} ${tx.toFixed(2)} ${ty.toFixed(2)}`,
+    labelX: 0.25 * sx + 0.5 * cx + 0.25 * tx,
+    labelY: 0.25 * sy + 0.5 * cy + 0.25 * ty,
+  };
+}
+
+/** SVG path used by the PNG exporter; routing is shared with the web graph. */
+export function edgePathDag(edge: DagEdge, idx: number, nodes: NodeWithRadius[], edges: DagEdge[]): string {
+  return edgeGeometry(edge, idx, nodes, edges).path;
 }
 
 /**
- * Move circles apart **horizontally** only; same as the main app graph.
+ * Move circles apart horizontally for both screen and image rendering.
  */
-export function resolveCircleCollisionsExport<T extends NodeWithRadius>(nodes: T[]): {
+export function resolveCircleCollisions<T extends NodeWithRadius>(nodes: T[], rightPad = 0): {
   nodes: T[];
   width: number;
   height: number;
@@ -77,7 +86,7 @@ export function resolveCircleCollisionsExport<T extends NodeWithRadius>(nodes: T
           b.x += shortfall;
         } else {
           a.x += shortfall;
-          b.x += shortfall;
+          b.x -= shortfall;
         }
         moved = true;
       }
@@ -94,7 +103,6 @@ export function resolveCircleCollisionsExport<T extends NodeWithRadius>(nodes: T
     }
   }
 
-  const rightPad = 120;
   const width = Math.max(...solved.map((n) => n.x + n.r + 96 + rightPad), 1180);
   const height = Math.max(...solved.map((n) => n.y + n.r + 130), 660);
   return { nodes: solved, width, height };

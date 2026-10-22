@@ -3,7 +3,6 @@ from __future__ import annotations
 import csv
 import json
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -102,7 +101,7 @@ def test_run_experiment_retries_infra_failures_and_keeps_only_valid_trials(monke
     assert (run_path / "trial_001.json").exists()
 
 
-def test_run_experiment_warns_when_max_attempts_prevents_collecting_target(monkeypatch, tmp_path, capsys):
+def test_run_experiment_fails_when_max_attempts_prevents_collecting_target(monkeypatch, tmp_path, capsys):
     out_dir = tmp_path / "results"
     backend = FakeBackend("model")
 
@@ -141,7 +140,7 @@ def test_run_experiment_warns_when_max_attempts_prevents_collecting_target(monke
 
     rc = run_experiment.main()
 
-    assert rc == 0
+    assert rc == 1
     stdout = capsys.readouterr().out
     assert "Warning: reached max attempts (2) after collecting 0/2 valid trials." in stdout
     csv_path = out_dir / "max-attempts-check" / "results.csv"
@@ -207,7 +206,7 @@ def test_run_experiment_passes_api_provider_overrides(monkeypatch, tmp_path):
     ]
 
 
-def test_run_experiment_requires_target_model_for_trusted_condition(monkeypatch, tmp_path):
+def test_run_experiment_requires_target_model_for_trusted_condition(monkeypatch, tmp_path, capsys):
     out_dir = tmp_path / "results"
     monkeypatch.setattr(
         sys,
@@ -227,15 +226,13 @@ def test_run_experiment_requires_target_model_for_trusted_condition(monkeypatch,
         ],
     )
 
-    try:
+    with pytest.raises(SystemExit) as exc:
         run_experiment.main()
-    except SystemExit as exc:
-        assert "--target-model is required" in str(exc)
-    else:
-        raise AssertionError("Expected SystemExit for missing --target-model")
+    assert exc.value.code == 2
+    assert "--target-model" in capsys.readouterr().err
 
 
-def test_run_experiment_requires_matching_models_for_no_prompt_self_pair(monkeypatch, tmp_path):
+def test_run_experiment_requires_matching_models_for_no_prompt_self_pair(monkeypatch, tmp_path, capsys):
     out_dir = tmp_path / "results"
     monkeypatch.setattr(
         sys,
@@ -255,12 +252,10 @@ def test_run_experiment_requires_matching_models_for_no_prompt_self_pair(monkeyp
         ],
     )
 
-    try:
+    with pytest.raises(SystemExit) as exc:
         run_experiment.main()
-    except SystemExit as exc:
-        assert "requires --actor and --distinguisher to match" in str(exc)
-    else:
-        raise AssertionError("Expected SystemExit for mismatched no_prompt_self_pair models")
+    assert exc.value.code == 2
+    assert "requires actor and distinguisher to match" in capsys.readouterr().err
 
 
 def test_run_experiment_passes_target_model_to_runner_and_transcript(monkeypatch, tmp_path):

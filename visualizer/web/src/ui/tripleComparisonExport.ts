@@ -7,7 +7,7 @@ import {
   type LayoutResult,
 } from "./layout";
 import { strictnessTiers } from "./logic";
-import { edgePathDag, resolveCircleCollisionsExport, type NodeWithRadius } from "./graphGeometry";
+import { edgePathDag, resolveCircleCollisions } from "./graphGeometry";
 import { clusterLabel, labelFontSize, labelLines, nodeRadius } from "./graphLabels";
 
 const GRAPH_PAD_TOP = 48;
@@ -77,8 +77,8 @@ function buildStratifiedColumn(
   const yShift = Math.max(0, -minY);
   const { nodes: withR, guideLineYs } = laidToExportNodes(laid, { yShift, guideLineYs: laid.guideLineYs ?? [] });
 
-  const coll = resolveCircleCollisionsExport(withR as NodeWithRadius[]);
-  return { render: { ...coll, guideLineYs, nodes: coll.nodes as ExportNode[] } };
+  const coll = resolveCircleCollisions(withR, 120);
+  return { render: { ...coll, guideLineYs, nodes: coll.nodes } };
 }
 
 function escapeXml(s: string): string {

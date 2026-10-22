@@ -22,7 +22,8 @@ def test_batch_runner_builds_one_command_per_csv_row(monkeypatch, tmp_path):
     )
     commands: list[list[str]] = []
 
-    def fake_run(command):
+    def fake_run(command, *, check):
+        assert check is False
         commands.append(command)
         return SimpleNamespace(returncode=0)
 
@@ -60,7 +61,7 @@ def test_batch_runner_builds_one_command_per_csv_row(monkeypatch, tmp_path):
     assert len(commands) == 2
 
     first = commands[0]
-    assert first[:2] == [sys.executable, "run_experiment.py"]
+    assert first[:2] == [sys.executable, str(run_experiment_batch.EXPERIMENT_SCRIPT)]
     assert "--actor" in first and "gpt-5.4-pro" in first
     assert "--distinguisher" in first and "claude-opus-4.6" in first
     assert "--condition" in first and "no_query_no_explanation" in first
@@ -192,7 +193,8 @@ def test_batch_runner_passes_actor_hint_model_for_actor_model_hint_condition(tmp
     )
     commands: list[list[str]] = []
 
-    def fake_run(command):
+    def fake_run(command, *, check):
+        assert check is False
         commands.append(command)
         return SimpleNamespace(returncode=0)
 
@@ -245,7 +247,8 @@ def test_batch_runner_supports_controlled_query_and_turn_columns(monkeypatch, tm
     )
     commands: list[list[str]] = []
 
-    def fake_run(command):
+    def fake_run(command, *, check):
+        assert check is False
         commands.append(command)
         return SimpleNamespace(returncode=0)
 

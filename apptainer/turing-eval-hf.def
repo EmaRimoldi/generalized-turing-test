@@ -6,6 +6,10 @@ From: python:3.11.9-slim-bookworm
     Version 1.1.0
     Purpose Reproducible HF local-inference environment for the Turing ordering experiment runner
 
+%files
+    requirements.txt /opt/turing-eval/requirements.txt
+    requirements-hf.txt /opt/turing-eval/requirements-hf.txt
+
 %post
     set -eux
     apt-get update
@@ -16,16 +20,7 @@ From: python:3.11.9-slim-bookworm
     rm -rf /var/lib/apt/lists/*
 
     pip install --no-cache-dir --upgrade pip==24.2
-    pip install --no-cache-dir \
-        matplotlib==3.9.2 \
-        pytest==8.3.3 \
-        pytest-cov==5.0.0 \
-        ruff==0.6.9 \
-        torch==2.4.1 \
-        transformers==4.45.2 \
-        accelerate==0.34.2 \
-        bitsandbytes==0.43.3 \
-        safetensors==0.4.5
+    pip install --no-cache-dir -r /opt/turing-eval/requirements.txt -r /opt/turing-eval/requirements-hf.txt
 
 %environment
     export PYTHONDONTWRITEBYTECODE=1

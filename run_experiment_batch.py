@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run an explicit batch of experiments described by a CSV file."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,22 +10,16 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from turing_eval.backends.api_backend import PROVIDERS
+from turing_eval.cli import (
+    BACKEND_OPTIONS,
+    CONDITION_OPTIONS,
+    CONDITIONS,
+    EXPERIMENT_SCRIPT,
+    add_backend_arguments,
+    cli_arguments,
+    validate_condition_options,
+)
 from turing_eval.models import MODEL_REGISTRY
-
-CONDITIONS = {
-    "no_query_no_explanation",
-    "no_query_no_explanation_explicit_model",
-    "no_query_no_explanation_50_50_prior",
-    "no_query_no_explanation_actor_model_hint",
-    "no_prompt_self_pair",
-    "yes_query_no_explanation",
-    "yes_query_no_explanation_grand",
-    "no_query_yes_explanation",
-    "no_query_trusted_distinguisher",
-    "yes_query_controlled_queries",
-    "no_query_controlled_turns",
-}
 
 REQUIRED_COLUMNS = {
     "run_name",
@@ -65,7 +60,9 @@ def _require_field(row: dict[str, str], column: str, row_number: int) -> str:
     return value
 
 
-def _parse_int_field(row: dict[str, str], column: str, row_number: int, *, required: bool) -> int | None:
+def _parse_int_field(
+    row: dict[str, str], column: str, row_number: int, *, required: bool
+) -> int | None:
     value = _clean(row.get(column))
     if value is None:
         if required:
@@ -74,7 +71,9 @@ def _parse_int_field(row: dict[str, str], column: str, row_number: int, *, requi
     try:
         return int(value)
     except ValueError as exc:
-        raise ValueError(f"CSV row {row_number}: invalid integer for {column!r}: {value!r}") from exc
+        raise ValueError(
+            f"CSV row {row_number}: invalid integer for {column!r}: {value!r}"
+        ) from exc
 
 
 def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
@@ -91,42 +90,13 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
     distinguisher = _require_field(row, "distinguisher", row_number)
     if distinguisher not in MODEL_REGISTRY:
         raise ValueError(f"CSV row {row_number}: unknown distinguisher model {distinguisher!r}")
-    if condition == "no_prompt_self_pair" and actor != distinguisher:
-        raise ValueError(
-            f"CSV row {row_number}: condition 'no_prompt_self_pair' requires actor and distinguisher to match"
-        )
-
-    actor_hint_model = _clean(row.get("actor_hint_model"))
-    if actor_hint_model is not None:
-        if actor_hint_model not in MODEL_REGISTRY:
-            raise ValueError(f"CSV row {row_number}: unknown actor_hint_model {actor_hint_model!r}")
-        if condition != "no_query_no_explanation_actor_model_hint":
-            raise ValueError(
-                f"CSV row {row_number}: actor_hint_model is only valid for "
-                "no_query_no_explanation_actor_model_hint"
-            )
-
-    specimen_required = condition in {"yes_query_no_explanation", "yes_query_no_explanation_grand"}
-    target_model_required = condition == "no_query_trusted_distinguisher"
-    queries_required = condition == "yes_query_controlled_queries"
-    turns_required = condition == "no_query_controlled_turns"
-    specimen_turn_limit = _parse_int_field(
-        row,
-        "specimen_turn_limit",
-        row_number,
-        required=specimen_required,
-    )
     target_model = _clean(row.get("target_model"))
-    if target_model_required and target_model is None:
-        raise ValueError(f"CSV row {row_number}: missing required value for 'target_model'")
-    if target_model is not None and target_model not in MODEL_REGISTRY:
-        raise ValueError(f"CSV row {row_number}: unknown target model {target_model!r}")
-    if not target_model_required:
-        target_model = None
-    num_queries = _parse_int_field(row, "num_queries", row_number, required=queries_required)
-    num_turns = _parse_int_field(row, "num_turns", row_number, required=turns_required)
+    actor_hint_model = _clean(row.get("actor_hint_model"))
+    for name, value in (("target_model", target_model), ("actor_hint_model", actor_hint_model)):
+        if value is not None and value not in MODEL_REGISTRY:
+            raise ValueError(f"CSV row {row_number}: unknown {name} {value!r}")
 
-    return BatchExperiment(
+    experiment = BatchExperiment(
         run_name=_require_field(row, "run_name", row_number),
         actor=actor,
         distinguisher=distinguisher,
@@ -134,11 +104,19 @@ def _parse_row(row: dict[str, str], row_number: int) -> BatchExperiment:
         target_model=target_model,
         num_trials=_parse_int_field(row, "num_trials", row_number, required=True),
         turn_limit=_parse_int_field(row, "turn_limit", row_number, required=True),
-        specimen_turn_limit=specimen_turn_limit,
+        specimen_turn_limit=_parse_int_field(
+            row, "specimen_turn_limit", row_number, required=False
+        ),
         actor_hint_model=actor_hint_model,
-        num_queries=num_queries,
-        num_turns=num_turns,
+        num_queries=_parse_int_field(row, "num_queries", row_number, required=False),
+        num_turns=_parse_int_field(row, "num_turns", row_number, required=False),
     )
+
+    try:
+        validate_condition_options(experiment)
+    except ValueError as exc:
+        raise ValueError(f"CSV row {row_number}: {exc}") from exc
+    return experiment
 
 
 def load_experiments(csv_path: Path) -> list[BatchExperiment]:
@@ -149,75 +127,49 @@ def load_experiments(csv_path: Path) -> list[BatchExperiment]:
         missing_columns = sorted(REQUIRED_COLUMNS.difference(reader.fieldnames))
         if missing_columns:
             raise ValueError(f"CSV file is missing required columns: {', '.join(missing_columns)}")
-        experiments = [_parse_row(row, row_number) for row_number, row in enumerate(reader, start=2)]
+        experiments = [
+            _parse_row(row, row_number) for row_number, row in enumerate(reader, start=2)
+        ]
     if not experiments:
         raise ValueError("CSV file contains no experiment rows")
+    names = [experiment.run_name for experiment in experiments]
+    if len(set(names)) != len(names):
+        raise ValueError("CSV run_name values must be unique to avoid overwriting results")
     return experiments
 
 
 def _build_command(args: argparse.Namespace, experiment: BatchExperiment) -> list[str]:
-    command = [
+    return [
         sys.executable,
-        "run_experiment.py",
-        "--actor",
-        experiment.actor,
-        "--distinguisher",
-        experiment.distinguisher,
-        "--condition",
-        experiment.condition,
-        "--num-trials",
-        str(experiment.num_trials),
-        "--turn-limit",
-        str(experiment.turn_limit),
+        str(EXPERIMENT_SCRIPT),
+        *cli_arguments(
+            experiment,
+            ("actor", "distinguisher", "condition", "num_trials", "turn_limit", "run_name"),
+        ),
         "--output-dir",
         args.output_dir,
-        "--run-name",
-        experiment.run_name,
+        *cli_arguments(experiment, CONDITION_OPTIONS),
+        *cli_arguments(args, BACKEND_OPTIONS),
     ]
-    if experiment.specimen_turn_limit is not None:
-        command.extend(["--specimen-turn-limit", str(experiment.specimen_turn_limit)])
-    if experiment.target_model is not None:
-        command.extend(["--target-model", experiment.target_model])
-    if experiment.num_queries is not None:
-        command.extend(["--num-queries", str(experiment.num_queries)])
-    if experiment.num_turns is not None:
-        command.extend(["--num-turns", str(experiment.num_turns)])
-    if args.verbose:
-        command.append("--verbose")
-    if args.actor_backend is not None:
-        command.extend(["--actor-backend", args.actor_backend])
-    if args.distinguisher_backend is not None:
-        command.extend(["--distinguisher-backend", args.distinguisher_backend])
-    if args.actor_api_provider is not None:
-        command.extend(["--actor-api-provider", args.actor_api_provider])
-    if args.distinguisher_api_provider is not None:
-        command.extend(["--distinguisher-api-provider", args.distinguisher_api_provider])
-    if args.max_new_tokens is not None:
-        command.extend(["--max-new-tokens", str(args.max_new_tokens)])
-    if args.temperature is not None:
-        command.extend(["--temperature", str(args.temperature)])
-    if args.max_attempts is not None:
-        command.extend(["--max-attempts", str(args.max_attempts)])
-    if experiment.actor_hint_model is not None:
-        command.extend(["--actor-hint-model", experiment.actor_hint_model])
-    return command
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--csv", required=True, help="CSV file describing one experiment per row.")
     parser.add_argument("--output-dir", required=True)
-    parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--actor-backend", choices=["api", "hf"], default=None)
-    parser.add_argument("--distinguisher-backend", choices=["api", "hf"], default=None)
-    parser.add_argument("--actor-api-provider", choices=sorted(PROVIDERS), default=None)
-    parser.add_argument("--distinguisher-api-provider", choices=sorted(PROVIDERS), default=None)
-    parser.add_argument("--max-new-tokens", type=int, default=None)
-    parser.add_argument("--temperature", type=float, default=None)
-    parser.add_argument("--max-attempts", type=int, default=None)
+    add_backend_arguments(parser)
     args = parser.parse_args()
 
     experiments = load_experiments(Path(args.csv))
+    existing = [
+        experiment.run_name
+        for experiment in experiments
+        if (Path(args.output_dir) / experiment.run_name).exists()
+    ]
+    if existing:
+        parser.error(
+            f"Run directories already exist: {', '.join(existing)}. Choose a new --output-dir."
+        )
     print(f"Running {len(experiments)} experiments from {args.csv}")
 
     failures = []
@@ -227,7 +179,7 @@ def main() -> int:
             f"| {experiment.condition} | run_name={experiment.run_name}"
         )
         command = _build_command(args, experiment)
-        return_code = subprocess.run(command).returncode
+        return_code = subprocess.run(command, check=False).returncode
         if return_code != 0:
             failures.append((experiment.run_name, return_code))
             print(f"  FAILED rc={return_code} - continuing")
