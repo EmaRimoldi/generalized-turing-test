@@ -7,7 +7,7 @@ on:
     paths:
       - "visualizer/web/**"
       - "visualizer/python/**"
-      - "visualizer/scripts/build_epsilon_visualizer_data.py"
+      - "visualizer/scripts/**"
       - ".github/workflows/deploy-epsilon-visualizer.yml"
 
   workflow_dispatch:
@@ -42,13 +42,7 @@ jobs:
           cache: npm
           cache-dependency-path: visualizer/web/package-lock.json
 
-      - name: Build visualizer data from grouped Condition A JSON
-        run: |
-          python3 visualizer/scripts/build_epsilon_visualizer_data.py \
-            --grouped-json visualizer/web/public/condition_a_model_pair_results.json \
-            --out visualizer/web/public/epsilon_visualizer_data.json
-
-      - name: Build frontend
+      - name: Build frontend and Condition A+B data
         working-directory: visualizer/web
         run: |
           npm ci

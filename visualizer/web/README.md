@@ -1,5 +1,7 @@
 # Epsilon visualizer (web)
 
-Vite + React UI for Condition **A** grouped JSON and derived artifacts.
+Vite + React UI for Condition **A+B** grouped JSON and derived artifacts.
 
-See **[../README.md](../README.md)** for how to rebuild `epsilon_visualizer_data.json`, sync `dist/`, and serve locally or via GitHub Pages.
+Both `npm run dev` and `npm run build` regenerate the A+B data first. `dist/` is build output and is not versioned.
+
+See **[../README.md](../README.md)** for the canonical data inputs, build commands, and local serving or GitHub Pages deployment.

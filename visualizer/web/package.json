@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "build:data": "python3 ../scripts/build_multicondition_visualizer_data.py",
+    "predev": "npm run build:data",
     "dev": "vite",
+    "prebuild": "npm run build:data",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",

@@ -17,15 +17,15 @@ The maintained entrypoints are:
 
 The visualizer lives under **`visualizer/`** (Python package, web app, scripts, docs). Hub: **[visualizer/README.md](visualizer/README.md)**.
 
-Condition **A** aggregates for the web UI are grouped JSON: **[visualizer/web/public/condition_a_model_pair_results.json](visualizer/web/public/condition_a_model_pair_results.json)**. After editing that file, rebuild the artifact the UI loads, sync `dist/`, and serve:
+The web UI uses grouped results for both **Condition A** ([JSON](visualizer/web/public/condition_a_model_pair_results.json)) and **Condition B** ([JSON](visualizer/web/public/condition_b_model_pair_results.json)). With Python 3.11 and Node.js 20 available, build and serve from the repository root:
 
 ```bash
-python3 visualizer/scripts/build_epsilon_visualizer_data.py
-cp visualizer/web/public/epsilon_visualizer_data.json visualizer/web/dist/epsilon_visualizer_data.json
+npm --prefix visualizer/web ci
+npm --prefix visualizer/web run build
 python3 visualizer/scripts/serve_epsilon_visualizer.py
 ```
 
-Open **http://127.0.0.1:8765/** .
+Open **http://127.0.0.1:8765/**. The build regenerates A+B data automatically; `dist/` is generated locally and is not versioned. See the [visualizer guide](visualizer/README.md) for development and data-only builds.
 
 ## Roles
 
