@@ -12,7 +12,7 @@ Python analytics, the Vite web UI, build/serve scripts, and formalization notes.
 | `web/public/condition_a_model_pair_results.json` | Tracked grouped input for A (`no_query_no_explanation`) |
 | `web/public/condition_b_model_pair_results.json` | Tracked grouped input for B (`yes_query_no_explanation`) |
 | `web/public/epsilon_visualizer_data.json` | Tracked snapshot of the combined artifact consumed by the UI |
-| `web/public/exports/` | Tracked figure exports; retained independently of the compiled app |
+| `web/public/exports/` | Ignored figure exports, generated on demand with `npm run export:triple-png` |
 | `web/src/` | Frontend source |
 | `web/dist/` | Ignored, generated static app; rebuilt locally and in deployment CI |
 | `scripts/` | Data generation, aggregation, plotting, and serving tools |
@@ -61,6 +61,12 @@ When grouped inputs change, regenerate and commit the snapshot together with
 them. Model calls and the original Drive directories are not needed for this
 step. Original trial data and grouped inputs remain separate evidence; compiled
 copies under `dist/` are disposable.
+
+The grouped files contain an earlier 10-trial-per-pair snapshot. See the
+[data inventory](../data/README.md) before interpreting them as paper results.
+The PNG export utility preserves its historical model filtering, including
+excluding GPT; its exports are exploratory views rather than canonical paper
+figures. The browser and grouped inputs retain all nine models.
 
 ## Advanced and historical tools
 

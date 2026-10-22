@@ -1,0 +1,34 @@
+# Data and provenance
+
+The committed data supports rebuilding the included explorer. It is an earlier
+snapshot, not a complete archive of the final experiments in
+[arXiv:2605.10851v2](https://arxiv.org/html/2605.10851v2).
+
+| Artifact | Coverage | Use |
+| --- | --- | --- |
+| [`condition_a_model_pair_results.json`](../visualizer/web/public/condition_a_model_pair_results.json) | GTT: 81 ordered pairs, 810 outcomes | Grouped input for the explorer |
+| [`condition_b_model_pair_results.json`](../visualizer/web/public/condition_b_model_pair_results.json) | GTTQ: 81 ordered pairs, 810 outcomes | Grouped input for the explorer |
+| [`epsilon_visualizer_data.json`](../visualizer/web/public/epsilon_visualizer_data.json) | 162 pair estimates across both conditions | Derived snapshot; regenerated during the frontend build |
+| [`pilot-results/`](pilot-results/) | 21 partial run CSVs: 160 GTT and 50 GTTQ rows | Retained trial-level provenance; not build inputs |
+
+Each grouped cell has 10 outcomes. The final paper reports larger baseline
+samples; these snapshots therefore cannot reproduce all final figures or tables.
+The original full transcript archive, controlled-resource results, UTT results,
+and prompt-robustness analyses are not included in this checkout.
+
+The pilot CSVs were previously stored under `RESULTS/`. They are preserved
+byte-for-byte because they contain trial-level metadata that the grouped counts
+do not retain. Their `transcript_path` fields reference files outside this
+repository. Some runs use older model routes, including GPT-5.4 Pro; do not treat
+them as a complete or interchangeable source for the grouped matrices.
+
+Grouped input `ingest_notes` retain the original source paths and record recovered
+opening-answer counts. These paths are provenance, not local dependencies. The
+historical aggregators use different selection, alias, and opening-answer rules;
+rebuilding from raw runs requires choosing and auditing the appropriate policy.
+Counts alone cannot reproduce the paper's semantic audit of opening answers.
+
+Smoke runs outside the paper's model set, explicit-identity pilot runs, obsolete
+smoke summaries, cluster logs, and generated figure copies were removed from the
+current tree. They remain recoverable in Git history. Synthetic test fixtures,
+scientific inputs, analysis source, and baseline pilot provenance are retained.

@@ -23,6 +23,8 @@ apptainer/*.sif
 # Node (Vite / epsilon visualizer UI)
 node_modules/
 visualizer/web/dist/
+visualizer/web/public/exports/
+visualizer/docs/build_actor_note/
 
 # macOS metadata
 .DS_Store
@@ -38,5 +40,5 @@ transcripts/
 *.jsonl
 *.csv.bak
 
-# RESULTS/: keep results.csv in git for offline visualizer ingest; omit large per-trial JSON
-RESULTS/**/*.json
+# Local batch outputs; retained historical CSVs live under data/pilot-results/
+RESULTS/

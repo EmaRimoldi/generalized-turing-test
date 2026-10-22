@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="450" viewBox="0 0 1200 450" role="img" aria-labelledby="title desc">
+  <title id="title">Generalized Turing Test protocol</title>
+  <desc id="desc">With equal probability, the hidden interlocutor is an actor A imitating target B or a genuine instance of B. A fresh instance of B interrogates the interlocutor and decides whether it is the target. GTTQ adds a private specimen-query stage before imitation.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M0 0L8 4L0 8Z" fill="#475569"/></marker>
+    <style>
+      text{font-family:Arial,Helvetica,sans-serif;fill:#172033}
+      .label{font-size:22px;font-weight:600}.body{font-size:17px}.small{font-size:15px;fill:#526077}
+      .box{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1.5}.wire{fill:none;stroke:#475569;stroke-width:1.8;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1200" height="450" rx="12" fill="#ffffff"/>
+  <text x="32" y="33" font-size="15" font-weight="700" letter-spacing="2" fill="#526077">THE IMITATION GAME</text>
+  <rect x="32" y="58" width="270" height="58" rx="8" fill="#eff6ff" stroke="#93b4e7" stroke-dasharray="5 4"/>
+  <text x="50" y="82" class="body" font-weight="600">Specimen B</text>
+  <text x="50" y="103" class="small">GTTQ only · private queries</text>
+  <path d="M167 116V145" class="wire" stroke-dasharray="5 4"/>
+  <rect x="32" y="149" width="270" height="86" rx="8" class="box"/>
+  <text x="50" y="184" class="label">Actor A</text>
+  <text x="50" y="212" class="body">Instructed to imitate B</text>
+  <rect x="32" y="279" width="270" height="86" rx="8" class="box"/>
+  <text x="50" y="314" class="label">Genuine target B</text>
+  <text x="50" y="342" class="body">Independent instance</text>
+  <path d="M302 192H430V256H504" class="wire"/>
+  <path d="M302 322H430V256" fill="none" stroke="#475569" stroke-width="1.8"/>
+  <text x="333" y="178" class="body">½</text><text x="333" y="307" class="body">½</text>
+  <rect x="510" y="205" width="230" height="102" rx="8" fill="#eff6ff" stroke="#93b4e7" stroke-width="1.5"/>
+  <text x="532" y="247" class="label">Interlocutor X</text>
+  <text x="532" y="278" class="body">Identity hidden</text>
+  <rect x="900" y="205" width="268" height="102" rx="8" class="box"/>
+  <text x="922" y="247" class="label">Distinguisher B</text>
+  <text x="922" y="278" class="body">Fresh instance of the target</text>
+  <path d="M900 236H747" class="wire"/><text x="779" y="222" class="small">Question</text>
+  <path d="M740 276H893" class="wire"/><text x="780" y="298" class="small">Response</text>
+  <path d="M1034 307V342" class="wire"/>
+  <rect x="900" y="349" width="268" height="48" rx="8" class="box"/>
+  <text x="921" y="379" class="body">Decision: same (1) / other (0)</text>
+  <path d="M32 412H1168" stroke="#e2e8f0"/>
+  <text x="32" y="437" class="small">Repeat trials → estimate distinguishing advantage → build the pairwise GTT relation</text>
+</svg>
