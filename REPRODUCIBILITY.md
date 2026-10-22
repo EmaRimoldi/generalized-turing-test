@@ -22,6 +22,10 @@ Every transcript JSON file contains an `environment` block with:
 - Apptainer container SHA-256
 - Hostname
 
+The public history was scrubbed before release. If a transcript uses an
+original commit identifier, look up its public counterpart in
+[`docs/history/commit-map.tsv`](docs/history/commit-map.tsv).
+
 To replay a trial:
 
     git checkout <commit-from-transcript>
