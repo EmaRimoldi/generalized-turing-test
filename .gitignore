@@ -22,6 +22,10 @@ apptainer/*.sif
 
 # Node (Vite / epsilon visualizer UI)
 node_modules/
+visualizer/web/dist/
+
+# macOS metadata
+.DS_Store
 
 # Local run logs (large / ephemeral)
 logs/

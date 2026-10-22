@@ -1,0 +1,42 @@
+name: Tests and visualizer build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: visualizer/web/package-lock.json
+
+      - name: Install Python test dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run offline Python tests
+        run: python -m pytest tests/ -q
+
+      - name: Build frontend and Condition A+B data
+        working-directory: visualizer/web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify published visualizer data is current
+        run: git diff --exit-code -- visualizer/web/public/epsilon_visualizer_data.json

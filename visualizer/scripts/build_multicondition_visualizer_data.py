@@ -21,6 +21,14 @@ from epsilon_visualizer.ingest import (  # noqa: E402
 )
 
 
+def source_reference(path: Path) -> str:
+    """Keep repository inputs portable across local and CI checkouts."""
+    try:
+        return path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -101,11 +109,11 @@ def main() -> int:
         "pairIngestStats": None,
         "conditionSources": {
             "no_query_no_explanation": {
-                "groupedJson": str(grouped_a),
+                "groupedJson": source_reference(grouped_a),
                 "pairIngestStats": stats_a,
             },
             "yes_query_no_explanation": {
-                "groupedJson": str(grouped_b),
+                "groupedJson": source_reference(grouped_b),
                 "pairIngestStats": stats_b,
             },
         },

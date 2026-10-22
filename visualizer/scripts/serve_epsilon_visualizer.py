@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Serve the pre-built epsilon visualizer (static Vite output) without Node/npm.
 
-Usage (from llm-eval repo root):
+Usage (from the repository root):
 
+    npm --prefix visualizer/web ci
+    npm --prefix visualizer/web run build
     python3 visualizer/scripts/serve_epsilon_visualizer.py
 
 Then open http://127.0.0.1:8765/ in your browser.
@@ -29,8 +31,9 @@ def main() -> int:
         print(
             "Missing visualizer/web/dist/index.html.\n"
             "Build once (on a machine with Node):\n"
-            "  cd visualizer/web && npm install && npm run build\n"
-            "Then copy the dist/ folder here or re-run this script from the repo."
+            "  npm --prefix visualizer/web ci\n"
+            "  npm --prefix visualizer/web run build\n"
+            "Then re-run this script. dist/ is generated locally and is not versioned."
         )
         return 1
 

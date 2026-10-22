@@ -4,7 +4,7 @@
   ],
   "conditionSources": {
     "no_query_no_explanation": {
-      "groupedJson": "/Users/emanuelerimoldi/Documents/GitHub/llm-eval/visualizer/web/public/condition_a_model_pair_results.json",
+      "groupedJson": "visualizer/web/public/condition_a_model_pair_results.json",
       "pairIngestStats": {
         "from_json": 81,
         "from_matrix_fallback": 0,
@@ -12,7 +12,7 @@
       }
     },
     "yes_query_no_explanation": {
-      "groupedJson": "/Users/emanuelerimoldi/Documents/GitHub/llm-eval/visualizer/web/public/condition_b_model_pair_results.json",
+      "groupedJson": "visualizer/web/public/condition_b_model_pair_results.json",
       "pairIngestStats": {
         "from_json": 81,
         "from_matrix_fallback": 0,
