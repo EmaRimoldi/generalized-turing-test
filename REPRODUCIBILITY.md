@@ -5,8 +5,8 @@ The API experiment runner uses the Apptainer environment defined in
 `apptainer/turing-eval.def`; Python dependencies are also listed in
 `requirements.txt`. Start from the current default branch:
 
-    git clone https://github.com/EmaRimoldi/generalizing-the-turing-test-to-interactive-agents.git
-    cd generalizing-the-turing-test-to-interactive-agents
+    git clone https://github.com/EmaRimoldi/generalized-turing-test.git
+    cd generalized-turing-test
     cp .env.example .env
     # Fill in your real API keys in .env
     ./scripts/build-container.sh

@@ -1,4 +1,6 @@
-# LLM Actor/Distinguisher Experiments
+# Generalized Turing Test
+
+Code and experiments for [**Generalizing the Turing Test to Interactive Agents**](https://arxiv.org/abs/2605.10851).
 
 This repository runs controlled actor/distinguisher experiments for language models.
 

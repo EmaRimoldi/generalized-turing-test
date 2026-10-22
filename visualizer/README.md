@@ -92,3 +92,8 @@ that regeneration does not change the snapshot.
 GitHub Pages deployment is configured in
 `.github/workflows/deploy-epsilon-visualizer.yml`. It builds from source with the
 same npm command and uploads the resulting `web/dist/` artifact.
+
+Automatic Pages deployment is opt-in: configure GitHub Pages to use GitHub
+Actions, then set the repository variable `ENABLE_VISUALIZER_PAGES` to `true`.
+The deployment workflow can also be run manually after Pages is configured.
+Tests and frontend build validation run independently of this setting.
