@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: python:3.11.9-slim-bookworm
+From: python:3.11.15-slim-bookworm
 
 %labels
     Author turing-eval-team
@@ -19,7 +19,7 @@ From: python:3.11.9-slim-bookworm
         curl
     rm -rf /var/lib/apt/lists/*
 
-    pip install --no-cache-dir --upgrade pip==24.2
+    pip install --no-cache-dir --upgrade pip==26.2.2
     pip install --no-cache-dir -r /opt/turing-eval/requirements.txt -r /opt/turing-eval/requirements-hf.txt
 
 %environment
@@ -33,7 +33,7 @@ From: python:3.11.9-slim-bookworm
 
 %test
     python --version
-    python -c "import sys; assert sys.version_info[:3] == (3, 11, 9), sys.version_info"
+    python -c "import sys; assert sys.version_info[:3] == (3, 11, 15), sys.version_info"
     python -c "import torch, transformers, matplotlib"
     pytest --version
     ruff --version

@@ -14,8 +14,7 @@ The app loads epsilon_visualizer_data.json from the same directory as index.html
 """
 import argparse
 import http.server
-import os
-import socketserver
+from functools import partial
 from pathlib import Path
 
 
@@ -37,10 +36,11 @@ def main() -> int:
         )
         return 1
 
-    os.chdir(dist)
-    handler = http.server.SimpleHTTPRequestHandler
-    with socketserver.TCPServer((args.host, args.port), handler) as httpd:
-        print(f"Serving {dist} at http://{args.host}:{args.port}/")
+    if not 0 <= args.port <= 65535:
+        parser.error("--port must be between 0 and 65535")
+    handler = partial(http.server.SimpleHTTPRequestHandler, directory=str(dist))
+    with http.server.ThreadingHTTPServer((args.host, args.port), handler) as httpd:
+        print(f"Serving {dist} at http://{args.host}:{httpd.server_port}/")
         print("Press Ctrl+C to stop.")
         try:
             httpd.serve_forever()

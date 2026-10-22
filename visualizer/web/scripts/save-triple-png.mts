@@ -57,9 +57,9 @@ function buildDisplayLaid(args: {
     (p) => p.condition === condition && set.has(p.source) && set.has(p.target)
   );
 
-  const stratificationByModel = stratificationLayoutScore(strictPairs, condition, graphModels);
-  const judgeScoreByModel = defenderImitationStrictness(strictPairs, condition, graphModels);
-  const actorScoreByModel = actorFoolingAsSource(strictPairs, condition, graphModels);
+  const stratificationByModel = stratificationLayoutScore(strictPairs, condition, graphModels, minValid);
+  const judgeScoreByModel = defenderImitationStrictness(strictPairs, condition, graphModels, minValid);
+  const actorScoreByModel = actorFoolingAsSource(strictPairs, condition, graphModels, minValid);
 
   if (graphView === "condensation") {
     const condensation = buildCondensation({
@@ -148,9 +148,9 @@ async function main() {
 
   const graphModels = (data.modelsByCondition?.[condition] ?? data.models).filter((m) => !isGptModel(m));
   const strictPairs = data.pairs.filter((p) => p.mode === "strict");
-  const stratificationByModel = stratificationLayoutScore(strictPairs, condition, graphModels);
-  const judgeScoreByModel = defenderImitationStrictness(strictPairs, condition, graphModels);
-  const actorScoreByModel = actorFoolingAsSource(strictPairs, condition, graphModels);
+  const stratificationByModel = stratificationLayoutScore(strictPairs, condition, graphModels, minValid);
+  const judgeScoreByModel = defenderImitationStrictness(strictPairs, condition, graphModels, minValid);
+  const actorScoreByModel = actorFoolingAsSource(strictPairs, condition, graphModels, minValid);
 
   const display = buildDisplayLaid({ data, condition, graphView, epsilon, minValid });
   if (!display) {

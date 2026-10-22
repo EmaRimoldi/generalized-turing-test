@@ -29,7 +29,7 @@ if [[ -f "${REPO_ROOT}/.env" ]]; then
     set +a
 fi
 
-for VAR in OPENAI_API_KEY OPENROUTER_API_KEY DEEPSEEK_API_KEY MOONSHOT_API_KEY TOGETHER_API_KEY GROQ_API_KEY MISTRAL_API_KEY HF_TOKEN HUGGING_FACE_HUB_TOKEN; do
+for VAR in OPENAI_API_KEY OPENROUTER_API_KEY DEEPSEEK_API_KEY MOONSHOT_API_KEY TOGETHER_API_KEY GROQ_API_KEY MISTRAL_API_KEY TURING_EVAL_API_TIMEOUT_SECONDS TURING_EVAL_API_HTTP_RETRIES HF_TOKEN HUGGING_FACE_HUB_TOKEN; do
     if [[ -n "${!VAR:-}" ]]; then
         ENV_ARGS+=("--env" "${VAR}=${!VAR}")
     fi
@@ -40,11 +40,11 @@ if compgen -G "/dev/nvidia*" > /dev/null; then
 fi
 
 exec apptainer exec \
-    "${GPU_ARGS[@]}" \
+    ${GPU_ARGS[@]+"${GPU_ARGS[@]}"} \
     --cleanenv \
     --pwd "/workspace" \
     --bind "${REPO_ROOT}:/workspace" \
     --bind "${CACHE_DIR}:/hf-cache" \
-    "${ENV_ARGS[@]}" \
+    ${ENV_ARGS[@]+"${ENV_ARGS[@]}"} \
     "${IMAGE}" \
     "$@"

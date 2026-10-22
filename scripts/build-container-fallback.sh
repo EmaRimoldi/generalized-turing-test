@@ -12,15 +12,15 @@ VENV_DIR="${REPO_ROOT}/.venv-container"
 mkdir -p "${REPO_ROOT}/apptainer"
 
 if [[ ! -f "${SIF_FILE}" ]]; then
-    echo "Pulling base Python 3.11.9 image..."
-    apptainer pull "${SIF_FILE}" docker://python:3.11.9-slim-bookworm
+    echo "Pulling base Python 3.11.15 image..."
+    apptainer pull "${SIF_FILE}" docker://python:3.11.15-slim-bookworm
 fi
 
 echo "Creating host-side venv inside the container interpreter..."
 apptainer exec "${SIF_FILE}" python -m venv "${VENV_DIR}"
 
 echo "Installing pinned dependencies..."
-apptainer exec "${SIF_FILE}" "${VENV_DIR}/bin/pip" install --upgrade pip==24.2
+apptainer exec "${SIF_FILE}" "${VENV_DIR}/bin/pip" install --upgrade pip==26.2.2
 apptainer exec "${SIF_FILE}" "${VENV_DIR}/bin/pip" install -r "${REPO_ROOT}/requirements.txt"
 
 echo "Fallback setup complete."

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 
 from . import conditions
@@ -90,6 +91,9 @@ def cli_arguments(options: object, names: tuple[str, ...]) -> list[str]:
 def validate_condition_options(options: object) -> None:
     """Reject incompatible options before starting any model interactions."""
     run_name = getattr(options, "run_name", None)
+    temperature = getattr(options, "temperature", None)
+    if temperature is not None and (not math.isfinite(temperature) or temperature < 0):
+        raise ValueError("temperature must be finite and nonnegative")
     if run_name is not None and (run_name in {".", ".."} or Path(run_name).name != run_name):
         raise ValueError("run_name must be a single directory name")
     condition = options.condition

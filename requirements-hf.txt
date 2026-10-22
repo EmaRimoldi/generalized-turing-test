@@ -1,6 +1,6 @@
-# Hugging Face local inference stack. Only install in the :hf image variant.
-torch==2.4.1
-transformers==4.45.2
-accelerate==0.34.2
-bitsandbytes==0.43.3
-safetensors==0.4.5
+# Optional local inference stack; API paper runs do not require these packages.
+torch==2.14.1
+transformers==5.20.2
+accelerate==1.15.0
+bitsandbytes==0.50.2
+safetensors==0.8.0

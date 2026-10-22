@@ -21,7 +21,7 @@ cp .env.example .env
 ```
 
 The container definition is `apptainer/turing-eval.def`; the wrapper loads `.env`
-and forwards provider keys. Both image definitions install `requirements.txt`;
+and forwards provider keys and the API timeout/retry settings. Both image definitions install `requirements.txt`;
 the HF image additionally installs `requirements-hf.txt`. Build helpers try
 fakeroot and unprivileged builds, retaining the previous image on failure.
 If neither mode is available, `scripts/build-container-fallback.sh` prepares a
@@ -33,7 +33,10 @@ base image and a separate virtual environment; invoke its interpreter explicitly
 
 All paper model calls used OpenRouter. The optional
 HF backend, alternate routes, and historical prompt variants remain available
-for compatibility but are not the paper's default configuration.
+for compatibility but are not the paper's default configuration. The optional HF
+stack now requires native Transformers architectures and Safetensors weights;
+loading arbitrary Hub code or pickle weights is disabled. Its dependency updates
+do not change the OpenRouter baseline schedules.
 
 ## Paper baseline schedules
 
@@ -110,7 +113,11 @@ experiment without its exact prompts and configuration.
 
 Each run writes `results.csv` and `trial_XXX.json` beneath its run directory.
 Role instructions are ordinary user messages. Transcripts retain the role
-histories, prompts, routes, answers, budgets, and environment metadata.
+histories, prompts, routes, answers, budgets, and environment metadata. A
+`run_config` records requested counts, all protocol budgets, model nicknames, and
+generation options (`null` means the served default). UTT prompts and output
+identity fields use the registry display name; the original CLI nickname remains
+in `run_config`. Files are replaced atomically only after a complete write.
 
 - `answer=1`: the judge says “same model” (or the nominated target in UTT).
 - `answer=0`: the judge says “different model.”
@@ -139,10 +146,14 @@ python scripts/render_results_summary.py \
 ```
 
 This is a descriptive run summary, not the complete paper scoring pipeline.
+`n_trials` and completion rate cover all collected rows; `n_answered` and
+answer rates use only binary verdicts. Missing answers produce blank rates,
+not zero probabilities. The progress watcher reports a reached target only
+when `--expected-trials` is supplied and both transcripts and CSV reach it.
 
 ## Rebuild the explorer offline
 
-With Python 3.11 and Node.js 20:
+With Python 3.11 and Node.js 22.12+:
 
 ```bash
 npm --prefix visualizer/web ci
@@ -159,7 +170,9 @@ for aggregation policies and development commands.
 ## Historical trials and verification
 
 Transcripts record Python/platform, Git commit/branch/dirty state, hostname, and
-container metadata when available. Before checking out an old transcript's
+container metadata when available. Git metadata refers to this code checkout
+even when launched elsewhere. Container digests are cached while the image
+identity and timestamps remain unchanged. Before checking out an old transcript's
 commit, consult the [public history mapping](docs/history/README.md): public
 commit identifiers differ from the original private history.
 
@@ -176,6 +189,18 @@ npm --prefix visualizer/web test
 npm --prefix visualizer/web run build
 git diff --exit-code -- visualizer/web/public/epsilon_visualizer_data.json
 ```
+
+For the optional HF stack, use a separate environment with `requirements-hf.txt`
+and run:
+
+```bash
+GTT_TEST_REAL_HF=1 HF_HUB_OFFLINE=1 python -m pytest tests/test_hf_local_smoke.py -q
+```
+
+This test creates tiny local Safetensors weights and generates on CPU; it
+downloads no model weights. CI
+runs it separately from the API-only suite. It does not validate CUDA or 4-bit
+inference.
 
 The frontend build includes TypeScript checking. Python lint rules are defined
 in `ruff.toml`, so local user settings do not alter the project's checks.

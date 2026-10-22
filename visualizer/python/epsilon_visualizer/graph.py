@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .types import PairEvidence
+from .thresholding import classify_pair
 
 
 @dataclass(frozen=True)
@@ -63,11 +64,17 @@ def build_supported_graph(
     models: list[str],
     pair_evidence: list[PairEvidence],
     epsilon: float,
+    min_valid: int = 3,
 ) -> dict[str, set[str]]:
     g: dict[str, set[str]] = {m: set() for m in models}
     for ev in pair_evidence:
-        if ev.status_at_epsilon == "supported":
-            g.setdefault(ev.source, set()).add(ev.target)
+        if ev.source not in g or ev.target not in g or ev.source == ev.target:
+            continue
+        if "imputed_uniform" in (ev.imitation_data_provenance, ev.genuine_data_provenance):
+            continue
+        if classify_pair(epsilon=epsilon, estimate=ev.estimate, upper=None,
+                         n_valid=ev.n_valid, min_valid=min_valid).status == "supported":
+            g[ev.source].add(ev.target)
     return g
 
 
@@ -76,6 +83,8 @@ def build_condensation_graph(
     models: list[str],
     supported_edges: dict[str, set[str]],
 ) -> CondensationGraph:
+    universe = set(models)
+    supported_edges = {m: supported_edges.get(m, set()) & universe for m in models}
     sccs = _tarjan_scc(models, supported_edges)
     # Deterministic node ids: sort members, then sort SCC list
     sorted_sccs = [tuple(sorted(comp)) for comp in sccs]

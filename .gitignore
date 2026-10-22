@@ -23,6 +23,7 @@ apptainer/*.sif
 # Node (Vite / epsilon visualizer UI)
 node_modules/
 visualizer/web/dist/
+visualizer/output/
 visualizer/web/public/exports/
 visualizer/docs/**/build_actor_note/
 

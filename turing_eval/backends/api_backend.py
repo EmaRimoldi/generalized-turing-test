@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import ssl
 import time
@@ -92,6 +93,11 @@ PROVIDERS: Dict[str, ProviderConfig] = {
 }
 
 
+def is_placeholder_api_key(api_key: str | None) -> bool:
+    key = (api_key or "").strip().upper()
+    return not key or any(marker in key for marker in ("PLACEHOLDER", "REPLACE_ME", "YOUR-API-KEY"))
+
+
 class APIChatBackend(ChatBackend):
     """OpenAI-compatible chat client usable with any provider in PROVIDERS."""
 
@@ -116,9 +122,11 @@ class APIChatBackend(ChatBackend):
         else:
             env_t = os.environ.get("TURING_EVAL_API_TIMEOUT_SECONDS", "").strip()
             self.timeout_seconds = float(env_t) if env_t else 480.0
+        if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+            raise ValueError("API timeout must be finite and positive")
 
-        api_key = os.environ.get(self.provider_config.api_key_env)
-        if not api_key or api_key.endswith("PLACEHOLDER"):
+        api_key = os.environ.get(self.provider_config.api_key_env, "").strip()
+        if is_placeholder_api_key(api_key):
             raise RuntimeError(
                 f"Environment variable {self.provider_config.api_key_env} is unset or a placeholder. "
                 f"Set a real key before calling APIChatBackend for provider {provider!r}."
@@ -169,11 +177,14 @@ class APIChatBackend(ChatBackend):
                 ) as response:
                     raw = response.read().decode("utf-8")
                 try:
-                    return json.loads(raw)
+                    decoded = json.loads(raw)
                 except json.JSONDecodeError as exc:
                     raise RuntimeError(
                         f"{self.provider_config.name} returned non-JSON for {self.model_id}: {raw[:500]}"
                     ) from exc
+                if not isinstance(decoded, dict):
+                    raise RuntimeError(f"{self.provider_config.name} returned a non-object JSON response for {self.model_id}")
+                return decoded
             except error.HTTPError as exc:
                 details = ""
                 try:
@@ -227,25 +238,8 @@ class APIChatBackend(ChatBackend):
             if merged:
                 return merged
 
-        reasoning = message.get("reasoning")
-        if isinstance(reasoning, str):
-            stripped = reasoning.strip()
-            if stripped:
-                return stripped
-
-        reasoning_details = message.get("reasoning_details")
-        if isinstance(reasoning_details, list):
-            text_chunks = []
-            for item in reasoning_details:
-                if not isinstance(item, dict):
-                    continue
-                text = item.get("text", "")
-                if isinstance(text, str):
-                    text_chunks.append(text)
-            merged = "\n".join(chunk.strip() for chunk in text_chunks if chunk.strip()).strip()
-            if merged:
-                return merged
-
+        # Reasoning tokens are a separate channel, not the agent's reply. In
+        # particular, an answer tag in reasoning must never become a verdict.
         return None
 
     def generate_with_metadata(

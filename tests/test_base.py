@@ -50,7 +50,6 @@ def test_generation_config_to_hf_kwargs():
         "max_new_tokens": 77,
         "do_sample": False,
         "return_full_text": True,
-        "temperature": 0.4,
         "top_p": 0.7,
         "top_k": 10,
     }
@@ -115,3 +114,10 @@ def test_chat_session_legacy_system_prompt_arg_is_user_framed():
     backend = EchoBackend()
     session = ChatSession(backend, "test", system_prompt="legacy")
     assert session.messages == [{"role": "user", "content": "legacy"}]
+
+
+def test_zero_temperature_selects_greedy_hf_generation():
+    cfg = GenerationConfig(temperature=0, top_k=0)
+    assert cfg.to_hf_kwargs()["do_sample"] is False
+    assert "temperature" not in cfg.to_hf_kwargs()
+    assert cfg.to_openai_payload()["temperature"] == 0

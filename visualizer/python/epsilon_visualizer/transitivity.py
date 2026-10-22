@@ -50,15 +50,20 @@ def condensation_heights(
             out[u].add(v)
 
     memo: dict[str, int] = {}
+    visiting: set[str] = set()
 
     def height(x: str) -> int:
         if x in memo:
             return memo[x]
+        if x in visiting:
+            raise ValueError("Condensation graph must be acyclic")
+        visiting.add(x)
         succ = out.get(x, set())
         if not succ:
             memo[x] = 0
             return 0
         h = 1 + max(height(y) for y in succ)
+        visiting.remove(x)
         memo[x] = h
         return h
 
@@ -72,8 +77,9 @@ def strict_pairs(
 ) -> set[tuple[str, str]]:
     """Strict: A > B iff A -> B and not B -> A (supported-edge view)."""
     s: set[tuple[str, str]] = set()
+    node_set = set(nodes)
     for a in nodes:
         for b in adj.get(a, ()):
-            if a not in adj.get(b, ()):
+            if b in node_set and a not in adj.get(b, ()):
                 s.add((a, b))
     return s

@@ -278,16 +278,16 @@ export function App() {
   );
 
   const combinedScore = useMemo(
-    () => combinedScoreByModel(strictPairs, condition, graphModels),
-    [strictPairs, condition, graphModels]
+    () => combinedScoreByModel(strictPairs, condition, graphModels, minValid),
+    [strictPairs, condition, graphModels, minValid]
   );
   const actorScore = useMemo(
-    () => actorScoreBySource(strictPairs, condition, graphModels),
-    [strictPairs, condition, graphModels]
+    () => actorScoreBySource(strictPairs, condition, graphModels, minValid),
+    [strictPairs, condition, graphModels, minValid]
   );
   const judgeScore = useMemo(
-    () => judgeScoreByTarget(strictPairs, condition, graphModels),
-    [strictPairs, condition, graphModels]
+    () => judgeScoreByTarget(strictPairs, condition, graphModels, minValid),
+    [strictPairs, condition, graphModels, minValid]
   );
   const selectedScore = useMemo(
     () => chooseScoreMap(rankingMode, combinedScore, actorScore, judgeScore),
@@ -416,9 +416,9 @@ export function App() {
     if (!data) return [];
     return data.conditions.map((id) => {
       const models = data.modelsByCondition?.[id] ?? data.models;
-      const s = combinedScoreByModel(strictPairs, id, models);
-      const a = actorScoreBySource(strictPairs, id, models);
-      const j = judgeScoreByTarget(strictPairs, id, models);
+      const s = combinedScoreByModel(strictPairs, id, models, minValid);
+      const a = actorScoreBySource(strictPairs, id, models, minValid);
+      const j = judgeScoreByTarget(strictPairs, id, models, minValid);
       const condPairs = strictPairs.filter(
         (p) => p.condition === id && models.includes(p.source) && models.includes(p.target)
       );

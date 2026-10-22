@@ -13,13 +13,19 @@ import json
 import os
 import sys
 from urllib import error, request
+from pathlib import Path
 
-from turing_eval.models import MODEL_REGISTRY
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from turing_eval.models import MODEL_REGISTRY  # noqa: E402
+from turing_eval.backends.api_backend import _ssl_context_for_https, is_placeholder_api_key  # noqa: E402
 
 
 def fetch_openrouter_catalog() -> set[str]:
     api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key or api_key.endswith("PLACEHOLDER"):
+    if is_placeholder_api_key(api_key):
         print("ERROR: OPENROUTER_API_KEY is unset or placeholder.", file=sys.stderr)
         sys.exit(1)
     req = request.Request(
@@ -27,12 +33,15 @@ def fetch_openrouter_catalog() -> set[str]:
         headers={"Authorization": f"Bearer {api_key}"},
     )
     try:
-        with request.urlopen(req, timeout=30) as resp:
+        with request.urlopen(req, timeout=30, context=_ssl_context_for_https()) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-    except (error.HTTPError, error.URLError) as exc:
+    except (error.HTTPError, error.URLError, TimeoutError, json.JSONDecodeError) as exc:
         print(f"ERROR: OpenRouter /models fetch failed: {exc}", file=sys.stderr)
         sys.exit(3)
-    return {str(model.get("id")) for model in data.get("data", [])}
+    if not isinstance(data, dict) or not isinstance(data.get("data"), list):
+        print("ERROR: Invalid OpenRouter catalog response.", file=sys.stderr)
+        sys.exit(3)
+    return {model["id"] for model in data["data"] if isinstance(model, dict) and isinstance(model.get("id"), str)}
 
 
 def main() -> int:

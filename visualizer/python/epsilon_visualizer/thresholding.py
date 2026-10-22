@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from math import isfinite
 
 from .types import PairStatus
 
@@ -33,7 +34,11 @@ def classify_pair(
     The upper argument is accepted for JSON/API compatibility but is not used
     by the threshold rule.
     """
-    if estimate is None or n_valid < min_valid:
+    if not isfinite(epsilon) or not 0 <= epsilon <= .5:
+        raise ValueError("epsilon must be finite and between 0 and 0.5")
+    if min_valid <= 0:
+        raise ValueError("min_valid must be positive")
+    if estimate is None or not isfinite(estimate) or not 0 <= estimate <= 1 or n_valid < min_valid:
         return ThresholdResult(status="missing", threshold_at_point=None, threshold_at_upper=None)
 
     thresh_point = max(0.0, float(estimate) - 0.5)

@@ -25,9 +25,9 @@ def test_extract_text_list_content():
     assert APIChatBackend._extract_text_from_message(msg) == "hello world"
 
 
-def test_extract_text_reasoning_fallback():
+def test_reasoning_is_not_an_assistant_reply():
     msg = {"content": "", "reasoning": "thinking..."}
-    assert APIChatBackend._extract_text_from_message(msg) == "thinking..."
+    assert APIChatBackend._extract_text_from_message(msg) is None
 
 
 def test_extract_text_empty_returns_none():

@@ -55,6 +55,8 @@ class HFChatBackend(ChatBackend):
         quantization: Optional[str] = None,
         dtype: Optional[str] = "bfloat16",
     ) -> None:
+        if quantization not in (None, "4bit"):
+            raise ValueError(f"Unsupported HF quantization {quantization!r}")
         torch, AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig = _import_hf_dependencies()
 
         self.backend_kind = "hf"
@@ -70,7 +72,7 @@ class HFChatBackend(ChatBackend):
         self._tokenizer = AutoTokenizer.from_pretrained(
             repo_id,
             use_fast=True,
-            trust_remote_code=True,
+            trust_remote_code=False,
             cache_dir=self.cache_dir,
         )
         if self._tokenizer.pad_token is None:
@@ -78,7 +80,8 @@ class HFChatBackend(ChatBackend):
 
         model_kwargs: Dict[str, Any] = {
             "low_cpu_mem_usage": True,
-            "trust_remote_code": True,
+            "trust_remote_code": False,
+            "use_safetensors": True,
             "cache_dir": self.cache_dir,
         }
         resolved_dtype = _resolve_dtype(torch, dtype)
@@ -95,7 +98,7 @@ class HFChatBackend(ChatBackend):
             model_kwargs["device_map"] = "auto"
         else:
             if resolved_dtype is not None:
-                model_kwargs["torch_dtype"] = resolved_dtype
+                model_kwargs["dtype"] = resolved_dtype
             if cuda_available:
                 model_kwargs["device_map"] = "auto"
 
@@ -126,7 +129,4 @@ class HFChatBackend(ChatBackend):
         text = self._tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
         if text:
             return text
-        full_text = self._tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
-        if full_text:
-            return full_text
         raise RuntimeError(f"{self.model_id} returned an empty decoded response.")

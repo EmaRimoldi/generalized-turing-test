@@ -1,13 +1,17 @@
 import type { PairRow, PairStatus } from "./types";
 
+function isProbability(value: number | null | undefined): value is number {
+  return value != null && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
 export function classifyAtEpsilon(
   row: PairRow,
   epsilon: number,
   minValid: number
 ): PairStatus {
   if (
-    row.estimate == null ||
-    row.nValid < minValid
+    !isProbability(row.estimate) ||
+    !Number.isFinite(row.nValid) || row.nValid < minValid
   ) {
     return "missing";
   }
@@ -41,7 +45,7 @@ export function foolingOrderingStatus(
     return "missing";
   }
   const pDiff = row.details?.pDiffImpostor;
-  if (pDiff == null || Number.isNaN(pDiff) || row.nValid < minValid) {
+  if (!isProbability(pDiff) || row.nValid < minValid) {
     return "missing";
   }
   const dHat = pDiff - 0.5;
@@ -49,7 +53,7 @@ export function foolingOrderingStatus(
 }
 
 export function formatPct(x: number | null | undefined): string {
-  if (x == null || Number.isNaN(x)) return "—";
+  if (!isProbability(x)) return "—";
   return `${(100 * x).toFixed(1)}%`;
 }
 
@@ -58,7 +62,7 @@ function hasUsablePairBranches(row: PairRow, minValid: number): boolean {
   const ge = row.details?.genuineDataProvenance as string | undefined;
   return !(
     row.source === row.target ||
-    row.nValid < minValid ||
+    !Number.isFinite(row.nValid) || row.nValid < minValid ||
     im === "imputed_uniform" ||
     ge === "imputed_uniform"
   );
@@ -67,16 +71,16 @@ function hasUsablePairBranches(row: PairRow, minValid: number): boolean {
 /** s_B = P(B says "same" | genuine B), the self-recognition rate of the target/judge B. */
 export function pairSelfRecognition(row: PairRow, minValid: number): number | null {
   const ge = row.details?.genuineDataProvenance as string | undefined;
-  if (row.nValid < minValid || ge === "imputed_uniform") return null;
+  if (!Number.isFinite(row.nValid) || row.nValid < minValid || ge === "imputed_uniform") return null;
   const v = row.details?.pSameRealB;
-  return v == null || Number.isNaN(v) ? null : v;
+  return !isProbability(v) ? null : v;
 }
 
 /** r_{A→B} = P(B says "same" | A imitates B), the fooling rate of actor A against judge B. */
 export function pairFoolingRate(row: PairRow, minValid: number): number | null {
   if (!hasUsablePairBranches(row, minValid)) return null;
   const pDiff = row.details?.pDiffImpostor;
-  if (pDiff == null || Number.isNaN(pDiff)) return null;
+  if (!isProbability(pDiff)) return null;
   return 1 - pDiff;
 }
 
@@ -120,7 +124,9 @@ function marginsBySource(
 ): Map<string, number[]> {
   const out = new Map<string, number[]>();
   for (const m of models) out.set(m, []);
+  const selected = new Set(models);
   for (const p of pairs) {
+    if (!selected.has(p.source) || !selected.has(p.target)) continue;
     if (p.condition !== condition || p.source === p.target) continue;
     const m = actorPairMargin(p, minValid);
     if (m == null) continue;
@@ -171,7 +177,9 @@ export function actorOutDegreeBySource(
 ): Map<string, number> {
   const out = new Map<string, number>();
   for (const m of models) out.set(m, 0);
+  const selected = new Set(models);
   for (const p of pairs) {
+    if (!selected.has(p.source) || !selected.has(p.target)) continue;
     if (p.condition !== condition || p.source === p.target) continue;
     if (actorPairStatusAtThreshold(p, tau, minValid) !== "supported") continue;
     out.set(p.source, (out.get(p.source) ?? 0) + 1);
@@ -192,24 +200,29 @@ export function actorOutDegreeBySource(
 export function defenderImitationStrictness(
   pairs: PairRow[],
   condition: string,
-  models: string[]
+  models: string[],
+  minValid = 3
 ): Map<string, number> {
   const pSameByD = new Map<string, number>();
   const pDiffsByD = new Map<string, number[]>();
   for (const m of models) {
     pDiffsByD.set(m, []);
   }
+  const selected = new Set(models);
   for (const p of pairs) {
+    if (!selected.has(p.source) || !selected.has(p.target)) continue;
     if (p.condition !== condition) continue;
+    if (!Number.isFinite(p.nValid) || p.nValid < minValid) continue;
     const pSame = p.details?.pSameRealB;
     // Self-pairs are rendered as calibration-only rows with null estimates, so the
     // genuine-branch rate must be recovered from any pair row targeting B.
-    if (pSame != null && !Number.isNaN(pSame) && !pSameByD.has(p.target)) {
+    if (isProbability(pSame) && p.details?.genuineDataProvenance !== "imputed_uniform" && !pSameByD.has(p.target)) {
       pSameByD.set(p.target, pSame);
     }
     if (p.source === p.target) continue;
+    if (p.details?.imitationDataProvenance === "imputed_uniform") continue;
     const v = p.details?.pDiffImpostor;
-    if (v == null || Number.isNaN(v)) continue;
+    if (!isProbability(v)) continue;
     pDiffsByD.get(p.target)?.push(v);
   }
   const out = new Map<string, number>();
@@ -238,17 +251,22 @@ export function defenderImitationStrictness(
 export function actorFoolingAsSource(
   pairs: PairRow[],
   condition: string,
-  models: string[]
+  models: string[],
+  minValid = 3
 ): Map<string, number> {
   const pDiffsByS = new Map<string, number[]>();
   for (const m of models) {
     pDiffsByS.set(m, []);
   }
+  const selected = new Set(models);
   for (const p of pairs) {
+    if (!selected.has(p.source) || !selected.has(p.target)) continue;
     if (p.condition !== condition) continue;
     if (p.source === p.target) continue;
+    if (!Number.isFinite(p.nValid) || p.nValid < minValid) continue;
+    if (p.details?.imitationDataProvenance === "imputed_uniform") continue;
     const v = p.details?.pDiffImpostor;
-    if (v == null || Number.isNaN(v)) continue;
+    if (!isProbability(v)) continue;
     pDiffsByS.get(p.source)?.push(v);
   }
   const out = new Map<string, number>();
@@ -267,18 +285,20 @@ export function actorFoolingAsSource(
 export function actorScoreBySource(
   pairs: PairRow[],
   condition: string,
-  models: string[]
+  models: string[],
+  minValid = 3
 ): Map<string, number> {
-  return actorFoolingAsSource(pairs, condition, models);
+  return actorFoolingAsSource(pairs, condition, models, minValid);
 }
 
 /** Previous "J" ranking: judge-side self/strictness ability across incoming actors. */
 export function judgeScoreByTarget(
   pairs: PairRow[],
   condition: string,
-  models: string[]
+  models: string[],
+  minValid = 3
 ): Map<string, number> {
-  return defenderImitationStrictness(pairs, condition, models);
+  return defenderImitationStrictness(pairs, condition, models, minValid);
 }
 
 /**
@@ -290,10 +310,11 @@ export function judgeScoreByTarget(
 export function stratificationLayoutScore(
   pairs: PairRow[],
   condition: string,
-  models: string[]
+  models: string[],
+  minValid = 3
 ): Map<string, number> {
-  const j = defenderImitationStrictness(pairs, condition, models);
-  const a = actorFoolingAsSource(pairs, condition, models);
+  const j = defenderImitationStrictness(pairs, condition, models, minValid);
+  const a = actorFoolingAsSource(pairs, condition, models, minValid);
   const out = new Map<string, number>();
   for (const m of models) {
     out.set(m, 0.5 * (j.get(m) ?? 0) + 0.5 * (a.get(m) ?? 0));
@@ -305,9 +326,10 @@ export function stratificationLayoutScore(
 export function combinedScoreByModel(
   pairs: PairRow[],
   condition: string,
-  models: string[]
+  models: string[],
+  minValid = 3
 ): Map<string, number> {
-  return stratificationLayoutScore(pairs, condition, models);
+  return stratificationLayoutScore(pairs, condition, models, minValid);
 }
 
 /**

@@ -16,7 +16,7 @@ CSV_PATH="$(cd "$(dirname "${CSV_PATH}")" && pwd)/$(basename "${CSV_PATH}")"
 if [[ ! -f ${CSV_PATH} ]]; then echo "CSV not found: ${CSV_PATH}" >&2; exit 1; fi
 if [[ ${OUTPUT_DIR} != /* ]]; then OUTPUT_DIR="${PWD}/${OUTPUT_DIR}"; fi
 PYTHON_BIN="${PYTHON:-python3}"
-if [[ -x ${REPO_ROOT}/.venv/bin/python ]]; then PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"; fi
+if [[ -z ${PYTHON:-} && -x ${REPO_ROOT}/.venv/bin/python ]]; then PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"; fi
 mkdir -p "${REPO_ROOT}/logs"
 LOG_FILE="${REPO_ROOT}/logs/batch-${SESSION}.log"
 
@@ -26,7 +26,7 @@ if tmux has-session -t "${SESSION}" 2>/dev/null; then
 fi
 ENV_COMMAND=""
 if [[ -f ${REPO_ROOT}/.env ]]; then
-    printf -v ENV_COMMAND 'set -a; source %q; set +a; ' "${REPO_ROOT}/.env"
+    printf -v ENV_COMMAND 'set -a && source %q && set +a && ' "${REPO_ROOT}/.env"
 fi
 # Quote every external value before passing the command through tmux's shell.
 printf -v RUN_COMMAND 'cd %q && %s%q -u %q --csv %q --output-dir %q --verbose 2>&1 | tee -a %q' \

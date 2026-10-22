@@ -42,7 +42,7 @@ See the [reproduction guide](REPRODUCIBILITY.md) for controlled budgets, UTT, ou
 
 ## Explore the included results
 
-With Node.js 20 and Python available:
+With Node.js 22.12+ and Python available:
 
 ```bash
 npm --prefix visualizer/web ci

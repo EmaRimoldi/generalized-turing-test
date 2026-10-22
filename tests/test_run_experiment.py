@@ -97,6 +97,9 @@ def test_run_experiment_retries_infra_failures_and_keeps_only_valid_trials(monke
     failed_payload = json.loads(failed_attempts[0].read_text())
     assert failed_payload["error"] == "openrouter HTTP 503 Service Unavailable"
     assert failed_payload["attempt_id"] == 0
+    assert failed_payload["run_config"]["turn_limit"] == 40
+    assert failed_payload["run_config"]["max_attempts"] == 5
+    assert failed_payload["run_config"]["generation"]["temperature"] is None
     assert (run_path / "trial_000.json").exists()
     assert (run_path / "trial_001.json").exists()
 
@@ -302,13 +305,14 @@ def test_run_experiment_passes_target_model_to_runner_and_transcript(monkeypatch
     rc = run_experiment.main()
 
     assert rc == 0
-    assert captured_runner_kwargs[0]["target_model"] == "gemini-3-pro"
+    assert captured_runner_kwargs[0]["target_model"] == run_experiment.MODEL_REGISTRY["gemini-3-pro"].display_name
     csv_path = out_dir / "trusted-target-check" / "results.csv"
     with csv_path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
-    assert rows[0]["target_model"] == "gemini-3-pro"
+    assert rows[0]["target_model"] == run_experiment.MODEL_REGISTRY["gemini-3-pro"].display_name
     payload = json.loads((out_dir / "trusted-target-check" / "trial_000.json").read_text())
-    assert payload["target_model"] == "gemini-3-pro"
+    assert payload["target_model"] == run_experiment.MODEL_REGISTRY["gemini-3-pro"].display_name
+    assert payload["run_config"]["target_model"] == "gemini-3-pro"
 
 
 def test_run_experiment_passes_num_queries_to_controlled_query_mode(monkeypatch, tmp_path):

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from math import isfinite
 from typing import Dict, List, Optional
 
 
@@ -15,6 +16,17 @@ class GenerationConfig:
     top_p: Optional[float] = None
     top_k: Optional[int] = None
     do_sample: bool = True
+
+    def __post_init__(self) -> None:
+        for name in ("max_new_tokens", "top_k"):
+            value = getattr(self, name)
+            minimum = 0 if name == "top_k" else 1
+            if value is not None and (type(value) is not int or value < minimum):
+                raise ValueError(f"{name} must be an integer >= {minimum}")
+        if self.temperature is not None and (not isfinite(self.temperature) or self.temperature < 0):
+            raise ValueError("temperature must be finite and nonnegative")
+        if self.top_p is not None and (not isfinite(self.top_p) or not 0 < self.top_p <= 1):
+            raise ValueError("top_p must be finite and in (0, 1]")
 
     def to_openai_payload(self) -> Dict[str, object]:
         payload: Dict[str, object] = {}
@@ -32,12 +44,12 @@ class GenerationConfig:
 
     def to_hf_kwargs(self) -> Dict[str, object]:
         kwargs: Dict[str, object] = {
-            "do_sample": self.do_sample,
+            "do_sample": self.do_sample and self.temperature != 0,
             "return_full_text": True,
         }
         if self.max_new_tokens is not None:
             kwargs["max_new_tokens"] = self.max_new_tokens
-        if self.temperature is not None:
+        if self.temperature is not None and kwargs["do_sample"]:
             kwargs["temperature"] = self.temperature
         if self.top_p is not None:
             kwargs["top_p"] = self.top_p
@@ -83,8 +95,7 @@ class ChatSession:
             self.messages.append({"role": "user", "content": prompt})
 
     def _append_assistant_message(self, reply: str, metadata: Dict[str, object]) -> None:
-        message: Dict[str, object] = {"role": "assistant", "content": reply}
-        message.update(metadata)
+        message: Dict[str, object] = {**metadata, "role": "assistant", "content": reply}
         self.messages.append(message)
 
     def add_user_message(self, content: str) -> None:

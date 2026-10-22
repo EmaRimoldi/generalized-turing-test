@@ -7,6 +7,7 @@ import argparse
 import sys
 import traceback
 from datetime import datetime, timezone
+from dataclasses import asdict
 from pathlib import Path
 
 from turing_eval.backends.base import GenerationConfig
@@ -71,6 +72,21 @@ def main() -> int:
         )
 
     generation = GenerationConfig(max_new_tokens=args.max_new_tokens, temperature=args.temperature)
+    target_display = MODEL_REGISTRY[args.target_model].display_name if args.target_model else None
+    run_config = {
+        "actor": args.actor,
+        "distinguisher": args.distinguisher,
+        "condition": args.condition,
+        "target_model": args.target_model,
+        "actor_hint_model": args.actor_hint_model,
+        "num_trials": args.num_trials,
+        "max_attempts": max_attempts,
+        "turn_limit": args.turn_limit,
+        "specimen_turn_limit": args.specimen_turn_limit if args.condition in SPECIMEN_BUDGET_CONDITIONS else None,
+        "num_queries": args.num_queries,
+        "num_turns": args.num_turns,
+        "generation": asdict(generation),
+    }
     actor = load_backend(
         args.actor,
         generation,
@@ -114,7 +130,7 @@ def main() -> int:
             else:
                 kwargs["num_queries"] = args.num_queries
         if args.condition == "no_query_trusted_distinguisher":
-            kwargs["target_model"] = args.target_model
+            kwargs["target_model"] = target_display
         if (
             args.condition == "no_query_no_explanation_actor_model_hint"
             and args.actor_hint_model is not None
@@ -135,6 +151,7 @@ def main() -> int:
                 "error": str(exc),
             }
         result["attempt_id"] = attempt_id
+        result["run_config"] = run_config
         result["actor_route"] = _describe_backend_route(actor)
         result["distinguisher_route"] = _describe_backend_route(distinguisher)
         if args.condition in SPECIMEN_CONDITIONS:
@@ -148,7 +165,7 @@ def main() -> int:
                 actor.display_name,
                 distinguisher.display_name,
                 args.condition,
-                target_model=args.target_model,
+                target_model=target_display,
             )
             result["transcript_path"] = str(transcript_path)
             results.append(result)
@@ -160,7 +177,7 @@ def main() -> int:
                 actor.display_name,
                 distinguisher.display_name,
                 args.condition,
-                target_model=args.target_model,
+                target_model=target_display,
             )
         attempt_id += 1
 
@@ -171,7 +188,7 @@ def main() -> int:
         actor.display_name,
         distinguisher.display_name,
         args.condition,
-        target_model=args.target_model,
+        target_model=target_display,
     )
     if len(results) < args.num_trials:
         print(

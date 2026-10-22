@@ -19,7 +19,11 @@ def wilson_interval(k: int, n: int, *, z: float = 1.645) -> tuple[float, float]:
 
     Default z=1.645 corresponds to ~95% one-sided; we still return a two-sided interval.
     """
-    if n <= 0:
+    if type(n) is not int or type(k) is not int or not 0 <= k <= n:
+        raise ValueError("Binomial counts must be integers with 0 <= k <= n")
+    if not math.isfinite(z) or z <= 0:
+        raise ValueError("z must be finite and positive")
+    if n == 0:
         return (float("nan"), float("nan"))
     phat = k / n
     z2 = z * z

@@ -7,10 +7,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "visualizer" / "python"))
+from epsilon_visualizer.ingest import pair_counts_from_grouped_model_pair_json  # noqa: E402
 
 
 def short(mid: str) -> str:
@@ -21,12 +26,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--grouped-json",
-        default="visualizer/web/public/condition_a_model_pair_results.json",
+        default=str(REPO_ROOT / "visualizer/web/public/condition_a_model_pair_results.json"),
         help="Path to grouped Condition A JSON (model_pair_results_grouped schema)",
     )
     parser.add_argument(
         "--out",
-        default="visualizer/output/figures/condition_A_pair_coverage.png",
+        default=str(REPO_ROOT / "visualizer/output/figures/pair_coverage.png"),
         help="Output PNG path",
     )
     args = parser.parse_args()
@@ -35,21 +40,10 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
 
     raw = json.loads(grouped.read_text(encoding="utf-8"))
-    order = [str(x).strip() for x in raw["ordering"]["model_order"]]
+    order, counts = pair_counts_from_grouped_model_pair_json(grouped)
     n = len(order)
-    present: set[tuple[str, str]] = set()
-    for g in raw.get("records_by_actor") or []:
-        a = (g.get("actor") or "").strip()
-        for row in g.get("rows") or []:
-            d = (row.get("distinguisher") or "").strip()
-            vt = row.get("valid_trials")
-            if not a or not d or vt is None or int(vt) <= 0:
-                continue
-            n1 = int(row["answer_1_count"])
-            n0 = int(row["answer_0_count"])
-            if n1 + n0 != int(vt):
-                continue
-            present.add((a, d))
+    present = set(counts)
+    condition = raw.get("ingest_notes", {}).get("condition") or grouped.stem
 
     mat = np.zeros((n, n), dtype=float)
     for i, a in enumerate(order):
@@ -67,7 +61,7 @@ def main() -> int:
     ax.set_xlabel("Distinguisher (B)", fontsize=11)
     ax.set_ylabel("Actor (A)", fontsize=11)
     ax.set_title(
-        "Condition A — directed pair coverage in grouped JSON\n"
+        f"{condition} — directed pair coverage in grouped JSON\n"
         "(dark green = row present; brown = missing before optional imputation)",
         fontsize=12,
     )

@@ -39,18 +39,23 @@ class PairAggregate:
     parsed_opening_answers: int
 
 
-def normalize_model_id(model_id: str) -> str:
+def normalize_model_id(model_id: str, *, legacy_model_aliases: bool = False) -> str:
     s = (model_id or "").strip()
     if s == "grok-4.20":
         return "x-ai/grok-4.20"
-    if s == "x-ai/grok-2":
+    if legacy_model_aliases and s == "x-ai/grok-2":
         return "x-ai/grok-4.20"
     return s
 
 
 def extract_answer(trial: dict) -> tuple[int | None, bool]:
     answer = trial.get("answer")
-    if answer in (0, 1, "0", "1"):
+    opening = trial.get("error") == "distinguisher_answered_in_opening"
+    if trial.get("error") and not opening:
+        return None, False
+    if not trial.get("success") and not opening:
+        return None, False
+    if type(answer) in (int, str) and answer in (0, 1, "0", "1"):
         return int(answer), False
     if trial.get("error") != "distinguisher_answered_in_opening":
         return None, False
@@ -62,15 +67,19 @@ def extract_answer(trial: dict) -> tuple[int | None, bool]:
             return int(match.group(1)), True
 
     messages = trial.get("distinguisher_messages")
-    if messages is not None:
-        match = ANSWER_TAG_RE.search(json.dumps(messages, ensure_ascii=False))
-        if match:
-            return int(match.group(1)), True
+    if isinstance(messages, list):
+        # Only generated assistant text can contain a verdict. The user prompt
+        # contains answer-tag examples and must never be counted as a response.
+        assistant = [m for m in messages if isinstance(m, dict) and m.get("role") == "assistant"]
+        if assistant and isinstance(assistant[-1].get("content"), str):
+            match = ANSWER_TAG_RE.search(assistant[-1]["content"])
+            if match:
+                return int(match.group(1)), True
 
     return None, False
 
 
-def aggregate_folder(folder: Path, expected_condition: str) -> PairAggregate | None:
+def aggregate_folder(folder: Path, expected_condition: str, *, legacy_model_aliases: bool = False) -> PairAggregate | None:
     trial_paths = sorted(folder.glob("trial_*.json"))
     if not trial_paths:
         return None
@@ -87,11 +96,13 @@ def aggregate_folder(folder: Path, expected_condition: str) -> PairAggregate | N
             trial = json.loads(trial_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        condition = (trial.get("condition") or "").strip()
+        if not isinstance(trial, dict):
+            continue
+        condition = str(trial.get("condition") or "").strip()
         if condition and condition != expected_condition:
             continue
-        current_actor = normalize_model_id(str(trial.get("actor_model") or ""))
-        current_dist = normalize_model_id(str(trial.get("distinguisher_model") or ""))
+        current_actor = normalize_model_id(str(trial.get("actor_model") or ""), legacy_model_aliases=legacy_model_aliases)
+        current_dist = normalize_model_id(str(trial.get("distinguisher_model") or ""), legacy_model_aliases=legacy_model_aliases)
         if current_actor not in MODEL_ORDER or current_dist not in MODEL_ORDER:
             continue
         if actor is None:
@@ -125,7 +136,7 @@ def aggregate_folder(folder: Path, expected_condition: str) -> PairAggregate | N
     )
 
 
-def build_grouped_json(results_root: Path, condition_code: str) -> dict:
+def build_grouped_json(results_root: Path, condition_code: str, *, legacy_model_aliases: bool = False) -> dict:
     expected_condition = CONDITION_BY_CODE[condition_code]
     by_pair: dict[tuple[str, str], PairAggregate] = {}
     duplicate_replacements: list[dict[str, str]] = []
@@ -139,11 +150,10 @@ def build_grouped_json(results_root: Path, condition_code: str) -> dict:
             continue
         if not child.name.startswith(f"{condition_code}-"):
             continue
-        agg = aggregate_folder(child, expected_condition)
+        agg = aggregate_folder(child, expected_condition, legacy_model_aliases=legacy_model_aliases)
         if agg is None:
             continue
         run_folders_seen += 1
-        parsed_opening_total += agg.parsed_opening_answers
         key = (agg.actor, agg.distinguisher)
         old = by_pair.get(key)
         if old is None or agg.mtime > old.mtime:
@@ -158,6 +168,7 @@ def build_grouped_json(results_root: Path, condition_code: str) -> dict:
                 )
             by_pair[key] = agg
 
+    parsed_opening_total = sum(agg.parsed_opening_answers for agg in by_pair.values())
     records_by_actor = []
     for actor in MODEL_ORDER:
         rows = []
@@ -196,6 +207,7 @@ def build_grouped_json(results_root: Path, condition_code: str) -> dict:
             "missing_directed_pairs": [[a, b] for a, b in missing_pairs],
             "parsed_opening_answers": parsed_opening_total,
             "duplicate_replacements": duplicate_replacements,
+            "legacy_model_aliases": legacy_model_aliases,
         },
         "records_by_actor": records_by_actor,
     }
@@ -206,9 +218,10 @@ def main() -> int:
     parser.add_argument("--condition", choices=["A", "B"], required=True)
     parser.add_argument("--results-root", type=Path, required=True, help="Path to Results/A or Results/B.")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--legacy-model-aliases", action="store_true", help="Opt in to historical Grok-2 → Grok-4.20 relabeling; inspect route metadata first.")
     args = parser.parse_args()
 
-    doc = build_grouped_json(args.results_root.resolve(), args.condition)
+    doc = build_grouped_json(args.results_root.resolve(), args.condition, legacy_model_aliases=args.legacy_model_aliases)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"Wrote {args.out}")

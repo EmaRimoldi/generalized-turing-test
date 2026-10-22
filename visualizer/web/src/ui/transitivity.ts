@@ -7,7 +7,7 @@ export function buildSupportedAdjacency(
   const adj: Record<string, Set<string>> = {};
   for (const m of models) adj[m] = new Set();
   for (const [u, v] of edges) {
-    if (adj[u]) adj[u].add(v);
+    if (adj[u] && adj[v]) adj[u].add(v);
   }
   return adj;
 }
@@ -43,14 +43,18 @@ export function condensationHeights(
     if (out[u] && out[v]) out[u].add(v);
   }
   const memo = new Map<string, number>();
+  const visiting = new Set<string>();
   function h(x: string): number {
     if (memo.has(x)) return memo.get(x)!;
+    if (visiting.has(x)) throw new Error("Condensation graph must be acyclic");
+    visiting.add(x);
     const succ = [...(out[x] ?? [])];
     if (succ.length === 0) {
       memo.set(x, 0);
       return 0;
     }
     const v = 1 + Math.max(...succ.map(h));
+    visiting.delete(x);
     memo.set(x, v);
     return v;
   }

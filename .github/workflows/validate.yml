@@ -22,7 +22,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: visualizer/web/package-lock.json
 
@@ -39,8 +39,26 @@ jobs:
         working-directory: visualizer/web
         run: |
           npm ci
+          npm audit --audit-level=high
           npm test
           npm run build
 
       - name: Verify published visualizer data is current
         run: git diff --exit-code -- visualizer/web/public/epsilon_visualizer_data.json
+
+  hf-cpu-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install optional HF stack with CPU PyTorch
+        run: |
+          python -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements-hf.txt -r requirements.txt
+      - name: Generate from local synthetic safe weights
+        env:
+          GTT_TEST_REAL_HF: "1"
+          HF_HUB_OFFLINE: "1"
+        run: python -m pytest tests/test_hf_local_smoke.py -q
