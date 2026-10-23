@@ -149,7 +149,7 @@ def _build_command(args: argparse.Namespace, experiment: BatchExperiment) -> lis
         "--output-dir",
         args.output_dir,
         *cli_arguments(experiment, CONDITION_OPTIONS),
-        *cli_arguments(args, BACKEND_OPTIONS),
+        *cli_arguments(args, BACKEND_OPTIONS + ("resume",)),
     ]
 
 
@@ -157,6 +157,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--csv", required=True, help="CSV file describing one experiment per row.")
     parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--resume", action="store_true", help="Resume named CSV runs after validation.")
     add_backend_arguments(parser)
     args = parser.parse_args()
 
@@ -166,7 +167,7 @@ def main() -> int:
         for experiment in experiments
         if (Path(args.output_dir) / experiment.run_name).exists()
     ]
-    if existing:
+    if existing and not args.resume:
         parser.error(
             f"Run directories already exist: {', '.join(existing)}. Choose a new --output-dir."
         )

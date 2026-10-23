@@ -304,3 +304,94 @@ def test_batch_runner_rejects_missing_required_csv_columns(tmp_path):
 
     with pytest.raises(ValueError, match="turn_limit"):
         run_experiment_batch.load_experiments(csv_path)
+
+
+def test_batch_runner_accepts_50_50_trusted_distinguisher_condition(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,target_model,num_trials,turn_limit,condition",
+                "exp-a,gpt-5.4-pro,claude-opus-4.6,gemini-3-pro,2,17,50_50_trusted_distinguisher",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    experiments = run_experiment_batch.load_experiments(csv_path)
+
+    assert len(experiments) == 1
+    assert experiments[0].condition == "50_50_trusted_distinguisher"
+    assert experiments[0].target_model == "gemini-3-pro"
+
+
+
+def test_batch_runner_accepts_yes_query_trusted_distinguisher_condition(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,target_model,num_trials,turn_limit,specimen_turn_limit,condition",
+                "exp-a,gpt-5.4-pro,claude-opus-4.6,gemini-3-pro,2,17,9,yes_query_trusted_distinguisher",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    experiments = run_experiment_batch.load_experiments(csv_path)
+
+    assert len(experiments) == 1
+    assert experiments[0].condition == "yes_query_trusted_distinguisher"
+    assert experiments[0].target_model == "gemini-3-pro"
+    assert experiments[0].specimen_turn_limit == 9
+
+
+
+def test_batch_runner_requires_target_model_for_50_50_trusted_distinguisher(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,num_trials,turn_limit,condition",
+                "exp-a,gpt-5.4-pro,claude-opus-4.6,2,17,50_50_trusted_distinguisher",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="target_model"):
+        run_experiment_batch.load_experiments(csv_path)
+
+
+
+def test_batch_runner_requires_target_model_for_yes_query_trusted_distinguisher(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,num_trials,turn_limit,specimen_turn_limit,condition",
+                "exp-a,gpt-5.4-pro,claude-opus-4.6,2,17,9,yes_query_trusted_distinguisher",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="target_model"):
+        run_experiment_batch.load_experiments(csv_path)
+
+
+
+def test_batch_runner_requires_specimen_turn_limit_for_yes_query_trusted_distinguisher(tmp_path):
+    csv_path = tmp_path / "batch.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "run_name,actor,distinguisher,target_model,num_trials,turn_limit,condition",
+                "exp-a,gpt-5.4-pro,claude-opus-4.6,gemini-3-pro,2,17,yes_query_trusted_distinguisher",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="specimen_turn_limit"):
+        run_experiment_batch.load_experiments(csv_path)

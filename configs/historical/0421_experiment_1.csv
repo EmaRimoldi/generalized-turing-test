@@ -1,0 +1,3 @@
+run_name,actor,distinguisher,target_model,num_trials,turn_limit,condition,specimen_turn_limit
+E-015,claude-opus-4.6,gemini-3-pro,claude-opus-4.6,5,40,yes_query_trusted_distinguisher,20
+E-016,gpt-5.4,claude-opus-4.6,gemini-3-pro,5,40,yes_query_trusted_distinguisher,20

@@ -23,11 +23,19 @@ CONDITIONS = {
         "run_trial_yes_query_no_explanation_grand",
         "run_trial_no_query_yes_explanation",
         "run_trial_no_query_trusted_distinguisher",
+        "run_trial_50_50_trusted_distinguisher",
+        "run_trial_yes_query_trusted_distinguisher",
         "run_trial_yes_query_controlled_queries",
         "run_trial_no_query_controlled_turns",
     )
 }
-SPECIMEN_BUDGET_CONDITIONS = {"yes_query_no_explanation", "yes_query_no_explanation_grand"}
+TRUSTED_CONDITIONS = {
+    "no_query_trusted_distinguisher", "50_50_trusted_distinguisher",
+    "yes_query_trusted_distinguisher",
+}
+SPECIMEN_BUDGET_CONDITIONS = {
+    "yes_query_no_explanation", "yes_query_no_explanation_grand", "yes_query_trusted_distinguisher",
+}
 SPECIMEN_CONDITIONS = SPECIMEN_BUDGET_CONDITIONS | {"yes_query_controlled_queries"}
 CONDITION_OPTIONS = (
     "target_model",
@@ -102,18 +110,19 @@ def validate_condition_options(options: object) -> None:
     if condition == "no_prompt_self_pair" and options.actor != options.distinguisher:
         raise ValueError("no_prompt_self_pair requires actor and distinguisher to match")
     required = {
-        "target_model": "no_query_trusted_distinguisher",
+        "target_model": TRUSTED_CONDITIONS,
         "num_queries": "yes_query_controlled_queries",
         "num_turns": "no_query_controlled_turns",
     }
     allowed = {**required, "actor_hint_model": "no_query_no_explanation_actor_model_hint"}
     for name, expected in allowed.items():
+        expected = {expected} if isinstance(expected, str) else expected
         value = getattr(options, name, None)
         flag = "--" + name.replace("_", "-")
-        if value is None and condition == expected and name in required:
+        if value is None and condition in expected and name in required:
             raise ValueError(f"{name} ({flag}) is required for condition {condition}")
-        if value is not None and condition != expected:
-            raise ValueError(f"{name} is only valid for {expected} ({flag})")
+        if value is not None and condition not in expected:
+            raise ValueError(f"{name} is only valid for {', '.join(sorted(expected))} ({flag})")
     for name in ("num_trials", "turn_limit", "specimen_turn_limit", "num_queries", "num_turns"):
         value = getattr(options, name, None)
         if value is not None and value < 1:

@@ -15,17 +15,19 @@ from turing_eval.cli import (
     CONDITIONS,
     SPECIMEN_BUDGET_CONDITIONS,
     SPECIMEN_CONDITIONS,
+    TRUSTED_CONDITIONS,
     add_backend_arguments,
     add_condition_arguments,
     positive_int,
     validate_condition_options,
 )
 from turing_eval.models import MODEL_REGISTRY, load_backend
+from turing_eval.resume import ResumeError, is_collected_trial, prepare_run, run_directory
 from turing_eval.transcripts import save_transcript_json, write_csv
 
 
 def _is_valid_trial_result(result: dict[str, object]) -> bool:
-    return bool(result.get("success")) or result.get("error") == "distinguisher_answered_in_opening"
+    return is_collected_trial(result)
 
 
 def _failed_attempt_path(out_dir: Path, attempt_id: int) -> Path:
@@ -54,6 +56,7 @@ def main() -> int:
     parser.add_argument("--turn-limit", type=positive_int, default=40)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--run-name", default=None)
+    parser.add_argument("--resume", action="store_true", help="Resume a named run after strict validation.")
     add_condition_arguments(parser)
     add_backend_arguments(parser)
     args = parser.parse_args()
@@ -66,7 +69,9 @@ def main() -> int:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
     run_name = args.run_name or f"{args.actor}_vs_{args.distinguisher}_{args.condition}_{timestamp}"
     out_dir = Path(args.output_dir) / run_name
-    if out_dir.exists():
+    if args.resume and not args.run_name:
+        parser.error("--resume requires an explicit --run-name")
+    if out_dir.exists() and not args.resume:
         parser.error(
             f"Run directory already exists: {out_dir}. Choose a new --run-name or --output-dir."
         )
@@ -87,6 +92,15 @@ def main() -> int:
         "num_turns": args.num_turns,
         "generation": asdict(generation),
     }
+    try:
+        with run_directory(out_dir, resume=args.resume):
+            return _run(args, out_dir, generation, run_config, target_display)
+    except ResumeError as exc:
+        parser.error(str(exc))
+
+
+def _run(args, out_dir, generation, run_config, target_display) -> int:
+    max_attempts = run_config["max_attempts"]
     actor = load_backend(
         args.actor,
         generation,
@@ -100,15 +114,37 @@ def main() -> int:
         force_api_provider=args.distinguisher_api_provider,
     )
 
-    out_dir.mkdir(parents=True, exist_ok=False)
-
+    specimen = None
+    if args.condition in SPECIMEN_CONDITIONS:
+        if args.condition == "yes_query_trusted_distinguisher":
+            # A trusted judge learns from the nominated target, independently of the judge's route.
+            specimen = load_backend(args.target_model, generation)
+        else:
+            specimen = load_backend(
+                args.distinguisher, generation,
+                force_backend=args.distinguisher_backend,
+                force_api_provider=args.distinguisher_api_provider,
+            )
+    identity = {
+        "actor_model": actor.display_name, "distinguisher_model": distinguisher.display_name,
+        "target_model": target_display, "condition": args.condition,
+        "actor_route": _describe_backend_route(actor),
+        "distinguisher_route": _describe_backend_route(distinguisher),
+    }
+    if specimen is not None:
+        identity["specimen_route"] = _describe_backend_route(specimen)
+    results, attempt_id = prepare_run(out_dir, run_config, identity)
+    next_trial_id = max((row["trial_id"] for row in results), default=-1) + 1
+    if results:
+        print(f"Loaded {len(results)} recorded trials; target total is {args.num_trials}.")
     runner = CONDITIONS[args.condition]
-    results = []
-    attempt_id = 0
-    while len(results) < args.num_trials and attempt_id < max_attempts:
-        trial_id = len(results)
+    for invocation_attempt in range(max_attempts):
+        if len(results) >= args.num_trials:
+            break
+        trial_id = next_trial_id
         print(
-            f"\n=== Trial {trial_id + 1}/{args.num_trials} (attempt {attempt_id + 1}/{max_attempts}) ==="
+            f"\n=== Trial {trial_id + 1}/{args.num_trials} "
+            f"(attempt {invocation_attempt + 1}/{max_attempts}, id {attempt_id}) ==="
         )
         kwargs: dict[str, object] = {
             "trial_id": trial_id,
@@ -118,18 +154,12 @@ def main() -> int:
             "verbose": args.verbose,
         }
         if args.condition in SPECIMEN_CONDITIONS:
-            specimen = load_backend(
-                args.distinguisher,
-                generation,
-                force_backend=args.distinguisher_backend,
-                force_api_provider=args.distinguisher_api_provider,
-            )
             kwargs["specimen"] = specimen
             if args.condition in SPECIMEN_BUDGET_CONDITIONS:
                 kwargs["specimen_turn_limit"] = args.specimen_turn_limit
             else:
                 kwargs["num_queries"] = args.num_queries
-        if args.condition == "no_query_trusted_distinguisher":
+        if args.condition in TRUSTED_CONDITIONS:
             kwargs["target_model"] = target_display
         if (
             args.condition == "no_query_no_explanation_actor_model_hint"
@@ -169,6 +199,7 @@ def main() -> int:
             )
             result["transcript_path"] = str(transcript_path)
             results.append(result)
+            next_trial_id += 1
         else:
             failed_path = _failed_attempt_path(out_dir, attempt_id)
             save_transcript_json(

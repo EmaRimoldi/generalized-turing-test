@@ -1,0 +1,2 @@
+run_name,actor,distinguisher,target_model,num_trials,turn_limit,condition,specimen_turn_limit
+E-014,deepseek-v3.2,claude-opus-4.6,qwen3-32b,10,40,yes_query_trusted_distinguisher,20

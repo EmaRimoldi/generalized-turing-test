@@ -11,3 +11,6 @@ original commit. An all-zero public identifier denotes an empty commit removed
 during rewriting. Commits added after the redaction do not need this mapping.
 
 The private fork retains its original history and the merged cleanup PR.
+
+The [22 October branch consolidation record](branch-consolidation-2026-10-22.md)
+documents retired branches, their preserved work, and recovery commands.

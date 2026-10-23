@@ -67,9 +67,40 @@ python run_experiment_batch.py --csv configs/paper_gttq.csv --output-dir results
 ```
 
 These commands invoke paid APIs. Leave temperature and token caps unset to use
-the served defaults. Runs refuse existing output directories. Batch schedules
+the served defaults. By default, runs refuse existing output directories. Batch schedules
 require unique run names and are validated in full before any experiment starts.
-Choose a new output root for a fresh run; these commands do not resume old runs.
+Choose a new output root for a fresh run. Resuming requires the explicit flag
+described below; these commands never silently reuse old results.
+
+### Resume or extend a recorded run
+
+New runs write `run_manifest.json` alongside the trial JSON and CSV. To resume
+an interrupted single run, repeat its original arguments, including the same
+explicit `--run-name` and `--output-dir`, and add `--resume`. `--num-trials` is
+the desired total, including saved trials. You may increase it to extend a run.
+`--max-attempts` is the attempt budget for each invocation; attempt IDs continue
+across invocations. Repeating a completed run with `--resume` rebuilds its CSV
+without collecting more trials.
+
+For a named CSV schedule, repeat the batch command with `--resume`:
+
+```bash
+python run_experiment_batch.py --csv configs/paper_gtt.csv --output-dir results/gtt --resume
+```
+
+Existing runs must match the manifest's protocol, budgets, generation options,
+model identities, resolved backend/provider routes, implementation fingerprint,
+and declared dependency files. Corrupt or incompatible transcripts cause a hard
+failure; they are never silently skipped or overwritten. Decreasing the recorded
+trial target is rejected. Collected opening-answer records retain their existing
+semantics and still require the audit described below. CSVs are rebuilt from the
+validated trial JSON; failed attempts remain separate. A per-run file lock
+prevents concurrent writers on macOS/Linux.
+
+Historical directories without a manifest cannot be safely resumed; start a new
+run instead. The timestamp-based matrix launcher creates fresh runs; use named
+single runs or a CSV schedule for recovery. Hosted model behavior can still
+change even when the locally recorded configuration matches.
 
 The runner evaluates each specified pair; it does not randomly select a new
 actor identity for every call. The balanced GTT probability is computed during
@@ -86,6 +117,8 @@ with prompt text in [`turing_eval/prompts.py`](turing_eval/prompts.py).
 | Fixed specimen-query budget | `yes_query_controlled_queries` | `--num-queries N` |
 | Fixed interrogation budget | `no_query_controlled_turns` | `--num-turns N` |
 | UTT: independent judge and nominated target | `no_query_trusted_distinguisher` | `--target-model MODEL` |
+| UTT with an explicit 50/50 prior in the judge prompt | `50_50_trusted_distinguisher` | `--target-model MODEL` |
+| UTT with specimen access for the judge | `yes_query_trusted_distinguisher` | `--target-model MODEL`; optional `--specimen-turn-limit N` (default 20) |
 | Unprompted genuine-target control | `no_prompt_self_pair` | Same actor and distinguisher |
 
 For example, Gemini imitates GPT-5.4 while Opus judges:
@@ -103,6 +136,18 @@ sweeps a model list and omits self-pairs unless `--include-self-match` is set.
 `run_name,actor,distinguisher,num_trials,turn_limit,condition` and optional
 `specimen_turn_limit,num_queries,num_turns,target_model` columns. Required
 condition-specific budgets must be supplied.
+
+In `yes_query_trusted_distinguisher`, the judge first queries a fresh specimen
+of the nominated target, retaining that warm-up history before interrogating the
+actor. This differs from GTTQ, where the actor queries a specimen of the judge.
+The trusted specimen uses the target's registry route independently of overrides
+for the judge. Both stages, the actual target route, and the target display name
+are recorded. `50_50_trusted_distinguisher` changes the prompt prior; it does not
+randomly choose an actor or target on each trial.
+
+[`configs/historical/`](configs/historical/README.md) preserves five recovered
+April schedules byte-for-byte. They are partial historical pilot configurations,
+not additional reconstructed paper baselines.
 
 The complete final raw data, original schedules for targeted experiments, and
 paper-specific prompt-robustness analysis scripts are not included here. The

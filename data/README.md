@@ -35,3 +35,10 @@ Smoke runs outside the paper's model set, explicit-identity pilot runs, obsolete
 smoke summaries, cluster logs, and generated figure copies were removed from the
 current tree. They remain recoverable in Git history. Synthetic test fixtures,
 scientific inputs, analysis source, and baseline pilot provenance are retained.
+
+The merged historical commit `c8dda7ddb351669bb8e2f08c3cc95117e9d5bb29` also
+preserves an incomplete `old_results/` archive: 41 trial JSONs, 22 failed-attempt
+JSONs, and 30 CSVs (including copies of baseline pilots). These records were
+not added to the grouped inputs or treated as audited paper results. See the
+[branch consolidation record](../docs/history/branch-consolidation-2026-10-22.md)
+for exact recovery commands and the recovered pilot schedules.

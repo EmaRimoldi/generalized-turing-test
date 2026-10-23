@@ -39,6 +39,8 @@ python run_experiment_batch.py --csv configs/paper_gttq.csv --output-dir results
 ```
 
 See the [reproduction guide](REPRODUCIBILITY.md) for controlled budgets, UTT, output semantics, and the Apptainer environment.
+Named runs and CSV schedules support explicit `--resume` with configuration and
+transcript validation; see [resuming a run](REPRODUCIBILITY.md#resume-or-extend-a-recorded-run).
 
 ## Explore the included results
 

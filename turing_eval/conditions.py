@@ -8,6 +8,9 @@ import re
 
 from .backends.base import ChatBackend, ChatSession
 from .prompts import (
+    build_distinguisher_prompt_50_50_trusted_distinguisher,
+    build_distinguisher_prompt_yes_query_trusted_distinguisher_stage1,
+    build_distinguisher_prompt_yes_query_trusted_distinguisher_stage2,
     build_actor_prompt_no_query,
     build_actor_prompt_no_query_controlled_turns,
     build_actor_prompt_no_query_trusted_distinguisher,
@@ -144,6 +147,7 @@ def _run_direct_trial(
             reasoning=extract_reasoning(first_message) if with_reasoning else None,
             distinguisher_messages=copy.deepcopy(d_session.messages),
             actor_messages=[],
+            **extra_fields,
         )
     a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
     actor_reply = (
@@ -602,6 +606,103 @@ def run_trial_no_query_trusted_distinguisher(
         distinguisher_prompt=build_distinguisher_prompt_no_query_trusted_distinguisher(
             target_model
         ),
+        actor_prompt_builder=lambda first: build_actor_prompt_no_query_trusted_distinguisher(
+            target_model, first
+        ),
+        target_model=target_model,
+    )
+
+
+def run_trial_yes_query_trusted_distinguisher(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    specimen: ChatBackend,
+    target_model: str,
+    specimen_turn_limit: int,
+    turn_limit: int,
+    verbose: bool = False,
+) -> dict[str, object]:
+    if specimen.display_name != target_model:
+        raise ValueError("specimen must match the nominated target model")
+    d_session = ChatSession(
+        distinguisher,
+        "distinguisher",
+        initial_prompt=build_distinguisher_prompt_yes_query_trusted_distinguisher_stage1(target_model),
+    )
+    s_session = ChatSession(specimen, "specimen", initial_prompt=None)
+
+    distinguisher_to_specimen = d_session.generate_opening()
+    if verbose:
+        print("[D->S]", distinguisher_to_specimen)
+
+    specimen_turns = 0
+    while not is_stop_signal(distinguisher_to_specimen) and specimen_turns < specimen_turn_limit:
+        specimen_reply = s_session.send(distinguisher_to_specimen)
+        if verbose:
+            print("[S->D]", specimen_reply)
+        specimen_turns += 1
+        distinguisher_to_specimen = d_session.send(specimen_reply)
+        if verbose:
+            print("[D->S]", distinguisher_to_specimen)
+
+    specimen_stopped_cleanly = is_stop_signal(distinguisher_to_specimen)
+    stage1_distinguisher_messages = copy.deepcopy(d_session.messages)
+
+    first_message = d_session.send(
+        build_distinguisher_prompt_yes_query_trusted_distinguisher_stage2(target_model)
+    )
+    if verbose:
+        print("[D]", first_message)
+
+    actor_prompt = build_actor_prompt_no_query_trusted_distinguisher(target_model, first_message)
+    if extract_answer(first_message) is not None:
+        return _invalid_opening_result(
+            trial_id=trial_id,
+            first_message=first_message,
+            error="distinguisher_answered_in_opening",
+            actor_prompt=actor_prompt,
+            target_model=target_model,
+            specimen_turns=specimen_turns,
+            specimen_stopped_cleanly=specimen_stopped_cleanly,
+            stage1_distinguisher_messages=stage1_distinguisher_messages,
+            stage2_distinguisher_messages=copy.deepcopy(d_session.messages[len(stage1_distinguisher_messages) :]),
+            actor_messages=[],
+        )
+
+    a_session = ChatSession(actor, "actor", initial_prompt=actor_prompt)
+    actor_reply = a_session.generate_opening()
+
+    turns, d_reply, answer = _interrogate(a_session, d_session, actor_reply, turn_limit, verbose)
+
+    return {
+        "trial_id": trial_id,
+        "success": answer is not None,
+        "turns": turns,
+        "answer": answer,
+        "target_model": target_model,
+        "specimen_turns": specimen_turns,
+        "specimen_stopped_cleanly": specimen_stopped_cleanly,
+        "first_message": first_message,
+        "actor_prompt": actor_prompt,
+        "raw_final_message": d_reply,
+        "actor_messages": copy.deepcopy(a_session.messages),
+        "stage1_distinguisher_messages": stage1_distinguisher_messages,
+        "stage2_distinguisher_messages": copy.deepcopy(d_session.messages[len(stage1_distinguisher_messages) :]),
+    }
+
+
+def run_trial_50_50_trusted_distinguisher(
+    trial_id: int,
+    actor: ChatBackend,
+    distinguisher: ChatBackend,
+    target_model: str,
+    turn_limit: int,
+    verbose: bool = False,
+) -> dict[str, object]:
+    return _run_direct_trial(
+        trial_id, actor, distinguisher, turn_limit, verbose,
+        distinguisher_prompt=build_distinguisher_prompt_50_50_trusted_distinguisher(target_model),
         actor_prompt_builder=lambda first: build_actor_prompt_no_query_trusted_distinguisher(
             target_model, first
         ),

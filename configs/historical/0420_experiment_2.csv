@@ -1,0 +1,3 @@
+run_name,actor,distinguisher,target_model,num_trials,turn_limit,condition
+E-005,qwen3-32b,gemini-3-pro,qwen3-32b,5,40,50_50_trusted_distinguisher
+E-006,deepseek-v3.2,gemini-3-pro,qwen3-32b,5,40,50_50_trusted_distinguisher
